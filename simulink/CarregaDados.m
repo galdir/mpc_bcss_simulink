@@ -7,6 +7,8 @@ close all
 % Na pasta Uteis, há uma rotina AjustaPath.m
 % =============================================================================
 
+
+
 %% =============================================================================
 % Carrega as tabelas de referências da Petrobras para as proteções e para
 % buscar condiçoes iniciais em pontos de operação reais
