@@ -6,7 +6,10 @@ close all
 % Necessário ajustar o Path do Matlab para apontar onde estão as tabelas e dados Petrobras e arquivos de uso geral
 % Na pasta Uteis, há uma rotina AjustaPath.m
 % =============================================================================
-
+addpath('..\Dados');                % Arquivos e tabelas Petrobras
+addpath('..\Uteis');                  % Funcionalidade de utilidade geral consumida por vários
+addpath('..\casadi-3.6.5-windows64-matlab2018b');               % Funções da biblioteca Casadi
+addpath('C:\petrobras_2023_sistema_controle_inteligente_operacao_BCS_campo\DADOS UTEIS\dados MPA OPC');
 
 
 %% =============================================================================
@@ -44,7 +47,7 @@ PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de
 %% =============================================================================
 % Carrega uma rede (ESN qualquer) para ser usada como modelo do processo
 % Rede_Processo = load('.\ESN\weightsESNx_JUB27n100.mat');
-Rede_Processo = load('.\ESN\weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
+Rede_Processo = load('..\Modelos\ESN\weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 % Rede_Processo = load('.\ESN\weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 % Rede_Processo = load('.\ESN\weightsESNx_TR900_TVaz0.9_RaioE0.4.mat');
 
@@ -59,7 +62,7 @@ TipoRede=1;        % 1=ESN ou  2=LSTM
 % Carrega rede ESN que será utilizada como preditor no MPC
 % ESN_MPC = load('.\ESN\weightsESNx_JUB27n100.mat');
 % ESN_MPC = load('.\ESN\weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
-ESN_MPC = load('.\ESN\weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
+ESN_MPC = load('..\Modelos\ESN\weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 ESN_MPC.data.tipo = TipoRede;
 ModeloPreditor = ESN_MPC;
 
