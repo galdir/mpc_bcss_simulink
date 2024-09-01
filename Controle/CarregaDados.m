@@ -14,6 +14,7 @@ close all
 % Carrega as tabelas de referências da Petrobras para as proteções e para
 % buscar condiçoes iniciais em pontos de operação reais
 CarregaTabelas; 
+TabSimulador=LeConverteNomes('DoSimulador - ate_pchegada_51.xlsx');  % Tabela do simulador (Análise de Sensibilidade)
 
 %% =============================================================================
 % Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
