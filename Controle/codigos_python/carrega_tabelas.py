@@ -2,10 +2,10 @@ import pandas as pd
 
 
 def carrega_tabelas(
-    caminho_tabela_simulador="../Dados/DoSimulador.xlsx",
-    caminho_tabela_testes_producao="../Dados/DoBTP.xlsx",
-    caminho_tabela_proteca_dinamica="../Dados/DP.xlsx",
-    caminho_tabela_faixas_percentuais="../Dados/DP-Faixas.xlsx",
+    caminho_tabela_simulador="../../Dados/DoSimulador.xlsx",
+    caminho_tabela_testes_producao="../../Dados/DoBTP.xlsx",
+    caminho_tabela_proteca_dinamica="../../Dados/DP.xlsx",
+    caminho_tabela_faixas_percentuais="../../Dados/DP-Faixas.xlsx",
 ):
     """
     Carrega as tabelas de referência

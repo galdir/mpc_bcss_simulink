@@ -32,27 +32,27 @@ def calcula_protecoes_mapas(
         QMin, QMax, PSucMin, PSucMax, PChegadaMin, PChegadaMax
     """
 
-    ic(tabela_simulador.info())
+    #ic(tabela_simulador.info())
     for column in tabela_simulador.columns:
-        ic(column)
+        #ic(column)
         # Tenta converter a coluna para numérico
         try:
             tabela_simulador[column] = pd.to_numeric(tabela_simulador[column])
         except ValueError:
             # Se não for possível converter, mantém a coluna original
             print(f"Não foi possível converter a coluna '{column}' para numérico. Mantendo o tipo original.")
-    ic(tabela_simulador.info())
+    #ic(tabela_simulador.info())
 
-    ic(tabela_testes_producao.info())
+    #ic(tabela_testes_producao.info())
     for column in tabela_testes_producao.columns:
-        ic(column)
+        #ic(column)
         # Tenta converter a coluna para numérico
         try:
             tabela_testes_producao[column] = pd.to_numeric(tabela_testes_producao[column])
         except ValueError:
             # Se não for possível converter, mantém a coluna original
             print(f"Não foi possível converter a coluna '{column}' para numérico. Mantendo o tipo original.")
-    ic(tabela_testes_producao.info())
+    #ic(tabela_testes_producao.info())
 
     # Limites para as interpolações
     p_min = tabela_simulador["PressChegada"].min()
@@ -66,7 +66,7 @@ def calcula_protecoes_mapas(
         valores_interpolados = interpola.interpola(
             frequencia, p_chegada, tabela_simulador
         )
-        print(valores_interpolados)
+        #print(valores_interpolados)
         t = pd.concat([t, valores_interpolados], ignore_index=True)
 
     # Avalia condição de Up e Downthrust
@@ -101,8 +101,11 @@ if __name__ == "__main__":
     from carrega_tabelas import carrega_tabelas
 
     tabela_simulador, tabela_protecao_dinamica, tabela_faixas_percentuais, tabela_testes_producao = carrega_tabelas(
-        # caminho_tabela_simulador="../Dados/DoSimulador.xlsx"
-        caminho_tabela_simulador="../Dados/DoSimulador - ate_pchegada_51.xlsx"
+        #caminho_tabela_simulador="./Dados/DoSimulador.xlsx",
+        caminho_tabela_simulador="./Dados/DoSimulador - ate_pchegada_51.xlsx",
+        caminho_tabela_testes_producao="./Dados/DoBTP.xlsx",
+        caminho_tabela_proteca_dinamica="./Dados/DP.xlsx",
+        caminho_tabela_faixas_percentuais="./Dados/DP-Faixas.xlsx",
     )
 
     frequencia = 55

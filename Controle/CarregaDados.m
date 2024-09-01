@@ -14,7 +14,12 @@ close all
 % Carrega as tabelas de referências da Petrobras para as proteções e para
 % buscar condiçoes iniciais em pontos de operação reais
 CarregaTabelas; 
-TabSimulador=LeConverteNomes('DoSimulador - ate_pchegada_51.xlsx');  % Tabela do simulador (Análise de Sensibilidade)
+TabRestricoesDinamicas=readtable('DP.xlsx');              % Tabela de valores de referência para as variáveis
+FxPercent=readtable('DP-Faixas.xlsx');                           % Tabela das faixas percentuais para disparar os alarmes LL, L, H e HH
+BTP=readtable('DoBTP.xlsx');                                           % Tabela de dados do teste de produção
+ProtecaoFixa =readtable('FixedProtections.xlsx');            % Carrega tabelas de proteção fixa da Petrobras
+TabSimulador=LeConverteNomes('DoSimulador.xlsx');  % Tabela do simulador (Análise de Sensibilidade)
+TabSimulador_ate51=LeConverteNomes('DoSimulador - ate_pchegada_51.xlsx');  % Tabela do simulador (Análise de Sensibilidade)
 
 %% =============================================================================
 % Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
