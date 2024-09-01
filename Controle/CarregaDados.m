@@ -4,12 +4,10 @@ close all
 
 % =============================================================================
 % Necessário ajustar o Path do Matlab para apontar onde estão as tabelas e dados Petrobras e arquivos de uso geral
-% Na pasta Uteis, há uma rotina AjustaPath.m
+% Na pasta Uteis, há uma rotina AjustaPath.m que pode ser copiada para a raiz do
+% repositório e ajustada para a necessidade de cada um. Esse arquivo na
+% raiz do repositório não será enviado para o github
 % =============================================================================
-addpath('..\Dados');                % Arquivos e tabelas Petrobras
-addpath('..\Uteis');                  % Funcionalidade de utilidade geral consumida por vários
-addpath('..\casadi-3.6.5-windows64-matlab2018b');               % Funções da biblioteca Casadi
-addpath('C:\petrobras_2023_sistema_controle_inteligente_operacao_BCS_campo\DADOS UTEIS\dados MPA OPC');
 
 
 %% =============================================================================
