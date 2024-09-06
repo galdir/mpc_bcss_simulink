@@ -32,6 +32,7 @@ def calcula_protecoes_mapas(
         QMin, QMax, PSucMin, PSucMax, PChegadaMin, PChegadaMax
     """
 
+    #ic(tabela_simulador.iloc[[0]])
     #ic(tabela_simulador.info())
     for column in tabela_simulador.columns:
         #ic(column)
@@ -43,6 +44,7 @@ def calcula_protecoes_mapas(
             print(f"Não foi possível converter a coluna '{column}' para numérico. Mantendo o tipo original.")
     #ic(tabela_simulador.info())
 
+    #ic(tabela_testes_producao)
     #ic(tabela_testes_producao.info())
     for column in tabela_testes_producao.columns:
         #ic(column)

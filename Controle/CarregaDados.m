@@ -15,7 +15,7 @@ close all
 % buscar condiçoes iniciais em pontos de operação reais
 CarregaTabelas; 
 TabSimulador_ate51=LeConverteNomes('DoSimulador - ate_pchegada_51.xlsx');  % Tabela do simulador (Análise de Sensibilidade)
-TabSimulador = TabSimulador_ate51;
+%TabSimulador = TabSimulador_ate51;
 %% =============================================================================
 % Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
 %  [YIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00');          % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz
