@@ -6,7 +6,7 @@ close all
 % Necessário ajustar o Path do Matlab para apontar onde estão as tabelas e dados Petrobras e arquivos de uso geral
 % Na pasta Uteis, há uma rotina AjustaPath.m
 % =============================================================================
-% tess
+% 
 %% =============================================================================
 % Carrega as tabelas de referências da Petrobras para as proteções e para
 % buscar condiçoes iniciais em pontos de operação reais
