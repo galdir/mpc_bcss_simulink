@@ -8,6 +8,7 @@ close all
 % repositório e ajustada para a necessidade de cada um. Esse arquivo na
 % raiz do repositório não será sincronizado com o repositório pois é local
 % de cada um (v2)
+% detalhe para o teste leizer
 % =============================================================================
 
 
