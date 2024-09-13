@@ -7,7 +7,7 @@ function Limites=CalcLimites_via_python(Freq,TabSimulador,BTP,TabRestricoesDinam
 
 %clear classes; %limpa imports anteriores do python para garantir que o import de modulos sejam das funcoes atualizadas
 protecao_dinamica = py.importlib.import_module('codigos_python.protecao_dinamica');
-
+py.importlib.reload(py.importlib.import_module('codigos_python.protecao_dinamica'));
 protecoes_mapas = py.importlib.import_module('codigos_python.protecoes_mapas');
 py.importlib.reload(py.importlib.import_module('codigos_python.protecoes_mapas'));
 
@@ -42,9 +42,11 @@ end
 %  7 - Limites de alarme H e L da Temperatura de Chegada
 
 %T = ProtecaoDinamica(Freq,TabRestricoesDinamicas,FxPercent); % define as restrições HARD dos estados em função da frequencia = obj.uk(1)'
-TabRestricoesDinamicas_df = pandas.DataFrame(table_para_pydict(TabRestricoesDinamicas));
-FxPercent__df = pandas.DataFrame(table_para_pydict(FxPercent));
-T_df = protecao_dinamica.calcula_protecao_dinamica(Freq,TabRestricoesDinamicas_df,FxPercent__df); % define as restrições HARD dos estados em função da frequencia = obj.uk(1)'
+%TabRestricoesDinamicas_df = pandas.DataFrame(table_para_pydict(TabRestricoesDinamicas));
+%FxPercent__df = pandas.DataFrame(table_para_pydict(FxPercent));
+TabRestricoesDinamicas_json = jsonencode(table2struct(TabRestricoesDinamicas));
+FxPercent_json = jsonencode(table2struct(FxPercent));
+T_df = protecao_dinamica.calcula_protecao_dinamica_json(Freq,TabRestricoesDinamicas_json,FxPercent_json); % define as restrições HARD dos estados em função da frequencia = obj.uk(1)'
 T = pandas_para_MatlabTable(T_df);
 T{2,:}= [  0  T{1,2:10}.*(1-FxPercent{2,2:10})];               % Considera todos os percentuais associados ao alarme L
 T{3,:}= [  0  T{1,2:10}.*(1+FxPercent{3,2:10})];              % Considera todos os percentuais associados ao alarme H
@@ -61,9 +63,19 @@ Limites=horzcat(ProtecaoFixa,ProtecaoDin);    % Unifica as tabelas com máximos 
 % PROTECAO 3 - Mapa de operação
 gridP = 1;                          % Grid de pressão para maior precisão na interpolação dos limites dos mapas de operação
 %[QMin,QMax,PSucMin,PSucMax,PCheMin,PCheMax]=ProtecoesMapas_via_python(TabSimulador,BTP,Freq,gridP);  % define as restrições suaves (estratégia por faixa do MPC) em função da frequencia
-TabSimulador_df = pandas.DataFrame(table_para_pydict(TabSimulador));
-BTP_df = pandas.DataFrame(table_para_pydict(BTP));
-[QMin,QMax,PSucMin,PSucMax,PCheMin,PCheMax]=protecoes_mapas.calcula_protecoes_mapas(TabSimulador_df, BTP_df, Freq, gridP);  % define as restrições suaves (estratégia por faixa do MPC) em função da frequencia
+%TabSimulador_df = pandas.DataFrame(table_para_pydict(TabSimulador));
+%BTP_df = pandas.DataFrame(table_para_pydict(BTP));
+TabSimulador_json = jsonencode(table2struct(TabSimulador));
+BTP_json = jsonencode(table2struct(BTP));
+
+resultado = protecoes_mapas.calcula_protecoes_mapas_json(TabSimulador_json, BTP_json, Freq, gridP);  % define as restrições suaves (estratégia por faixa do MPC) em função da frequencia
+QMin = resultado.cell{1}(1);
+QMax = resultado.cell{2}(1);
+PSucMin = resultado.cell{3}(1);
+PSucMax = resultado.cell{4}(1);
+PCheMin = resultado.cell{5}(1);
+PCheMax = resultado.cell{6}(1);
+%[QMin,QMax,PSucMin,PSucMax,PCheMin,PCheMax]=protecoes_mapas.calcula_protecoes_mapas_json(TabSimulador_json, BTP_json, Freq, gridP);  % define as restrições suaves (estratégia por faixa do MPC) em função da frequencia
 
 % Necessário lembrar que no MAPA as contas de pressão são feitas em kgf/cm2
 % ou seja, precisam ser convertidas para bar (1bar = 1.019716 kgf/cm2)

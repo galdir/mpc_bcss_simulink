@@ -6,6 +6,7 @@ def carrega_tabelas(
     caminho_tabela_testes_producao="../../Dados/DoBTP.xlsx",
     caminho_tabela_proteca_dinamica="../../Dados/DP.xlsx",
     caminho_tabela_faixas_percentuais="../../Dados/DP-Faixas.xlsx",
+    caminho_tabela_protecao_fixa = './Dados/FixedProtections.xlsx'
 ):
     """
     Carrega as tabelas de referência
@@ -57,6 +58,9 @@ def carrega_tabelas(
     tabela_testes_producao = pd.read_excel(caminho_tabela_testes_producao)
     tabela_testes_producao = tabela_testes_producao.iloc[1:].reset_index(drop=True)
 
-    return tabela_simulador, tabela_protecao_dinamica, tabela_faixas_percentuais, tabela_testes_producao
+    tabela_protecao_fixa = pd.read_excel(caminho_tabela_protecao_fixa)
+    tabela_protecao_fixa = tabela_protecao_fixa.loc[1:].reset_index(drop=True)
+
+    return tabela_simulador, tabela_protecao_dinamica, tabela_faixas_percentuais, tabela_testes_producao, tabela_protecao_fixa
 
 

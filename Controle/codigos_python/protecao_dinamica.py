@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import json
 
 
 def carregar_tabelas_local(
@@ -121,6 +122,18 @@ def calcula_protecao_dinamica(frequencia=None, tabela_dp=None, tabela_faixas=Non
         [resultado, limite_inferior, limite_superior],
         index=["Valor", "Limite Inferior", "Limite Superior"],
     )
+
+
+def calcula_protecao_dinamica_json(frequencia, tabela_dp_json, tabela_faixas_json):
+    #print(texto_json)
+    tabela_dp_dict = json.loads(tabela_dp_json)
+    tabela_dp_df = pd.DataFrame(tabela_dp_dict)
+
+    tabela_faixas_dict = json.loads(tabela_faixas_json)
+    tabela_faixas_df = pd.DataFrame(tabela_faixas_dict)
+
+    #print(df)
+    return calcula_protecao_dinamica(frequencia=frequencia, tabela_dp=tabela_dp_df, tabela_faixas=tabela_faixas_df)
 
 
 # Exemplo de uso

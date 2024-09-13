@@ -4,7 +4,12 @@ varNames = tbl.Properties.VariableNames;
 for i = 1:length(varNames)
     varName = varNames{i};
     if length(tbl.(varName)) > 1
-        pyDict{varName} = py.builtins.list(tbl.(varName));
+        if(strcmp(class(tbl.(varNames{1})), 'cell'))
+            pyDict{varName} = py.builtins.list(string(tbl.(varName)));
+        else
+            pyDict{varName} = py.builtins.list(tbl.(varName));
+        end
+        %pyDict{varName} = py.builtins.list(tbl.(varName));
     else
         pyDict{varName} = tbl.(varName);
     end

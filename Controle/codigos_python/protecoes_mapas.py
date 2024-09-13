@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import numpy as np
 from typing import Tuple
@@ -16,7 +17,7 @@ def calcula_protecoes_mapas(
     tabela_simulador: pd.DataFrame,
     tabela_testes_producao: pd.DataFrame,
     frequencia: float,
-    resolucao: float,
+    resolucao: int,
 ) -> Tuple[float, float, float, float, float, float]:
     """
     Calcula os limites dos mapas para uma determinada condição de frequência.
@@ -69,7 +70,7 @@ def calcula_protecoes_mapas(
             frequencia, p_chegada, tabela_simulador
         )
         #print(valores_interpolados)
-        t = pd.concat([t, valores_interpolados], ignore_index=True)
+        t = valores_interpolados if t.empty else pd.concat([t, valores_interpolados], ignore_index=True)
 
     # Avalia condição de Up e Downthrust
     resultado = avalia_condicao.avalia_condicao(t, tabela_testes_producao)
@@ -96,6 +97,21 @@ def calcula_protecoes_mapas(
             p_chegada_max = max(p_chegada_max, t["PressChegada"].iloc[i])
 
     return q_min, q_max, p_suc_min, p_suc_max, p_chegada_min, p_chegada_max
+
+
+def calcula_protecoes_mapas_json(tabela_simulador_json, tabela_testes_producao_json, frequencia, resolucao):
+    #print(texto_json)
+    tabela_simulador_dict = json.loads(tabela_simulador_json)
+    #print(tabela_simulador_dict[0])
+    tabela_simulador_df = pd.DataFrame(tabela_simulador_dict)
+    print(tabela_simulador_df)
+
+    tabela_testes_producao_dict = json.loads(tabela_testes_producao_json)
+    print(tabela_testes_producao_dict)
+    tabela_testes_producao_df = pd.DataFrame([tabela_testes_producao_dict])
+
+    #print(df)
+    return calcula_protecoes_mapas(tabela_simulador = tabela_simulador_df, tabela_testes_producao = tabela_testes_producao_df, frequencia = frequencia, resolucao = resolucao)
 
 
 # Exemplo de uso
