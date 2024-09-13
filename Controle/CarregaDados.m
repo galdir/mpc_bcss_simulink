@@ -6,7 +6,8 @@ close all
 % Necessário ajustar o Path do Matlab para apontar onde estão as tabelas e dados Petrobras e arquivos de uso geral
 % Na pasta Uteis, há uma rotina AjustaPath.m que pode ser copiada para a raiz do
 % repositório e ajustada para a necessidade de cada um. Esse arquivo na
-% raiz do repositório não será enviado para o github
+% raiz do repositório não será sincronizado com o repositório pois é local
+% de cada um
 % =============================================================================
 
 
