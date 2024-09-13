@@ -7,7 +7,7 @@ close all
 % Na pasta Uteis, há uma rotina AjustaPath.m que pode ser copiada para a raiz do
 % repositório e ajustada para a necessidade de cada um. Esse arquivo na
 % raiz do repositório não será sincronizado com o repositório pois é local
-% de cada um (v2)
+% de cada um (v3)
 % detalhe para o teste leizer
 % =============================================================================
 
