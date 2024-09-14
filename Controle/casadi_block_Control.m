@@ -96,7 +96,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         end
 %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
         function Saida = stepImpl(obj,DadosProcesso,t,Alvos,dumax,dumin,Hp,Hc,Qy,R,Qu,PassoMPC,umax,umin,Restricoes)
-            disp(strcat("Simulação MPC em ",num2str(t)," s      Passo MPC = ",num2str(PassoMPC)))
+%             disp(strcat("Simulação MPC em ",num2str(t)," s      Passo MPC = ",num2str(PassoMPC)))
              EstruturaSolver = obj.ModeloPreditor.data.tipo;     % Extrai tipo do preditor (1=ESN; 2 = LSTM)
 
             %% ===================== Configuração inicial do MPC  ========================================
@@ -146,10 +146,12 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %  Concatena limites das variáveis de processo (10) + restrições de manipulação (DeltaU) e das controladas
             %  variações nas manipuladas (Freq e PMonAlvo)  e faixa das  variáveis controladas (PSuc e PChegada)
             
-            LimitesMax= [repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [Psuc(1) ;Pcheg(1)]];
-            LimitesMin = [repmat(RestricoesMin,(Hp+1),1);repmat(-dumax,Hc,1); [Psuc(2) ;Pcheg(2)]];
-%             LimitesMax= [repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [Psuc(1) ;40 ]];
-%             LimitesMin = [repmat(RestricoesMin,(Hp+1),1);repmat(-dumax,Hc,1); [Psuc(2) ;25 ]];
+            % Usando a faixa da PChegada como sendo os limites do mapa
+%             LimitesMax= [repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [Psuc(1) ;Pcheg(1)]];
+%             LimitesMin = [repmat(RestricoesMin,(Hp+1),1);repmat(-dumax,Hc,1); [Psuc(2) ;Pcheg(2)]];
+            % Usando a faixa da PChegada como sendo os limites máximos definidos pelo usuário
+            LimitesMax= [repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [Psuc(1) ;umax(2) ]];
+            LimitesMin = [repmat(RestricoesMin,(Hp+1),1);repmat(-dumax,Hc,1); [Psuc(2) ;umin(2) ]];
             
             %% ===================== %Parâmetros e atuação do solver ========================================
             obj.contador = obj.contador+1;     % Contador ajudará a saber se é para o Solver do Otimizador/Controlador atuar
@@ -197,7 +199,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 obj.contador =0;                                                          % Reinicia contador para o passo do MPC
                 Tsolver = toc(tStar);                                                   % Calcula tempo de atuação do solver
             end
-            % Passando ou não pelo Solver, atualiza a saida do controlador
+            % Passando ou não pelo Solver, atualiza a ação de saida do controlador
             UProcesso=min(UProcesso,umax);     % Restringe as manipuladas (Freq e PMonAlvo) nos limites máximos pré-definidos
             UProcesso=max(UProcesso,umin);     % Restringe as manipuladas (Freq e PMonAlvo) nos limites mínimos pré-definidos
             
@@ -212,7 +214,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Saida = [Feasible;Tsolver;UProcesso;DeltaU;ysp;PredicaoHorizonteHp];      
            % Feasible (Dim=1), informação de realizável (feasible) vindo do otimizador. (1/0) Indica se deu tempo de achar solução ótima
            % Tsolver (Dim=1), tempo gasto pelo otimizador 
-           % Obj.uk (Dim=2), valores calculados para as manipuladas Freq. e PMonAlvo
+           % UProcesso (Dim=2), valores calculados para as manipuladas Freq. e PMonAlvo
            % DeltaU (Dim=2), variações (Delta U) ótimas calculadas para as manipuladas (Delta U de Freq e PMonAlvo). Será útil para visualizar a velocidade das alterações
            % ysp (Dim=2), alvos ótimos calculados para a PSuc e PChegada
            % PredicaoHorizonteHp (Dim=10), são as Pedições do Processo feitas pelo MPC
