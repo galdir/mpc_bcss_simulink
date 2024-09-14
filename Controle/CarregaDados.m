@@ -16,9 +16,9 @@ CarregaTabelas;
 % Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
 %   [YIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00');     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
 % [YIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00');       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
-% [YIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00');            % PSuc=97.4    PChegada=35.3      Freq = 40Hz     Para rampa de aceleração
+[YIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00');            % PSuc=97.4    PChegada=35.3      Freq = 40Hz     Para rampa de aceleração
 %[YIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00');            % PSuc=97.7    PChegada=33.08      Freq = 40Hz     Para rampa de aceleração
-[YIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00');            % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
+% [YIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00');            % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
 
 % A condição inicial da vazão precisamos apenas para inicializar a visualização dos mapas  
 VazaoIni=Interpola(UIni(1),YIni(2)*1.019716,TabSimulador,3);  % Entra Freq [Hz] e Presão [Kgf/cm2] para retornar a vazão estimada em m3/dia
@@ -30,13 +30,30 @@ Plano=readtable('PlanoTesteCampoDia12.07.2024.xlsx');    % Plano que reproduz te
 % Plano=readtable('PlanoConstante.xlsx');     % Plano com valor constante pré-estabelecido. Neste caso, usamos a inicialização do dia 12/07 às 10h
 
 StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
-StopTime=2*3600;
+StopTime=2*3600;                                             % Só para comparar com a rampa de aceleração com 2h de duração
 
-% Inicializar com o primeiro registro do plano proposto
-FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
-PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a PMonAlvo [bar]
-FreqAlvoIni=55;
-PMonAlvoIni=33;
+% Definie se o alvo da Engenharia será dado de forma manual ou automática, baseada nos limites do mapa de PChegada x Frequência
+AlvoAutomatico=1;
+if AlvoAutomatico
+     FreqAlvoIni=60;              % Aponta para a frequência máxima
+     Limites=CalcLimites(FreqAlvoIni,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
+     PMonAlvoIni=Limites.ProductionSurfacePressure(2);      % Extrai ponto limite da PChegada (em bar)
+else
+    % Inicializar como alvo da ENG o primeiro registro do plano proposto
+    %     FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
+    %     PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a PMonAlvo [bar]
+
+    % Inicializa alvo da ENG manualmente
+    FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
+    PMonAlvoIni=23;
+    
+    % Avalia valores dados manualmente (ou pelo plano) e calcula limites da PChegada em função do mapa
+    % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
+    Limites=CalcLimites(FreqAlvoIni,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
+    FaixaPChegada=Limites.ProductionSurfacePressure;      % Extrai faixa [ Max  Min] da PChegada (em bar)
+    PMonAlvoIni=min(PMonAlvoIni,FaixaPChegada(1));         % Menor entre o valor e o máximo
+    PMonAlvoIni=max(PMonAlvoIni,FaixaPChegada(2));        % Maior entre o valor e o mínimo
+end
 
 
 %% =============================================================================
@@ -45,7 +62,6 @@ PMonAlvoIni=33;
 Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 % Rede_Processo = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 % Rede_Processo = load('weightsESNx_TR900_TVaz0.9_RaioE0.4.mat');
-
 
 % Vale a pena inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
 NivelRuido=0;       % Define nivel de ruido aditivo (0 a 10) para as saidas do processo
@@ -81,12 +97,13 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 %% Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
 FreqMaxMin=[60; 40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
 PMonAlvoMaxMin=[40; 25];                                         % Limites máx/min para ser dado oelo controlador como entrada de PMon no processo
+PMonAlvoMaxMin=[50; 20];                                         % Limites máx/min para ser dado oelo controlador como entrada de PMon no processo
 umax  = [FreqMaxMin(1); PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
 umin  =  [FreqMaxMin(2); PMonAlvoMaxMin(2)] ;      % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
 dumax = [0.1 ; 1];                                                          %Variação máxima nas manipuladas [ Hz    bar ]
-dumin = [0.1; 0];                                                             %Variação mínima nas manipuladas [ Hz    bar ]
-% dumin = [0; 0];                                                            %Variação mínima nas manipuladas [ Hz    bar ]
+% dumin = [0.1; 0];                                                             %Variação mínima nas manipuladas [ Hz    bar ]
+dumin = [0; 0];                                                            %Variação mínima nas manipuladas [ Hz    bar ]
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
