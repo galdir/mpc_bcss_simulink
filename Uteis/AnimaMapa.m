@@ -161,11 +161,10 @@ function monta_mapas(T,BTP)
 
     [Qdt, Qut,Condicao,Cor]=AvaliaCondicao(T,BTP);
     gridFreq=unique(T.FreqBCSS);   % Verifica o grid da frequencia
-%    Tam=0.3*10/height(gridFreq);       % Usa o tamanho do grid para propor o tamanho do cículo na plotagem
     Tam=0.1*10/height(gridFreq);       % Usa o tamanho do grid para propor o tamanho do cículo na plotagem
 
     % Varre grid definido para a frequência e calcula os limites de proteção
-    GridP=0.5;        % Grid para fazer o cálculo em uma frequência específica. Grds menores dão maior precisão aos limites das curvas
+    GridP=0.5;        % Grid para fazer o cálculo em uma frequência específica. Grids menores dão maior precisão aos limites das curvas
     for i=1:height(gridFreq)
          [QMin(i), QMax(i),PSucMin(i),PSucMax(i), PChegadaMin(i),PChegadaMax(i)]=ProtecoesMapas(T,BTP,gridFreq(i),GridP);
     end
@@ -186,6 +185,19 @@ function monta_mapas(T,BTP)
     eixo=axis;
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
+    
+    % Isocurvas do mapa 1
+    NovaT=RepSimulador(0,1,1);    % Tabela com melhor resolução do que a que foi fornecida pela Petrobras (usada apenas para as curvas isométricas)
+    % Completa mapa com curvas de isovazão
+    for i=250:50:500
+        VarX=NovaT.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
+        VarY=NovaT.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=NovaT.VazaoOleo;           % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,1,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        plot(VarX,VarY,'k:')
+       text(max(VarX),max(VarY)-1,strcat(num2str(i),"m^3/d"),'FontSize',8)
+    end
+
     % =============
     subplot(3,1,2)    % Mapa de Pressão de Sucção x Frequência
     hold on
@@ -202,8 +214,18 @@ function monta_mapas(T,BTP)
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
 
+   % Completa mapa 2 com curvas de isobáricas
+    for i=20:10:50
+        VarX=NovaT.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
+        VarY=NovaT.PressSuccao;                      % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=NovaT.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        plot(VarX,VarY,'k:')
+       text(min(VarX),max(VarY)-1,strcat(num2str(i)),'FontSize',8)
+    end
+
     % =============
-    subplot(3,1,3)    % Mapa de Vazão x Freqência
+    subplot(3,1,3)    % Mapa de Vazão x Frequência
     hold on
     grid on
     % axis([ 39.9  60   65   105])
@@ -217,5 +239,16 @@ function monta_mapas(T,BTP)
     eixo=axis;
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
+    
+   % Completa mapa 3 com curvas de isobáricas
+    for i=20:10:50
+        VarX=NovaT.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
+        VarY=NovaT.VazaoOleo;                         % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=NovaT.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        plot(VarX,VarY,'k:')
+        text(min(VarX),min(VarY)-1,strcat(num2str(i)),'FontSize',8)
+    end
+
 end
 %==================================================================================
