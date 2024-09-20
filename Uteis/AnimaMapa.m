@@ -1,5 +1,5 @@
 function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonIni,PSucIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro)
-% Animação para atualização do ponto de operação nos mapas em tempo de simulação
+% Animação para atualização do ponto de operação nos mapas em tempo de simulação 
 
     global TituloMapa1                  % Título no mapa de Frequência x PChegada
     global SubTituloMapa1            % SubTítulo no mapa de Frequência x PChegada

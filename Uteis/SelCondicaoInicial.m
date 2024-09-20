@@ -7,7 +7,7 @@ if nargin<1      % Caso o usuário não tenha definido parâmetros
     DIni = '2024-07-12 10:00:00';        % Indica data hora de inicio apenas para buscar as condilções iniciais
 end    
 Data_Ini = datetime(DIni);                   % Indica data hora de inicio apenas para buscar as condilções iniciais
-DeltaT=1/(24*36);                                % Soma um detla T automático (pouco menos que 2 min)
+DeltaT=1/(24*36);                                % Soma um delta T automático (pouco menos que 2 min)
 Data_Fim = Data_Ini+DeltaT;             % Data final apenas para buscar o ponto de inicialização igual ou o mais próximo possível da data indicada
    
 %=============================

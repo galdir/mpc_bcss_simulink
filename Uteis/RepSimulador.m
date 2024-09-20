@@ -20,8 +20,6 @@ end
 
 % Carrega tabela com dados do simulador (já converte os nomes no formato adotado)
 T=LeConverteNomes('DoSimulador.xlsx');
-% T=LeConverteNomes('DoSimulador20.01.2024 2Hz 5kgf.xlsx');
-% T=LeConverteNomes('DoSimulador17.05.2024 2Hz 5kgf.xlsx');
 
 %======================================================
 % Limites para as interpolações 
