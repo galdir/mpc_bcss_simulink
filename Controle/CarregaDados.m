@@ -47,9 +47,8 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a PMonAlvo [bar]
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
-    StopTime=2*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    StopTime=inf;
-    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático 
+    StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
+    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático 
     if AlvoAutomatico             % 
          FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
          Limites=CalcLimites(FreqAlvoIni,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
@@ -94,8 +93,17 @@ Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 % Rede_Processo = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 % Rede_Processo = load('weightsESNx_TR900_TVaz0.9_RaioE0.4.mat');
 
-% Vale a pena inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-NivelRuido=0;       % Define nivel de ruido aditivo (0 a 10) para as saidas do processo
+% Número de casas decimais para correspnder a resolução dos instrumentos
+NumCasasDecimais=1;
+
+% Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
+SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+% Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
+% Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 
+% Uma relação sinal-ruído (SNR) de 20 dB significa que o sinal é 100 vezes mais potente que o ruído. 
+% Uma relação sinal-ruído (SNR) de 30 dB significa que o sinal é 1000 vezes mais potente que o ruído. 
+
 
 %% =============================================================================
 disp('Configurações gerais carregadas para a área de trabalho')

@@ -125,16 +125,16 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% ===================== Empilha restrições para as variáveis do processo  =============================
             % Colocando na mesma organização do bloco de cálculo das restrições que foram recebidas nas entradas
              % Calculando as restrições com base nos valores atuais  recebidos na entrada do bloco
-            Tmotor=Restricoes(1:2);
-            Tsuc=Restricoes(3:4);
-            Vib=Restricoes(5:6);
-            CTotal =Restricoes(7:8);
-            Ctorque=Restricoes(9:10);
-            Psuc=Restricoes(11:12);
-            Pdesc=Restricoes(13:14);
-            Pdif=Restricoes(15:16);
-            Pcheg=Restricoes(17:18);
-            Tche=Restricoes(19:20);
+%             Tmotor=Restricoes(1:2);
+%             Tsuc=Restricoes(3:4);
+%             Vib=Restricoes(5:6);
+%             CTotal =Restricoes(7:8);
+%             Ctorque=Restricoes(9:10);
+%             Psuc=Restricoes(11:12);
+%             Pdesc=Restricoes(13:14);
+%             Pdif=Restricoes(15:16);
+%             Pcheg=Restricoes(17:18);
+%             Tche=Restricoes(19:20);
         
              % Calculando as restrições com base na tabela já prédefinida
             Freq=round(UProcesso(1),1);   % Arredonda em uma casa decimal - isso é feito considerando delta Freq Minimo =0.1 (Poderiamos interpolar, mas não parece mercer)

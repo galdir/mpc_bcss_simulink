@@ -30,7 +30,7 @@ elseif abs(flag) == 2
     xres = next_state;                                                    % Atualiza o estado do reservatório
     yk_aux = ESN.Wro*a_wbias;                                 % Calcula a saída com estado do reserv. atualizado
     yk_1 = desnormaliza_predicoes(yk_aux);             % Resgata unidades de engenharia para simulação
-   
+    
     t_execucao = toc(tStart);                                        % Tempo gasto para o processamento em segundos
        
     sys =[yk_1;xres;t_execucao];		                         % Retorna o vetor de estados em coluna
