@@ -65,5 +65,6 @@ Limites.ProductionSurfacePressure(2)=max(Limites.ProductionSurfacePressure(2),PC
 Limites.IntakePressure(1)=min(Limites.IntakePressure(1),PSucMax);  % O limite máximo é o menor deles
 Limites.IntakePressure(2)=max(Limites.IntakePressure(2),PSucMin);   % O limite mínimo é o maior deles
 
-
-          
+%=====================================================
+% Insere limites de Vazão na tabela com os limites
+Limites.('VazaoOleo')=[QMin;QMax];     % Cria coluna Vazão com os limites calculados

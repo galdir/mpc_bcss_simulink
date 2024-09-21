@@ -38,8 +38,6 @@ PChegadaMax=0;
  % Varre a tabela temporária para extrair os limites desejados
  for i=1:height(T)
      if Condicao(i)=="Normal"
-%          QMin=min(QMin,T.VazaoLiquido(i,1));         
-%          QMax=max(QMax,T.VazaoLiquido(i,1));         
          QMin=min(QMin,T.VazaoOleo(i,1));         
          QMax=max(QMax,T.VazaoOleo(i,1));         
          PSucMin=min(PSucMin,T.PressSuccao(i,1));

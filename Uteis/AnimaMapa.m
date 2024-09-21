@@ -1,5 +1,5 @@
 function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonIni,PSucIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro)
-% Animação para atualização do ponto de operação nos mapas em tempo de simulação
+% Animação para atualização do ponto de operação nos mapas em tempo de simulação 
 
     global TituloMapa1                  % Título no mapa de Frequência x PChegada
     global SubTituloMapa1            % SubTítulo no mapa de Frequência x PChegada
@@ -83,11 +83,11 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
             VazaoOleo=Interpola(FreqOperacao, PChegada,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
 
             % Dados do otimizador
-            FreqProposta=u(4);                          % Frequencia proposta pelo Controlador
+            FreqOtima=u(4);                          % Frequencia proposta pelo Controlador
             PChegadaOtima=u(5)*1.019716;    % Pressão de Chegada dada pelo otimizador  convertida de bar para Kgf/cm2
             PSucOtima=u(6)*1.019716;             % Pressão de Sucção dada pelo otimizador convertida de bar para Kgf/cm2
 %            VazaoOleoOtima=Interpola(FreqOperacao, PChegadaOtima,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
-            VazaoOleoOtima=Interpola(FreqProposta, PChegadaOtima,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
+            VazaoOleoOtima=Interpola(FreqOtima, PChegadaOtima,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
 
             % Dados desejados pela engenharia (Alvos)
             FreqAlvoENG=u(7);                                  % Frequência Alvo ENG atual
@@ -95,11 +95,11 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
             PSucAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,TabSimulador,8);    % Estima em função da Freq e Pressao
             VazaoAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,TabSimulador,3);  % Estima em função da Freq e Pressao
 
-            % Monta vetores sempre na sequencia de [ Medido,   AlvoENG,  Otima]
-            PChegada=[PChegada, PMonAlvoENG,PChegadaOtima];
-            PSuc=[PSuc, PSucAlvoENG, PSucOtima];
-            Vazao=[VazaoOleo, VazaoAlvoENG, VazaoOleoOtima];
-            Freq=[FreqOperacao, FreqAlvoENG];
+            % Monta vetores sempre na sequencia de [Medido,   AlvoENG,  Otima]
+            PChegada= [PChegada,        PMonAlvoENG,    PChegadaOtima];
+            PSuc=         [PSuc,                 PSucAlvoENG,      PSucOtima];
+            Vazao=       [VazaoOleo,        VazaoAlvoENG,    VazaoOleoOtima];
+            Freq=          [FreqOperacao,  FreqAlvoENG,       FreqOtima];
 
             % Atualiza pontos nos 3 mapas de operação
             AtualizaMapa(1,OperacaoMapa1,AlvoENGMapa1,SetPointMapa1,HabilitaRastro,Freq,PChegada);
@@ -136,14 +136,14 @@ function  AtualizaMapa(Mapa,OperacaoMapa,AlvoENGMapa,SetPointMapa,Rastro,Freq,Va
         Variavel3Antes=SetPointMapa.YData;                 % Ponto da Variável Ótima (dada pelo otimizador) antes de atualizar
         
         % Plota os rastros
-        plot([ FreqOperacaoAntes  Freq(1)],[Variavel1Antes  Variavel(1)],'k')     % Rastro do ponto de operação
-%         plot([ FreqAlvoAntes  Freq(2)],[Variavel2Antes  Variavel(2)],'b')               % Rastro do alvo desejado pela ENG
-%         plot([ FreqAlvoAntes  Freq(2)],[Variavel3Antes  Variavel(3)],'k')               % Rastro do set point dado pelo otimizador
+        plot([ FreqOperacaoAntes  Freq(1)],[Variavel1Antes  Variavel(1)],'k')       % Rastro do ponto de operação
+%         plot([ FreqAlvoAntes  Freq(2)],[Variavel2Antes  Variavel(2)],'b')            % Rastro do alvo desejado pela ENG
+%         plot([ FreqAlvoAntes  Freq(3)],[Variavel3Antes  Variavel(3)],'k')             % Rastro do set point dado pelo otimizador
     end
 
     % Atualiza pontos no respetivo mapa
     set(OperacaoMapa, 'xdata',Freq(1), 'ydata', Variavel(1));    % Atualiza ponto de operação
-    set(SetPointMapa, 'xdata', Freq(1), 'ydata', Variavel(3));      % Atualiza Set Point dado pelo otimizador
+    set(SetPointMapa, 'xdata', Freq(3), 'ydata', Variavel(3));      % Atualiza Set Point dado pelo otimizador
 %     if Mapa~=2       % Se não quiser plotar ENG no Mapa de PSuc
         set(AlvoENGMapa, 'xdata', Freq(2), 'ydata', Variavel(2));     % Atualiza alvo desejado pela engenharia
 %     end
@@ -161,11 +161,10 @@ function monta_mapas(T,BTP)
 
     [Qdt, Qut,Condicao,Cor]=AvaliaCondicao(T,BTP);
     gridFreq=unique(T.FreqBCSS);   % Verifica o grid da frequencia
-%    Tam=0.3*10/height(gridFreq);       % Usa o tamanho do grid para propor o tamanho do cículo na plotagem
     Tam=0.1*10/height(gridFreq);       % Usa o tamanho do grid para propor o tamanho do cículo na plotagem
 
     % Varre grid definido para a frequência e calcula os limites de proteção
-    GridP=0.5;        % Grid para fazer o cálculo em uma frequência específica. Grds menores dão maior precisão aos limites das curvas
+    GridP=0.5;        % Grid para fazer o cálculo em uma frequência específica. Grids menores dão maior precisão aos limites das curvas
     for i=1:height(gridFreq)
          [QMin(i), QMax(i),PSucMin(i),PSucMax(i), PChegadaMin(i),PChegadaMax(i)]=ProtecoesMapas(T,BTP,gridFreq(i),GridP);
     end
@@ -186,6 +185,19 @@ function monta_mapas(T,BTP)
     eixo=axis;
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
+    
+    % Isocurvas do mapa 1
+    NovaT=RepSimulador(0,1,1);    % Tabela com melhor resolução do que a que foi fornecida pela Petrobras (usada apenas para as curvas isométricas)
+    % Completa mapa com curvas de isovazão
+    for i=250:50:500
+        VarX=NovaT.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
+        VarY=NovaT.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=NovaT.VazaoOleo;           % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,1,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        plot(VarX,VarY,'k:')
+       text(max(VarX),max(VarY)-1,strcat(num2str(i),"m^3/d"),'FontSize',8)
+    end
+
     % =============
     subplot(3,1,2)    % Mapa de Pressão de Sucção x Frequência
     hold on
@@ -202,8 +214,18 @@ function monta_mapas(T,BTP)
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
 
+   % Completa mapa 2 com curvas de isobáricas
+    for i=20:10:50
+        VarX=NovaT.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
+        VarY=NovaT.PressSuccao;                      % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=NovaT.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        plot(VarX,VarY,'k:')
+       text(min(VarX),max(VarY)-1,strcat(num2str(i)),'FontSize',8)
+    end
+
     % =============
-    subplot(3,1,3)    % Mapa de Vazão x Freqência
+    subplot(3,1,3)    % Mapa de Vazão x Frequência
     hold on
     grid on
     % axis([ 39.9  60   65   105])
@@ -217,5 +239,16 @@ function monta_mapas(T,BTP)
     eixo=axis;
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
+    
+   % Completa mapa 3 com curvas de isobáricas
+    for i=20:10:50
+        VarX=NovaT.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
+        VarY=NovaT.VazaoOleo;                         % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=NovaT.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        plot(VarX,VarY,'k:')
+        text(min(VarX),min(VarY)-1,strcat(num2str(i)),'FontSize',8)
+    end
+
 end
 %==================================================================================
