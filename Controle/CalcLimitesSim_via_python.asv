@@ -29,7 +29,7 @@ end
 function Limites=BuscaLimites(Freq,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa)
 % Usa a função de cálculo dos limites definida na pasta ÚTEIS
 limites_python = py.importlib.import_module('codigos_python.limites');
-%py.importlib.reload(py.importlib.import_module('codigos_python.limites'));
+py.importlib.reload(py.importlib.import_module('codigos_python.limites'));
 
 Limites_orig=CalcLimites_via_python(Freq,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);
 
@@ -49,7 +49,7 @@ Limites_orig = Limites_orig(:);
 
 Limites=Limites(:,2:end);             % Elimina a coluna inicial que indica texto MAX e MIN
 Limites=table2array(Limites);      % Transforma tabela em array para poder ser consumida no Simulink
-Limites=Limites(:);                        % Contas para transformar em vetor para ser usado no Simulink
+Limites=double(Limites(:));                        % Contas para transformar em vetor para ser usado no Simulink
 
 
 end

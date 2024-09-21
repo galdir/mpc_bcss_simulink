@@ -67,6 +67,9 @@ def calcula_limites(
 
     #tabela_protecao_fixa = pd.concat([tabela_protecao_fixa.iloc[:, 1:], df_limites_inv], axis=1)
     df_limites_inv = pd.concat([tabela_protecao_fixa, df_limites_inv.iloc[:, 1:]], axis=1)
+    df_limites_inv['TMotor'] = df_limites_inv['TMotor'].astype('double')
+    df_limites_inv['Tsuc'] = df_limites_inv['Tsuc'].astype('double')
+    df_limites_inv['Vibracao'] = df_limites_inv['Vibracao'].astype('double')
 
     # ============================
     # PROTECAO 3 - Mapa de operação
@@ -112,7 +115,7 @@ def calcula_limites(
     df_limites_inv.loc[df_limites_inv.index[1], "IntakePressure"] = max(
         df_limites_inv.IntakePressure.iloc[1], pressao_succao_min
     )
-
+    df_limites_inv['VazaoOleo'] = [vazao_max, vazao_min]
     #df_limites_inv.rename(columns={"index": "LIMITES"}, inplace=True)
     return df_limites_inv
 
@@ -164,12 +167,12 @@ if __name__ == "__main__":
         tabela_testes_producao,
         tabela_protecao_fixa,
     ) = carrega_tabelas(
-        # caminho_tabela_simulador="./Dados/DoSimulador.xlsx",
-        caminho_tabela_simulador="./Dados/DoSimulador - ate_pchegada_51.xlsx",
-        caminho_tabela_testes_producao="./Dados/DoBTP.xlsx",
-        caminho_tabela_proteca_dinamica="./Dados/DP.xlsx",
-        caminho_tabela_faixas_percentuais="./Dados/DP-Faixas.xlsx",
-        caminho_tabela_protecao_fixa="./Dados/FixedProtections.xlsx",
+        caminho_tabela_simulador="./Tabelas/DoSimulador.xlsx",
+        #caminho_tabela_simulador="./Tabelas/DoSimulador - ate_pchegada_51.xlsx",
+        caminho_tabela_testes_producao="./Tabelas/DoBTP.xlsx",
+        caminho_tabela_proteca_dinamica="./Tabelas/DP.xlsx",
+        caminho_tabela_faixas_percentuais="./Tabelas/DP-Faixas.xlsx",
+        caminho_tabela_protecao_fixa="./Tabelas/FixedProtections.xlsx",
     )
 
     frequencia = 40

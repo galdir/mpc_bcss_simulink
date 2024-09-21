@@ -76,7 +76,7 @@ def calcula_protecoes_mapas(
     resultado = avalia_condicao.avalia_condicao(t, tabela_testes_producao)
     condicao = resultado["Condicao"]
 
-    print('apos condicao')
+    #print('apos condicao')
 
     # Define valores iniciais para os limites de Vazão, PSuc e PChegada
     q_min = float("inf")

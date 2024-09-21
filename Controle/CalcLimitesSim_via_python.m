@@ -31,8 +31,13 @@ function Limites=BuscaLimites(Freq,TabSimulador,BTP,TabRestricoesDinamicas,FxPer
 limites_python = py.importlib.import_module('codigos_python.limites');
 py.importlib.reload(py.importlib.import_module('codigos_python.limites'));
 
-Limites_orig=CalcLimites_via_python(Freq,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);
+% calculo de limites com funcao matlab que chama funcoes python
+%Limites_orig=CalcLimites_via_python(Freq,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);
+%Limites_orig = Limites_orig(:,2:end);
+%Limites_orig = table2array(Limites_orig);
+%Limites_orig = Limites_orig(:);
 
+% calculo de limites com python
 TabRestricoesDinamicas_json = jsonencode(table2struct(TabRestricoesDinamicas));
 FxPercent_json = jsonencode(table2struct(FxPercent));
 TabSimulador_json = jsonencode(table2struct(TabSimulador));
@@ -43,9 +48,6 @@ Limites_df=limites_python.calcula_limites_json(Freq,TabSimulador_json,BTP_json,T
 Limites = pandas_para_MatlabTable(Limites_df);
 
 
-Limites_orig = Limites_orig(:,2:end);
-Limites_orig = table2array(Limites_orig);
-Limites_orig = Limites_orig(:);
 
 Limites=Limites(:,2:end);             % Elimina a coluna inicial que indica texto MAX e MIN
 Limites=table2array(Limites);      % Transforma tabela em array para poder ser consumida no Simulink
