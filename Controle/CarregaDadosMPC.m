@@ -32,7 +32,7 @@ Hc =  4 ;                      % Horizonte de controle
 Qy=  diag([1  1]);        % Qy - Peso das Controladas (PSuc e PChegada) prioridade da variável controlada voltar para respectiva faixa (calculada pelas proteções dinâmicas)
 Qu = diag([1  1]);        % Qu - Peso dos Alvos Desejados (Freq. e PMonAlvo). Ponderação priorização dos alvos (ponto do mapa)
 R=    [1  1];                  % R - Peso na variação da ação de controle - Delta U em (Freq. e PMonAlvo) 
-R =  diag(repmat(R,1,Hc));   %Matriz de supressão  (ajustado para diminuir/aumentar o custo de controle) das variáveis manipuladas (Freq. e PmonAlvo) em diagonal para FOB (conceito do MPC).
+R =  diag(repmat(R,1,Hc));   % Para diminuir/aumentar o custo de controle das variáveis manipuladas (Freq. e PmonAlvo) em todo o Hc
 
 
 % Inicializa estados para atuação do MPC

@@ -26,9 +26,9 @@ umax  = [FreqMaxMin(1); PMonAlvoMaxMin(1)];       % Vetor com valor máximo das 
 umin  =  [FreqMaxMin(2); PMonAlvoMaxMin(2)] ;      % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
 % Delta U - variação máxima permitida nas variáveis manipuladas
-dumax = [0.1; 1];                                                           %Variação máxima nas manipuladas [ Hz    bar ]
-% dumin = [0.1; 0];                                                        %Variação mínima nas manipuladas [ Hz    bar ]
-dumin = [0; 0];       
+dumax = [0.15; 1];                                                           %Variação máxima nas manipuladas [ Hz    bar ]
+dumin = [0.1; 0];                                                        %Variação mínima nas manipuladas [ Hz    bar ]
+% dumin = [0; 0];       
 
 %% =============================================================================
 % Carrega tabela com plano de experimentos programados para mudanças automáticas de Freq. e PMonAlvo para simulação
@@ -48,7 +48,7 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático 
+    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
          FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
          Limites=CalcLimites(FreqAlvoIni,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
@@ -93,7 +93,7 @@ Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 % Rede_Processo = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 % Rede_Processo = load('weightsESNx_TR900_TVaz0.9_RaioE0.4.mat');
 
-% Número de casas decimais para correspnder a resolução dos instrumentos
+% Número de casas decimais para corresponder a resolução dos instrumentos
 NumCasasDecimais=1;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador

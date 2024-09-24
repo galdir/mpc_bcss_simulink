@@ -101,7 +101,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         end
 %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
         function Saida = stepImpl(obj,DadosProcesso,t,Alvos,dumax,dumin,Hp,Hc,Qy,R,Qu,PassoMPC,umax,umin,Restricoes)
-            disp(strcat("Simulação MPC em ",num2str(t)," s      Passo MPC = ",num2str(PassoMPC)))
+%             disp(strcat("Simulação MPC em ",num2str(t)," s      Passo MPC = ",num2str(PassoMPC)))
              EstruturaSolver = obj.ModeloPreditor.data.tipo;     % Extrai tipo do preditor (1=ESN; 2 = LSTM)
             %% ===================== Configuração inicial do MPC  ========================================
             [ ny, nu, nx] = DimensoesVariaveisProcesso(Qy,Qu,DadosProcesso);
