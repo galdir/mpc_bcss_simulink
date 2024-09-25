@@ -67,4 +67,4 @@ Limites.IntakePressure(2)=max(Limites.IntakePressure(2),PSucMin);   % O limite m
 
 %=====================================================
 % Insere limites de Vazão na tabela com os limites
-Limites.('VazaoOleo')=[QMin;QMax];     % Cria coluna Vazão com os limites calculados
+Limites.('VazaoOleo')=[QMax;QMin];     % Cria coluna Vazão com os limites calculados

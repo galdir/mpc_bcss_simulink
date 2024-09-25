@@ -160,5 +160,6 @@ cython_debug/
 #.idea/
 
 ./AjustaPath.m
-Controle/MPC_JUB27.slx.autosave
-Controle/JUB27_MA.slxc
+*.asv
+*.slxc
+

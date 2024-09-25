@@ -26,7 +26,7 @@ umax  = [FreqMaxMin(1); PMonAlvoMaxMin(1)];       % Vetor com valor máximo das 
 umin  =  [FreqMaxMin(2); PMonAlvoMaxMin(2)] ;      % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
 % Delta U - variação máxima permitida nas variáveis manipuladas
-dumax = [0.15; 1];                                                           %Variação máxima nas manipuladas [ Hz    bar ]
+dumax = [0.1; 1];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
 dumin = [0.1; 0];                                                        %Variação mínima nas manipuladas [ Hz    bar ]
 % dumin = [0; 0];       
 
@@ -75,17 +75,19 @@ end
 % Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
 
 % Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
-%  [YIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00');     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
-% [YIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00');       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
-% [YIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00');       % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
+%  [YIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',TabSimulador);     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
+% [YIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',TabSimulador);       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
+% [YIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00',TabSimulador);       % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
 
 % Inicio de rampas de aceleração para comparação
-% [YIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00');        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
-% [YIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00');        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-[YIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00');            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
+% [YIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',TabSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
+% [YIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',TabSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
+[YIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',TabSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
 
 % A condição inicial da vazão precisamos apenas para inicializar a visualização dos mapas  
-VazaoIni=Interpola(UIni(1),YIni(2)*1.019716,TabSimulador,3);  % Entra Freq [Hz] e Presão [Kgf/cm2] para retornar a vazão estimada em m3/dia
+% VazaoIni=Interpola(UIni(1),YIni(2)*1.019716,TabSimulador,3);  % Entra Freq [Hz] e Presão [Kgf/cm2] para retornar a vazão estimada em m3/dia
+VazaoIni=YIni(11);   % Avaliar se vale a pena atualizar nos blocos do Simulink
+
 
 %% =============================================================================
 % Carrega uma rede (ESN qualquer) para ser usada como modelo do processo
@@ -98,7 +100,7 @@ Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 NumCasasDecimais=1;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+% SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
 % Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 
