@@ -33,7 +33,7 @@ switch EstruturaSolver
         % - uk(entradas) (dimensão=nu)
         % - Erro, sendo a diferença entre a medição do processo e a última predição das variáveis controladas (dimensão=ny)
         % - Alvo dado pelo RTO (dimensão=nu)
-        % - Dados do reservervatório (dimensão=nx_ESN)
+        % - Dados do reservatório da ESN utilizada pelo controlador (dimensão=nx_ESN)
         P =           MX.sym('P',nx+nu+ny+nu+nx_ESN);    % qtd de parâmetros para o Solver
         uk_1 =        P(nx+1:nx+nu);                                    % define variável simbólica das entradas (Freq. PmonAlvo)
         erro =        P(nx+nu+1:nx+nu+ny);                         % define variável simbólica para erro (DadosProcesso-PrediçãoMPC) ->(Psuc. Pcheg)
