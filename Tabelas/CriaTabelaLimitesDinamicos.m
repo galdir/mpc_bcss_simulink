@@ -19,8 +19,8 @@ for Freq=40.1:0.1:60
 end
 
 % Extrai apenas as colunas de interesse
-NomeVariaveis={'Frequencia','LIMITES','TMotor', 'Tsuc', 'Vibracao','TotalCurrent', 'TorqueCurrent', 'IntakePressure', 'DischargePressure',...
-    'DifferentialPressure', 'ProductionSurfacePressure', 'ProductionSurfaceTemperature', 'VazaoOleo'};
+NomeVariaveis={'Frequencia','LIMITES','TotalCurrent', 'TorqueCurrent', 'IntakePressure', 'DischargePressure',...
+    'DifferentialPressure', 'ProductionSurfacePressure', 'ProductionSurfaceTemperature', 'TMotor', 'Tsuc', 'Vibracao','VazaoOleo'};
 
 TabelaLimites=TabelaLimites(:,NomeVariaveis);   
     

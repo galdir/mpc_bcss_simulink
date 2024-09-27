@@ -42,9 +42,9 @@ switch EstruturaSolver
         g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
 
         uk_11=floor(uk_1(1) * 10)/10; %arrendamento para baixo pois nao é possivel usar round
-        [limMin_tab, limMax_tab] = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
-        limMax = limMax_tab(2:end)';
-        limMin = limMin_tab(2:end)';
+        limites = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
+        limMax = limites(1,:)';
+        limMin = limites(2,:)';
         limMax_controladas = [limMax(1); limMax(2)];
         limMin_controladas = [limMin(1); limMin(2)];
 
@@ -71,9 +71,9 @@ switch EstruturaSolver
             g=[g;X(:,k+1)-y_esn_pred];   % Define variável simbólica para atender as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
             
             uk_11=floor(uk_1(1) * 10)/10;
-            [limMax_tab, limMin_tab] = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
-            limMax_atual = limMax_tab(2:end)';
-            limMin_atual = limMin_tab(2:end)';
+            limites = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
+            limMax_atual = limites(1,:)';
+            limMin_atual = limites(2,:)';
             %limMin_atual =  [limMin_tab, -dumax(1), -dumax(2), limMin_tab(iPSuc), limMin_tab(iPChe)];
             %limMax_atual = [limMax_tab, dumax(1), dumax(2), limMin_tab(iPSuc), limMin_tab(iPChe)];
 
@@ -159,20 +159,3 @@ options.ipopt.acceptable_obj_change_tol=1e-4; % Define uma tolerância aceitável 
 SolucaoOtimizador = nlpsol('SolucaoOtimizador','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
 end
 
-% Função para encontrar índices em uma coluna de uma tabela CasADi
-function [limMax, limMin] = encontrarRestricoesTabela(matriz, valorProcurado)
-    import casadi.*
-    n = size(matriz, 1);  % Número de linhas na coluna
-    n2 = size(matriz, 2);  % Número de linhas na coluna
-    %indices = MX.zeros(2, 1);
-    contador = MX.zeros(1);
-    limMax = MX.zeros(1, n2);
-    limMin = MX.zeros(1, n2);
-    for i = 1:n
-        condicao = (matriz(i,1) == valorProcurado) & (contador < 2);
-        limMax = if_else(condicao & (contador == 0), matriz(i,:), limMax);
-        limMin = if_else(condicao & (contador == 1), matriz(i,:), limMax);
-        contador = contador + if_else(condicao, 1, 0);
-    end
-
-end

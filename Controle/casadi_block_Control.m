@@ -7,10 +7,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         x0                                                                % Criação da variável para guardar os estados para operação do MPC
         contador                                                     % Criação da variável para guardar o contador de loops - define momentro de atuação do MPC
         ModeloPreditor                                           % Criação da variável para guardar modelo de preditor do processo e que será utilizada pelo solver para a predição
-        TabelaLimitesDinamicos                            % Tabela com resultados dos limites Max/Min de proteção dinâmica para todas as frequências
-        TabelaSimulador                                         % Tabela do simulador Petrobras para Interpolação
+        MatrizLimitesDinamicos                            % Tabela com resultados dos limites Max/Min de proteção dinâmica para todas as frequências
+        MatrizSimuladorVazao                                         % Tabela do simulador Petrobras para Interpolação
         limMax_casadi
         limMin_casadi
+        TabelaLimitesDinamicos
             
         %        BufferLSTM   %%%   ?????                  % Tentar fazer Buffer. Usa o mesmo nome para Buffer ESN(data.a0) e da LSTM
     end
@@ -94,9 +95,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             obj.ModeloPreditor = evalin('base', 'ModeloPreditor');   % Modelos do preditor que será usada pelo MPC 
             
             % Tabelas para cálculos das proteções dinâmicas
-            obj.TabelaLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
-            obj.TabelaSimulador=evalin('base', 'TabSimulador');                       % Tabela do Simulador para cálculos da Interpola
-            
+            TabelaLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
+            obj.TabelaLimitesDinamicos =TabelaLimitesDinamicos;
+            obj.MatrizLimitesDinamicos = table2array(TabelaLimitesDinamicos(:, [1,3:end])); %cortando a coluna LIMITES
+            TabelaSimulador=evalin('base', 'TabSimulador'); 
+            obj.MatrizSimuladorVazao = table2array(TabelaSimulador(:,1:3));
 %             EstruturaSolver = obj.ModeloPreditor.data.tipo;       Se for  LSTM
 %             if EstruturaSolver==2
 %                 [~,obj.BufferLSTM] = CarregaModeloLSTM(obj.ModeloPreditor);
@@ -115,24 +118,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             EntradasESN_Normalizadas = normaliza_entradas([UProcesso;DadosProcesso]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)
             if t==0        % Assegura inicialização do solver e esquenta a ESN, caso esta seja o tipo do preditor usado
 %                 obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
-                %RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
-                matrizLimitesDinamicos = table2array(obj.TabelaLimitesDinamicos(:, [1,3:end])); %cortando a coluna LIMITES
-                iFreq=1;
-                iTMot=2;
-                iTSuc=3;
-                iVib=4;
-                iCTot=5;
-                iCTor=6;
-                iPSuc=7;
-                iPDes=8;
-                iPDif=9;
-                iPChe=10;
-                iTChe=11;
-                iVaz=12;
-                matrizLimitesDinamicos = matrizLimitesDinamicos([iFreq, iPSuc, iPChe, iPDif, iPDes, iTMot, iCTor, iCTot, iTSuc, iVib, iTChe, iVaz]);
-                tabelaSimuladorVazao = obj.TabelaSimulador(:,1:3);
-                matrizVazao = table2array(tabelaSimuladorVazao);
-                [SolucaoOtimizador, limMax, limMin] = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,matrizVazao,matrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
+
+                [SolucaoOtimizador, limMax, limMin] = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
                 obj.casadi_solver = SolucaoOtimizador;
                 obj.limMax_casadi = limMax;
                 obj.limMin_casadi = limMin;
@@ -150,43 +137,23 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% ===================== Empilha restrições para as variáveis do processo  =============================
             % Colocando na mesma organização do bloco de cálculo das restrições que foram recebidas nas entradas
              % Calculando as restrições com base nos valores atuais  recebidos na entrada do bloco
-%             Tmotor=Restricoes(1:2);
-%             Tsuc=Restricoes(3:4);
-%             Vib=Restricoes(5:6);
-%             CTotal =Restricoes(7:8);
-%             Ctorque=Restricoes(9:10);
-%             Psuc=Restricoes(11:12);
-%             Pdesc=Restricoes(13:14);
-%             Pdif=Restricoes(15:16);
-%             Pcheg=Restricoes(17:18);
-%             Tche=Restricoes(19:20);
         
              % Calculando as restrições com base na tabela já prédefinida
             Freq=round(UProcesso(1),1);   % Arredonda em uma casa decimal - isso é feito considerando delta Freq Minimo =0.1 (Poderiamos interpolar, mas não parece mercer)
-            RestricoesX=obj.TabelaLimitesDinamicos(obj.TabelaLimitesDinamicos.Frequencia==Freq,:);   % Extrai restricões pela tabela já calculada
-            
-            Tmotor=RestricoesX.TMotor;
-            Tsuc=RestricoesX.Tsuc;
-            Vib=RestricoesX.Vibracao;
-            CTotal =RestricoesX.TotalCurrent;
-            Ctorque=RestricoesX.TorqueCurrent;
-            Psuc=RestricoesX.IntakePressure;
-            Pdesc=RestricoesX.DischargePressure;
-            Pdif=RestricoesX.DifferentialPressure;
-            Pcheg=RestricoesX.ProductionSurfacePressure;
-            Tche=RestricoesX.ProductionSurfaceTemperature;
-            Vazao=RestricoesX.VazaoOleo;                                   % Não é usada nesta versão do MPC, mas já deixamos aqui
 
             % Como está fora de ordem para o Casadi, devemos colocar em ordem manualmente !!!
-            RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
-            RestricoesMin=[Psuc(2); Pcheg(2); Pdif(2); Pdesc(2); Tmotor(2); Ctorque(2); CTotal(2); Tsuc(2); Vib(2); Tche(2); Vazao(2)];
+            % RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
+            % RestricoesMin=[Psuc(2); Pcheg(2); Pdif(2); Pdesc(2); Tmotor(2); Ctorque(2); CTotal(2); Tsuc(2); Vib(2); Tche(2); Vazao(2)];
             
+            Restricoes = obj.MatrizLimitesDinamicos(obj.MatrizLimitesDinamicos==Freq, :);
+            RestricoesMax = Restricoes(1, 2:end)';
+            RestricoesMin = Restricoes(2, 2:end)';
             %  Concatena limites das variáveis de processo (10) + restrições de manipulação (DeltaU) e das controladas
             %  variações nas manipuladas (Freq e PMonAlvo)  e faixa das  variáveis controladas (PSuc e PChegada)
             
             % Usando a faixa da PChegada como sendo os limites do mapa
-            LimitesMax= [repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [Psuc(1) ;Pcheg(1)]];
-            LimitesMin = [repmat(RestricoesMin,(Hp+1),1);repmat(-dumax,Hc,1); [Psuc(2) ;Pcheg(2)]];
+            LimitesMax= [repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [RestricoesMax(1) ;RestricoesMax(2)]];
+            LimitesMin = [repmat(RestricoesMin,(Hp+1),1);repmat(-dumax,Hc,1); [RestricoesMin(1) ;RestricoesMin(2)]];
 %             LimitesMax= [repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [Psuc(1) ;30]];
 %             LimitesMin = [repmat(RestricoesMin,(Hp+1),1);repmat(-dumax,Hc,1); [Psuc(2) ;30]];
 %             % Usando a faixa da PChegada como sendo os limites máximos definidos pelo usuário
@@ -226,8 +193,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% ========= Conta do Solver para Galdir
             if (obj.contador==PassoMPC)      % Solver só entra no passo definido pelos parâmetros de Passo do MPC
                 tStart=tic;                                                                     % Dispara contagem para medir o tempo do solver
-                solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', LimitesMin,'ubx', LimitesMax,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
-                %solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', obj.limMin_casadi,'ubx', obj.limMax_casadi,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
+                %solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', LimitesMin,'ubx', LimitesMax,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
+                solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', obj.limMin_casadi,'ubx', obj.limMax_casadi,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
                 Feasible=obj.casadi_solver.stats.success;             % Atualizar status do Feasible
                 % Usa resposta do solver para atualizar variáveis
                 obj.x0 = full(solver_MPC.x);                                       % Atualiza objeto com solução ótima no instante k (PredicaoHorizonteHp; Deltau_k, Ysp)
