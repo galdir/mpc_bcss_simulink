@@ -9,7 +9,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         ModeloPreditor                                           % Criação da variável para guardar modelo de preditor do processo e que será utilizada pelo solver para a predição
         TabelaLimitesDinamicos                            % Tabela com resultados dos limites Max/Min de proteção dinâmica para todas as frequências
         TabelaSimulador                                         % Tabela do simulador Petrobras para Interpolação
-
+        limMax_casadi
+        limMin_casadi
+            
         %        BufferLSTM   %%%   ?????                  % Tentar fazer Buffer. Usa o mesmo nome para Buffer ESN(data.a0) e da LSTM
     end
 %%======================================================
@@ -113,7 +115,27 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             EntradasESN_Normalizadas = normaliza_entradas([UProcesso;DadosProcesso]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)
             if t==0        % Assegura inicialização do solver e esquenta a ESN, caso esta seja o tipo do preditor usado
 %                 obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
-                obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.TabelaSimulador(:,1:3),obj.TabelaLimitesDinamicos); % cria o solver (otimizador) uma vez
+                %RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
+                matrizLimitesDinamicos = table2array(obj.TabelaLimitesDinamicos(:, [1,3:end])); %cortando a coluna LIMITES
+                iFreq=1;
+                iTMot=2;
+                iTSuc=3;
+                iVib=4;
+                iCTot=5;
+                iCTor=6;
+                iPSuc=7;
+                iPDes=8;
+                iPDif=9;
+                iPChe=10;
+                iTChe=11;
+                iVaz=12;
+                matrizLimitesDinamicos = matrizLimitesDinamicos([iFreq, iPSuc, iPChe, iPDif, iPDes, iTMot, iCTor, iCTot, iTSuc, iVib, iTChe, iVaz]);
+                tabelaSimuladorVazao = obj.TabelaSimulador(:,1:3);
+                matrizVazao = table2array(tabelaSimuladorVazao);
+                [SolucaoOtimizador, limMax, limMin] = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,matrizVazao,matrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
+                obj.casadi_solver = SolucaoOtimizador;
+                obj.limMax_casadi = limMax;
+                obj.limMin_casadi = limMin;
                 if EstruturaSolver==1      % Se estratura do solver for uma ESN, precisa equentar
                     obj.ModeloPreditor.data.a0 = esquenta_ESN(obj.ModeloPreditor.data,EntradasESN_Normalizadas,1000); % Atualiza várias vezes o estado do reservátório para esquentar ESN
                 end
@@ -205,6 +227,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             if (obj.contador==PassoMPC)      % Solver só entra no passo definido pelos parâmetros de Passo do MPC
                 tStart=tic;                                                                     % Dispara contagem para medir o tempo do solver
                 solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', LimitesMin,'ubx', LimitesMax,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
+                %solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', obj.limMin_casadi,'ubx', obj.limMax_casadi,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
                 Feasible=obj.casadi_solver.stats.success;             % Atualizar status do Feasible
                 % Usa resposta do solver para atualizar variáveis
                 obj.x0 = full(solver_MPC.x);                                       % Atualiza objeto com solução ótima no instante k (PredicaoHorizonteHp; Deltau_k, Ysp)
