@@ -41,7 +41,8 @@ switch EstruturaSolver
         ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variável simbólica do reservatório da ESN
         g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
 
-        uk_11=floor(uk_1(1) * 10)/10; %arrendamento para baixo pois nao é possivel usar round
+        % uk_11=floor(uk_1(1) * 10)/10; %arrendamento para baixo pois nao é possivel usar round
+        uk_11 = uk_1(1);
         limites = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
         limMax = limites(1,:)';
         limMin = limites(2,:)';
@@ -70,7 +71,8 @@ switch EstruturaSolver
                        
             g=[g;X(:,k+1)-y_esn_pred];   % Define variável simbólica para atender as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
             
-            uk_11=floor(uk_1(1) * 10)/10;
+            %uk_11=floor(uk_1(1) * 10)/10;
+            uk_11 = uk_1(1);
             limites = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
             limMax_atual = limites(1,:)';
             limMin_atual = limites(2,:)';
