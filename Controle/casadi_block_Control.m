@@ -8,6 +8,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         contador                                                     % Criação da variável para guardar o contador de loops - define momentro de atuação do MPC
         ModeloPreditor                                           % Criação da variável para guardar modelo de preditor do processo e que será utilizada pelo solver para a predição
         TabelaLimitesDinamicos                            % Tabela com resultados dos limites Max/Min de proteção dinâmica para todas as frequências
+        TabelaSimulador                                         % Tabela do simulador Petrobras para Interpolação
 
         %        BufferLSTM   %%%   ?????                  % Tentar fazer Buffer. Usa o mesmo nome para Buffer ESN(data.a0) e da LSTM
     end
@@ -16,7 +17,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         %% ============   Ajuste das entradas
         function num = getNumInputsImpl(~)        % Nùmero de pinos de entradas do bloco CASADI (ver no Simulink)
             num = 14;                                               % São 14 pinos
-            %    12 = 10 variáveis do processo + 2 manipuladas (leitura da Freq e da PMon aplicadas ao processo)
+            %    13 = 10 variáveis do processo + VazãoEstimada + 2 manipuladas (leitura da Freq e da PMon aplicadas ao processo)
             %     1  = clock = tempo de simulação dado pelo Simulink
             %     2  = Alvos = Valores alvo para as manipuladas (Freq e PMon)
             %     2  = dumax = Delta U máximo que pode ser praticado em cada uma das manipuladas  
@@ -29,7 +30,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %     1 = Amostra MPC = Taxa de amstragem proporcional do MPC em relação aos dados de amostragem do processo
             %     1 = Umax (Freq e PmonAlvo Máximos)
             %     1 = Umin (Freq e PmonAlvo Mínimos)
-            %     20 restrições dinâmicas (max/min das 10 variáveis do processo)
+            %     22 restrições dinâmicas (max/min das 10 variáveis do processo + max/min da vazão)
 
         end
         %===============        
@@ -52,18 +53,18 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         %% ============  Ajuste das saidas
         function num = getNumOutputsImpl(~)     % Numero de pinos na saida do bloco Casadi
             num=1;
-            % num = 6;     %Poderia ser NUM=6 e colocarmos a implementação na forma   [1;1;2;2;2;10]
+            % num = 6;     %Poderia ser NUM=6 e colocarmos a implementação na forma   [1;1;2;2;2;11]
         end
         %===============        
         function sz1 = getOutputSizeImpl(~)         % Organização da saida do bloco Casadi
-           sz1 = 1+1+2+2+2+10;                            % Dimensão será de 18
-           % sz1 = [1;1;2;2;2;10];                            % Dimensão total será de 18, se quiser colocar na forma de 6 saídas
+           sz1 = 1+1+2+2+2+11;                            % Dimensão será de 19
+           % sz1 = [1;1;2;2;2;11];                            % Dimensão total será de 19, se quiser colocar na forma de 6 saídas
            % 1 = Informação de realizável (feasible) vindo do otimizador. (1/0) Indica se deu tempo de achar solução ótima
            % 1 = Tempo gasto pelo otimizador 
            % 2 = Valores calculados para as manipuladas Freq. e PMonAlvo
            % 2 = Variações ótimas calculadas para as manipuladas (Delta U de Freq e PMonAlvo). Será útil para visualizar a velocidade das alterações
            % 2 = Álvos ótimos calculados para a PSuc e PChegada
-           % 10 = Pedições do Processo (só para visualização)
+           % 11 = Pedições do Processo (só para visualização), incluindo a vazão
         end
         %===============        
         function dt1 = getOutputDataTypeImpl(~)   % Tipo das variáveis de saída - usamos todas "double"
@@ -92,6 +93,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             
             % Tabelas para cálculos das proteções dinâmicas
             obj.TabelaLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
+            obj.TabelaSimulador=evalin('base', 'TabSimulador');                       % Tabela do Simulador para cálculos da Interpola
             
 %             EstruturaSolver = obj.ModeloPreditor.data.tipo;       Se for  LSTM
 %             if EstruturaSolver==2
@@ -108,9 +110,10 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             UProcesso=DadosProcesso(nx+1:nx+nu);  % Extrai ações (Frequencia e PMonAlvo) aplicadas ao processo
             DadosProcesso=DadosProcesso(1:nx);      % Extrai apenas as nx variáveis com dados do processo
   
-            EntradasESN_Normalizadas = normaliza_entradas([UProcesso;DadosProcesso]);   % Normaliza entradas provenientes do processo
+            EntradasESN_Normalizadas = normaliza_entradas([UProcesso;DadosProcesso]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)
             if t==0        % Assegura inicialização do solver e esquenta a ESN, caso esta seja o tipo do preditor usado
-                obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
+%                 obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
+                obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.TabelaSimulador(:,1:3),obj.TabelaLimitesDinamicos); % cria o solver (otimizador) uma vez
                 if EstruturaSolver==1      % Se estratura do solver for uma ESN, precisa equentar
                     obj.ModeloPreditor.data.a0 = esquenta_ESN(obj.ModeloPreditor.data,EntradasESN_Normalizadas,1000); % Atualiza várias vezes o estado do reservátório para esquentar ESN
                 end
@@ -153,8 +156,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Vazao=RestricoesX.VazaoOleo;                                   % Não é usada nesta versão do MPC, mas já deixamos aqui
 
             % Como está fora de ordem para o Casadi, devemos colocar em ordem manualmente !!!
-            RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1)];
-            RestricoesMin=[Psuc(2); Pcheg(2); Pdif(2); Pdesc(2); Tmotor(2); Ctorque(2); CTotal(2); Tsuc(2); Vib(2); Tche(2)];
+            RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
+            RestricoesMin=[Psuc(2); Pcheg(2); Pdif(2); Pdesc(2); Tmotor(2); Ctorque(2); CTotal(2); Tsuc(2); Vib(2); Tche(2); Vazao(2)];
             
             %  Concatena limites das variáveis de processo (10) + restrições de manipulação (DeltaU) e das controladas
             %  variações nas manipuladas (Freq e PMonAlvo)  e faixa das  variáveis controladas (PSuc e PChegada)
@@ -180,7 +183,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Feasible=0.5;            % Assumir padrão para indicar que não passou pelo Solver
 
            if EstruturaSolver==1
-                par_solver =    [DadosProcesso;UProcesso;erro;Alvos;obj.ModeloPreditor.data.a0];    %DadosProcesso; UProcesso = última ação de controle; Regressores; Alvos = objetivo econômico; obj.ModeloPreditor.data.a0 = estados atuais do reservatório no modelo ESN do controlador
+                par_solver =    [DadosProcesso;UProcesso;erro;Alvos;obj.ModeloPreditor.data.a0];    %DadosProcesso; UProcesso = última ação de controle; Erro entre medição e predição; Alvos ENG; Estado do reservatório da ESN
             end
             if EstruturaSolver==2
                 u = [UProcesso;DadosProcesso];     %os regressores do processo (entradas e estados)
@@ -252,7 +255,7 @@ function [ny, nu, nx] = DimensoesVariaveisProcesso(Qy,Qu,DadosProcesso);
     ny=length(Qy);         % Associa número de variáveis controladas (no caso, 2: PSuc e PChegada)
     nu=length(Qu);         % Associa número de variáveis manipuladas (no caso, 2: Freq e PMonAlvo)
     T=length(DadosProcesso);    % Tamanho do vetor de dados do processo, mas precisa descontar as manipuladas que vieram junto
-    nx = T-nu;                 % Associa número de variáveis coletadas do processo (no caso, 10 = 12 menos as 2 manipuladas)
+    nx = T-nu;                 % Associa número de variáveis coletadas do processo (no caso, 11 = 13 menos as 2 manipuladas)
 end
 %=================================================================
 %% Função para ajustar o DeltaU mínimo - ao menos enquanto não for tratada na formulação do solver

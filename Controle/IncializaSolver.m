@@ -1,4 +1,4 @@
-function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor)
+function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,TabSimulador,TabelaLimitesDinamicos)
 % Parametros desta função:
 % EstruturaSolver =1/2 indica o tipo de modelo usado para o preditor do MPC: ESN/LSTM
 % Hp = Horizonte de predição
@@ -33,7 +33,7 @@ switch EstruturaSolver
         % - uk(entradas) (dimensão=nu)
         % - Erro, sendo a diferença entre a medição do processo e a última predição das variáveis controladas (dimensão=ny)
         % - Alvo dado pelo RTO (dimensão=nu)
-        % - Dados do reservervatório (dimensão=nx_ESN)
+        % - Dados do reservatório da ESN utilizada pelo controlador (dimensão=nx_ESN)
         P =           MX.sym('P',nx+nu+ny+nu+nx_ESN);    % qtd de parâmetros para o Solver
         uk_1 =        P(nx+1:nx+nu);                                    % define variável simbólica das entradas (Freq. PmonAlvo)
         erro =        P(nx+nu+1:nx+nu+ny);                         % define variável simbólica para erro (DadosProcesso-PrediçãoMPC) ->(Psuc. Pcheg)
@@ -53,7 +53,13 @@ switch EstruturaSolver
             a_wbias = [1.0;next_state];                                                                         % 
             yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
             y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
-            g=[g;X(:,k+1)-y_esn_pred];                                                                          % define variável simbólica para compor as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
+            VazaoEstimada=Interpola_casadi(uk_1(1), y_esn_pred(2)*1.019716,TabSimulador,3);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+            y_esn_pred=[y_esn_pred; VazaoEstimada];
+            
+%             Indices=TabelaLimitesDinamicos.Frequencia==uk_1(1);
+%             Restricoes=TabelaLimitesDinamicos(Indices,:);    % Extrai restricões pela tabela já calculada
+
+            g=[g;X(:,k+1)-y_esn_pred];   % Define variável simbólica para compor as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
         end
     case 2
         disp('Usando uma estrutura LSTM como preditor para o MPC');

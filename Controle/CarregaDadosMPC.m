@@ -32,16 +32,15 @@ Hc =  4 ;                      % Horizonte de controle
 Qy=  diag([1  1]);        % Qy - Peso das Controladas (PSuc e PChegada) prioridade da variável controlada voltar para respectiva faixa (calculada pelas proteções dinâmicas)
 Qu = diag([1  1]);        % Qu - Peso dos Alvos Desejados (Freq. e PMonAlvo). Ponderação priorização dos alvos (ponto do mapa)
 R=    [1  1];                  % R - Peso na variação da ação de controle - Delta U em (Freq. e PMonAlvo) 
-R =  diag(repmat(R,1,Hc));   %Matriz de supressão  (ajustado para diminuir/aumentar o custo de controle) das variáveis manipuladas (Freq. e PmonAlvo) em diagonal para FOB (conceito do MPC).
-
+R =  diag(repmat(R,1,Hc));   % Para diminuir/aumentar o custo de controle das variáveis manipuladas (Freq. e PmonAlvo) em todo o Hc
 
 % Inicializa estados para atuação do MPC
-MatrizYIni= repmat(YIni,1,Hp+1);                            % Condição inicial das variáveis (preenche horizonte até Hp+1 com valores iniciais)
-DeltaUIni= repmat(dumax,Hc,1);                             % Condição incial dos deltaU para todo o horizonte de controle
-InicializaMPC=[MatrizYIni(:);DeltaUIni;YIni(1:2)];   % Monta vetor de estados iniciais para operação do MPC
-% YIni são as condições iniciais das 10 variáveis do processo
+MatrizYIni= repmat(YIni,1,Hp+1);            % Condição inicial das variáveis (preenche horizonte até Hp+1 com valores iniciais das variáveis do processo)
+DeltaUIni= repmat(dumax,Hc,1);            % Condição incial dos deltaU para todo o horizonte de controle
+InicializaMPC=[MatrizYIni(:);DeltaUIni;YIni(1);YIni(2)];   % Monta vetor de estados iniciais para operação do MPC
+% YIni são as condições iniciais das nx variáveis do processo (nx = 11 = 10 + vazão)
 % DeltaUIni são as varições para cada variável manipulada (poderia inicializar com zeros, mas é indiferente pois o Delta U será calculado)
-% YIni(1:2), São a PSuc e a PChegada, ou seja, é a condição inicial das variáveis controladas
+% YIni(1) e YIni(2), são a PSuc e a PChegada, ou seja, é a condição inicial das variáveis controladas
 
 %% =============================================================================
 disp('Configurações e parâmetros do controlador foram carregados para a área de trabalho')

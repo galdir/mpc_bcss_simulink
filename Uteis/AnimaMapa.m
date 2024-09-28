@@ -1,4 +1,4 @@
-function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonIni,PSucIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro)
+function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonIni,PSucIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro,TabelaIsometricas)
 % Animação para atualização do ponto de operação nos mapas em tempo de simulação 
 
     global TituloMapa1                  % Título no mapa de Frequência x PChegada
@@ -7,6 +7,7 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
     global SubTituloMapa2            % SubTítulo no mapa de Frequência x PSuc
     global TituloMapa3                  % Título no mapa de Frequência x Vazao de òleo
     global SubTituloMapa3            % SubTítulo no mapa de Frequência x Vazao de òleo
+    global IsoVazaoENG               % Plot da Isometrica de vazão correspondente ao alvo da engenharia
 
     global OperacaoMapa1          % Ponto de operacao no mapa de Frequência x PChegada
     global SetPointMapa1             % Ponto de set-point ótimo no mapa de Frequência x PChegada
@@ -32,7 +33,7 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
         x0=[];                                        % Não armazena estados internos
         % Prepara plotagem dos mapas
         if PlotaMapas                                                    % Se for para plotar os mapas
-            monta_mapas(TabSimulador,BTP);            % Apenas na inicialização, monta mapas como pano de fundo
+            monta_mapas(TabSimulador,BTP,TabelaIsometricas);            % Apenas na inicialização, monta mapas como pano de fundo
             % Corrige unidades de pressão da operação [bar]  para unidades de pressão nos  mapas [Kgf/cm2]
             PMonIni=PMonIni*1.019716;
             PSucIni=PSucIni*1.019716;
@@ -46,6 +47,16 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
             OperacaoMapa1=plot(FreqIni,PMonIni,'ko');                  % Inicializa ponto de operação neste gráfico
             SetPointMapa1=plot(FreqIni,PMonAlvoIni,'k*');               % Inicializa no mesmo ponto de inicialização da operação
             AlvoENGMapa1=plot(FreqAlvoIni,PMonAlvoIni,'bx');      % Incializa alvo da ENG no mapa
+            % Prepara isométrica da vazão para o alvo da engenharia
+            VazaoAlvoIni=Interpola(FreqAlvoIni, PMonAlvoIni,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
+            
+            VarX=TabelaIsometricas.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
+            VarY=TabelaIsometricas.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
+            VarProcurada=TabelaIsometricas.VazaoOleo;           % Variável que vai compor a curva isométrica no Mapa
+%            [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,VazaoAlvoIni,VazaoAlvoIni/300,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+            [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,VazaoAlvoIni,0.5,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+            IsoVazaoENG=plot(VarX,VarY,'b--');                               % Guarda variável para animação qdo alterar o alvo da ENG
+            
             %=======================
             %  Mapa 2 = PSuc x Frequência
             subplot(3,1,2)    % Inicialização das variáveis que vão compor o mapa
@@ -60,12 +71,12 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
 
             %=======================
             %  Mapa 3 = Vazão x Frequência
-            subplot(3,1,3)    % Inicialização das variáveis que vão compor o mapa
+            subplot(3,1,3)    % Inicialização das variáveis que vão compor o mapa 3
             TituloMapa3=title("Mapa Vazão de Óleo x Frequência");
             SubTituloMapa3=subtitle("");
             SubTituloMapa3.Color='blue';
-            VazaoIni=Interpola(FreqIni, PMonIni,TabSimulador,3);                       % Estima em função da Freq e Pressao
-            VazaoAlvoIni=Interpola(FreqAlvoIni, PMonAlvoIni,TabSimulador,3);  % Estima em função da Freq e Pressao
+            VazaoIni=Interpola(FreqIni, PMonIni,TabSimulador,3);                       % Estima vazão em função da Freq e Pressao
+            VazaoAlvoIni=Interpola(FreqAlvoIni, PMonAlvoIni,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
             OperacaoMapa3=plot(FreqIni,VazaoIni,'ko');                  % Inicializa ponto de operação neste gráfico
             SetPointMapa3=plot(FreqIni,VazaoAlvoIni,'k*');               % Inicializa no mesmo ponto de inicialização da operação
             AlvoENGMapa3=plot(FreqAlvoIni,VazaoAlvoIni,'bx');      % Incializa alvo da ENG no mapa
@@ -115,6 +126,15 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
 
             TituloMapa3.String=strcat("Vazão Estimada= ",num2str(Vazao(1),'%.2f'),"    (*) SetPoint=",num2str(Vazao(3),'%.2f'),"     Erro =",num2str(Vazao(1)-Vazao(3),'%.2f')," [m3/dia]");
             SubTituloMapa3.String=strcat("                                    (x) Alvo ENG=",num2str(Vazao(2),'%.2f'),"     Erro = ",num2str(Vazao(1)-Vazao(2),'%.2f')," [m3/dia]");
+            
+            % Atualiza curva de isométrica da vazão correspondente ao alvo da ENG que pode ter alterado
+            VarX=TabelaIsometricas.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
+            VarY=TabelaIsometricas.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
+            VarProcurada=TabelaIsometricas.VazaoOleo;           % Variável que vai compor a curva isométrica no Mapa
+%            [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,VazaoAlvoENG,VazaoAlvoENG/500,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+            [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,VazaoAlvoENG,0.5,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+            set(IsoVazaoENG,'xdata',VarX,'ydata',VarY)                % Atualiza no mapa a curva isométrica da vazão 
+            
            drawnow;
         end
         sys=[];
@@ -152,21 +172,21 @@ function  AtualizaMapa(Mapa,OperacaoMapa,AlvoENGMapa,SetPointMapa,Rastro,Freq,Va
 end
 
 %% ==================================================================================
-function monta_mapas(T,BTP)
+function monta_mapas(TabSimulador,BTP,TabelaIsometricas)
     close all
     figure(1)
     set(gcf,'position',[20   5   570   875]);
     % set(gcf,'MenuBar','none');
     set(gcf,'name','MAPAS DE OPERAÇÃO');
 
-    [Qdt, Qut,Condicao,Cor]=AvaliaCondicao(T,BTP);
-    gridFreq=unique(T.FreqBCSS);   % Verifica o grid da frequencia
+    [Qdt, Qut,Condicao,Cor]=AvaliaCondicao(TabSimulador,BTP);
+    gridFreq=unique(TabSimulador.FreqBCSS);   % Verifica o grid da frequencia
     Tam=0.1*10/height(gridFreq);       % Usa o tamanho do grid para propor o tamanho do cículo na plotagem
 
     % Varre grid definido para a frequência e calcula os limites de proteção
     GridP=0.5;        % Grid para fazer o cálculo em uma frequência específica. Grids menores dão maior precisão aos limites das curvas
     for i=1:height(gridFreq)
-         [QMin(i), QMax(i),PSucMin(i),PSucMax(i), PChegadaMin(i),PChegadaMax(i)]=ProtecoesMapas(T,BTP,gridFreq(i),GridP);
+         [QMin(i), QMax(i),PSucMin(i),PSucMax(i), PChegadaMin(i),PChegadaMax(i)]=ProtecoesMapas(TabSimulador,BTP,gridFreq(i),GridP);
     end
 
     % =================================================
@@ -177,7 +197,7 @@ function monta_mapas(T,BTP)
     % axis([ 39.9   60   10   50])
     % xlabel('Frequencia [Hz]');
     ylabel('Pressão de Chegada [Kgf/cm^2]');
-    scatter(T.FreqBCSS,T.PressChegada,Tam*T.VazaoOleo,Cor,'filled')
+    scatter(TabSimulador.FreqBCSS,TabSimulador.PressChegada,Tam*TabSimulador.VazaoOleo,Cor,'filled')
     colormap(prism)
     % Traça limites do mapa
     plot(gridFreq,PChegadaMin,'r')
@@ -187,15 +207,14 @@ function monta_mapas(T,BTP)
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
     
     % Isocurvas do mapa 1
-    NovaT=RepSimulador(0,1,1);    % Tabela com melhor resolução do que a que foi fornecida pela Petrobras (usada apenas para as curvas isométricas)
-    % Completa mapa com curvas de isovazão
+    %  Completa mapa com curvas de isovazão
     for i=250:50:500
-        VarX=NovaT.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
-        VarY=NovaT.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
-        VarProcurada=NovaT.VazaoOleo;           % Variável que vai compor a curva isométrica no Mapa
-        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,1,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        VarX=TabelaIsometricas.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
+        VarY=TabelaIsometricas.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=TabelaIsometricas.VazaoOleo;           % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
         plot(VarX,VarY,'k:')
-       text(max(VarX),max(VarY)-1,strcat(num2str(i),"m^3/d"),'FontSize',8)
+        text(max(VarX),max(VarY)-1,strcat(num2str(i),"m^3/d"),'FontSize',8)
     end
 
     % =============
@@ -205,7 +224,7 @@ function monta_mapas(T,BTP)
     % axis([ 39.9  60   65   105])
     % xlabel('Frequencia [Hz]');
     ylabel('Pressão de Sucção [Kgf/cm^2]');
-    scatter(T.FreqBCSS,T.PressSuccao,Tam*T.VazaoOleo,Cor,'filled')
+    scatter(TabSimulador.FreqBCSS,TabSimulador.PressSuccao,Tam*TabSimulador.VazaoOleo,Cor,'filled')
     colormap(prism)
     % Traça limites do mapa
     plot(gridFreq,PSucMin,'r')
@@ -214,14 +233,14 @@ function monta_mapas(T,BTP)
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
 
-   % Completa mapa 2 com curvas de isobáricas
+   % Completa mapa 2 com curvas isobáricas da PChegada
     for i=20:10:50
-        VarX=NovaT.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
-        VarY=NovaT.PressSuccao;                      % Variável que vai compor o eixo Y do Mapa
-        VarProcurada=NovaT.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
-        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        VarX=TabelaIsometricas.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
+        VarY=TabelaIsometricas.PressSuccao;                      % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=TabelaIsometricas.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
         plot(VarX,VarY,'k:')
-       text(min(VarX),max(VarY)-1,strcat(num2str(i)),'FontSize',8)
+        text(min(VarX),max(VarY)-1,strcat(num2str(i)),'FontSize',8)
     end
 
     % =============
@@ -231,7 +250,7 @@ function monta_mapas(T,BTP)
     % axis([ 39.9  60   65   105])
     xlabel('Frequencia [Hz]');
     ylabel('Vazão de Óleo [m3/dia]');
-    scatter(T.FreqBCSS,T.VazaoOleo,Tam*T.VazaoOleo,Cor,'filled')
+    scatter(TabSimulador.FreqBCSS,TabSimulador.VazaoOleo,Tam*TabSimulador.VazaoOleo,Cor,'filled')
     colormap(prism)
     % Traça limites do mapa
     plot(gridFreq,QMin,'b')
@@ -240,12 +259,12 @@ function monta_mapas(T,BTP)
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
     
-   % Completa mapa 3 com curvas de isobáricas
+   % Completa mapa 3 com curvas isobáricas da PChegada
     for i=20:10:50
-        VarX=NovaT.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
-        VarY=NovaT.VazaoOleo;                         % Variável que vai compor o eixo Y do Mapa
-        VarProcurada=NovaT.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
-        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,0.5);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
+        VarX=TabelaIsometricas.FreqBCSS;                          % Variável que vai compor o eixo X do Mapa   
+        VarY=TabelaIsometricas.VazaoOleo;                         % Variável que vai compor o eixo Y do Mapa
+        VarProcurada=TabelaIsometricas.PressChegada;    % Variável que vai compor a curva isométrica no Mapa
+        [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,i,0.5,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
         plot(VarX,VarY,'k:')
         text(min(VarX),min(VarY)-1,strcat(num2str(i)),'FontSize',8)
     end
