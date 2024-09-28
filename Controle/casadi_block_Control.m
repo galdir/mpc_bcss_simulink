@@ -7,8 +7,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         x0                                                                % Criação da variável para guardar os estados para operação do MPC
         contador                                                     % Criação da variável para guardar o contador de loops - define momentro de atuação do MPC
         ModeloPreditor                                           % Criação da variável para guardar modelo de preditor do processo e que será utilizada pelo solver para a predição
-        TabelaLimitesDinamicos                            % Tabela com resultados dos limites Max/Min de proteção dinâmica para todas as frequências
-        TabelaSimulador                                         % Tabela do simulador Petrobras para Interpolação
+        MatrizLimitesDinamicos                            % Tabela com resultados dos limites Max/Min de proteção dinâmica para todas as frequências
+        MatrizSimuladorVazao                                         % Tabela do simulador Petrobras para Interpolação
+        limMax_casadi
+        limMin_casadi
+        TabelaLimitesDinamicos
 
         %        BufferLSTM   %%%   ?????                  % Tentar fazer Buffer. Usa o mesmo nome para Buffer ESN(data.a0) e da LSTM
     end
@@ -92,8 +95,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             obj.ModeloPreditor = evalin('base', 'ModeloPreditor');   % Modelos do preditor que será usada pelo MPC 
             
             % Tabelas para cálculos das proteções dinâmicas
-            obj.TabelaLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
-            obj.TabelaSimulador=evalin('base', 'TabSimulador');                       % Tabela do Simulador para cálculos da Interpola
+            TabLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
+            obj.TabelaLimitesDinamicos = TabLimitesDinamicos;
+            obj.MatrizLimitesDinamicos = table2array(obj.TabelaLimitesDinamicos(:, [1,3:end])); %cortando a coluna LIMITES
+            TabelaSimulador=evalin('base', 'TabSimulador'); 
+            obj.MatrizSimuladorVazao = table2array(TabelaSimulador(:,1:3));
             
 %             EstruturaSolver = obj.ModeloPreditor.data.tipo;       Se for  LSTM
 %             if EstruturaSolver==2
@@ -113,7 +119,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             EntradasESN_Normalizadas = normaliza_entradas([UProcesso;DadosProcesso]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)
             if t==0        % Assegura inicialização do solver e esquenta a ESN, caso esta seja o tipo do preditor usado
 %                 obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
-                obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.TabelaSimulador(:,1:3),obj.TabelaLimitesDinamicos); % cria o solver (otimizador) uma vez
+                obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
                 if EstruturaSolver==1      % Se estratura do solver for uma ESN, precisa equentar
                     obj.ModeloPreditor.data.a0 = esquenta_ESN(obj.ModeloPreditor.data,EntradasESN_Normalizadas,1000); % Atualiza várias vezes o estado do reservátório para esquentar ESN
                 end

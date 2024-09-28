@@ -1,5 +1,4 @@
-function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,TabSimulador,TabelaLimitesDinamicos)
-% Parametros desta função:
+function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,matrizVazao,matrizLimitesDinamicos, dumax)% Parametros desta função:
 % EstruturaSolver =1/2 indica o tipo de modelo usado para o preditor do MPC: ESN/LSTM
 % Hp = Horizonte de predição
 % Hc= Horizonte de controle
@@ -53,7 +52,7 @@ switch EstruturaSolver
             a_wbias = [1.0;next_state];                                                                         % 
             yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
             y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
-            VazaoEstimada=Interpola_casadi(uk_1(1), y_esn_pred(2)*1.019716,TabSimulador,3);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+            VazaoEstimada=Interpola_casadi_vazao(uk_1(1), y_esn_pred(2)*1.019716,matrizVazao);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
             y_esn_pred=[y_esn_pred; VazaoEstimada];
             
 %             Indices=TabelaLimitesDinamicos.Frequencia==uk_1(1);
