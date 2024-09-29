@@ -1,7 +1,6 @@
 
 
-% Monta Solver que será utilizado no Exemplo 6
-% è o mesmo exemplo 5, mas, neste caso, com obstáculo
+% acrescenta ruido no modelo
 % Usando o CaSAdi para fazer o controle ótimo da movimentação de um robô
 % Opção do MultipleShooting
 % 
@@ -76,7 +75,7 @@ for k=1:N
     obj=obj + (st-P(4:6))'*Q*(st-P(4:6)) + con'*R*con; 
     st_next=X(:,k+1);
     f_value=f(st,con);
-    st_next_euler=st+(T*f_value);
+    st_next_euler=st+st*randn(1)/100+(T*f_value);
     args.lbx=[args.lbx, -2,-2, -inf];
     args.ubx=[args.ubx, 2, 2, inf];
     g=[g  ;  st_next - st_next_euler ];
@@ -90,6 +89,13 @@ for k=1:N+1
     args.lbg=[args.lbg, 0]; % Limites inferiores (lower bounds) para as restrições de desigualdade em g
     args.ubg=[args.ubg, inf]; % Limites superiores (upper bounds) para as restrições de desigualdade em g
 end
+
+% % Restrições referentes a rota
+% for k=1:N+1   
+%     g=[g; if_else(k<N/2, obs_y - X(2,k), obs_y+10 - X(2,k))];
+%     args.lbg=[args.lbg, 0]; % Limites inferiores (lower bounds) para as restrições de desigualdade em g
+%     args.ubg=[args.ubg, inf]; % Limites superiores (upper bounds) para as restrições de desigualdade em g
+% end
 
 
 % Monta as variáveis de decisão em um vetor coluna
