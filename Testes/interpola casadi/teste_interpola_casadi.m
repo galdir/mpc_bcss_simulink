@@ -18,8 +18,8 @@ disp(vazao_casadi_symb)
 % teste com valor real
 freq = 55;
 pmon_alvo = 38;
-vasao_casadi = Interpola_casadi_real(freq, pmon_alvo, TabSimulador, 3);
+vasao_casadi = Interpola_casadi_real(freq, pmon_alvo*1.019716, TabSimulador, 3);
 disp(vasao_casadi);
 
-vasao = Interpola(freq, pmon_alvo, TabSimulador, 3);
+vasao = Interpola(freq, pmon_alvo*1.019716, TabSimulador, 3);
 disp(vasao)

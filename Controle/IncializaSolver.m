@@ -39,6 +39,11 @@ switch EstruturaSolver
         uRTO =        P(nx+nu+ny+1:nx+nu+ny+nu);         % define variável simbólica para Alvo (Freq. e PmonAlvo)
         ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variável simbólica do reservatório da ESN
         g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
+        
+        Freq_sym = MX.sym('Freq_sym',1);
+        Press_sym = MX.sym('Press_sym',1);
+        Interpola_casadi_vazao_sym = Interpola_casadi_vazao_v2(Freq_sym, Press_sym,matrizVazao);
+        f = Function('f', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
 
         %Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
         for k=1:Hp
@@ -52,7 +57,8 @@ switch EstruturaSolver
             a_wbias = [1.0;next_state];                                                                         % 
             yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
             y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
-            VazaoEstimada=Interpola_casadi_vazao(uk_1(1), y_esn_pred(2)*1.019716,matrizVazao);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+            %VazaoEstimada=Interpola_casadi_vazao_v2(uk_1(1), y_esn_pred(2)*1.019716,matrizVazao);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+            VazaoEstimada=f(uk_1(1), y_esn_pred(2)*1.019716);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
             y_esn_pred=[y_esn_pred; VazaoEstimada];
             
 %             Indices=TabelaLimitesDinamicos.Frequencia==uk_1(1);

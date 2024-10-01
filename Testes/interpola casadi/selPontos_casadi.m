@@ -76,8 +76,13 @@ function [inferior, superior] = encontrarPontosInterpolacao(valor, grid)
     
     for i = 1:n-1
         cond = (valor >= grid(i)) & (valor < grid(i+1));
+        
         inferior = if_else(cond, grid(i), inferior);
         superior = if_else(cond, grid(i+1), superior);
+
+        cond2 = (valor == grid(i));
+        superior = if_else(cond2, grid(i), superior);
+        
     end
     
     % Tratamento especial para o último ponto do grid

@@ -5,7 +5,7 @@ function Pontos = selPontos_casadi_vazao(Freq, Press, matriz)
 %   Entradas:
 %       Freq     - Valor de frequência para interpolar (objeto simbólico CasADi)
 %       Press    - Valor de pressão para interpolar (objeto simbólico CasADi)
-%       T_struct - Struct contendo os dados da tabela (resultado de table2struct)
+%       matriz - matrix contendo os dados de freq, press e vazao
 %
 %   Saída:
 %       Pontos - Struct contendo os 4 pontos selecionados para interpolação
@@ -25,8 +25,11 @@ Freq = verificarLimites(Freq, gridF);
 Press = verificarLimites(Press, gridP);
 
 % Encontra pontos de interpolação para Frequência e Pressão
-[F1, F2] = encontrarPontosInterpolacao_v3(Freq, gridF);
-[P1, P2] = encontrarPontosInterpolacao_v3(Press, gridP);
+[F1, F2] = encontrarPontosInterpolacao(Freq, gridF);
+[P1, P2] = encontrarPontosInterpolacao(Press, gridP);
+%Ps = encontrarPontosInterpolacao(Press, gridP);
+%P1 = Ps(1);
+%P2 = Ps(2);
 
 % Inicializa struct para armazenar os pontos
 Pontos = struct();
@@ -77,12 +80,16 @@ function [inferior, superior] = encontrarPontosInterpolacao(valor, grid)
         cond = (valor >= grid(i)) & (valor < grid(i+1));
         inferior = if_else(cond, grid(i), inferior);
         superior = if_else(cond, grid(i+1), superior);
+
+        % caso o valor buscado seja identico um ja existente
+        superior = if_else(valor == grid(i), grid(i), superior);
     end
     
     % Tratamento especial para o último ponto do grid
     cond_last = (valor == grid(end));
     inferior = if_else(cond_last, grid(end-1), inferior);
     superior = if_else(cond_last, grid(end), superior);
+
 end
 
 function valor = selecionarValor(matriz, gridP, gridF, P, F)
@@ -96,45 +103,3 @@ function valor = selecionarValor(matriz, gridP, gridF, P, F)
         end
     end
 end
-
-
-function [inferior, superior] = encontrarPontosInterpolacao_v2(valor, grid)
-    import casadi.*
-    
-    % Verifica em quais intervalos o valor se encontra no grid
-    cond = (valor >= grid(1:end-1)) & (valor < grid(2:end));
-    
-    % Define os valores inferior e superior baseados na condição
-    inferior = if_else(any(cond), grid(find(cond, 1, 'first')), grid(1));
-    superior = if_else(any(cond), grid(find(cond, 1, 'first') + 1), grid(end));
-    
-    % Tratamento especial para o último ponto do grid
-    cond_last = (valor == grid(end));
-    inferior = if_else(cond_last, grid(end-1), inferior);
-    superior = if_else(cond_last, grid(end), superior);
-end
-
-
-
-% Função que aplica a interpolação condicional
-function [inferior, superior] = encontrarPontosInterpolacao_v3(valor, grid)
-    import casadi.*
-    % Inicializa as variáveis simbólicas
-    inferior = grid(1);
-    superior = grid(end);
-    
-    % Defina a operação a ser aplicada em paralelo
-    cond_fun = @(i) if_else((valor >= grid(i)) & (valor < grid(i+1)), grid(i), inferior);
-    sup_fun = @(i) if_else((valor >= grid(i)) & (valor < grid(i+1)), grid(i+1), superior);
-    
-    % Aplica map para cada função
-    indices = 1:length(grid)-1;
-    inferior = fold(cond_fun, indices, inferior);
-    superior = fold(sup_fun, indices, superior);
-    
-    % Tratamento especial para o último ponto do grid
-    cond_last = (valor == grid(end));
-    inferior = if_else(cond_last, grid(end-1), inferior);
-    superior = if_else(cond_last, grid(end), superior);
-end
-

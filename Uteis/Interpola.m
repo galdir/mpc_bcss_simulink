@@ -66,6 +66,7 @@ if (x1==x2) & (y1~=y2)        % Frequencia escolhida existe no grid. Só precisa
     f=a*y+b;                            % Valor interpolado no ponto
 end
 
+
 % Os pontos de Pressão existem no grid da simulação
 % Interpolação LINEAR com base na Frequencia
 if (x1~=x2) & (y1==y2)       % Pressão escolhida existe no grid. Só precisa fazer a interpolação linear da Frequencia
@@ -73,6 +74,8 @@ if (x1~=x2) & (y1==y2)       % Pressão escolhida existe no grid. Só precisa fa
     b=f11-a*x1;                      % Coeficiente linear da reta
     f=a*x+b;                            % Valor interpolado no ponto
 end
+
+
 %==================================================================
 
 

@@ -5,8 +5,8 @@ function New = Interpola_casadi_vazao(Freq, Press, matriz)
 %   Entradas:
 %       Freq   - Valor de frequência para interpolar (objeto simbólico CasADi)
 %       Press  - Valor de pressão para interpolar (objeto simbólico CasADi)
-%       matriz      - matriz contendo os dados
-%       Indice - (Opcional) Índice específico para retornar
+%       matriz - matrix contendo os dados de freq, press e vazao
+
 %
 %   Saída:
 %       New - Struct contendo os valores interpolados ou valor específico se Indice for fornecido
@@ -49,9 +49,13 @@ function f = Bilinear_casadi(x, y, x1, x2, y1, y2, f11, f12, f21, f22)
     
     % Casos especiais para interpolação LINEAR
     f_x = if_else(x1 == x2, f11 + (f12 - f11) * (y - y1) / (y2 - y1),  f);
+    %f_x = if_else(x1 == x2,((f12-f11)/(y2-y1))*y+(f11-((f12-f11)/(y2-y1))*y1), f);
     
     f_y = if_else(y1 == y2, f11 + (f21 - f11) * (x - x1) / (x2 - x1),  f);
+    %f_y = if_else(y1 == y2, ((f22-f11)/(x2-x1))*x+f11-((f22-f11)/(x2-x1))*x1,  f);
     
     % Seleciona o resultado apropriado
     f = if_else(x1 == x2, f_x, if_else(y1 == y2, f_y, f));
+    f = if_else(x1 == x2, if_else(y1 == y2, f11, f), f);
+
 end
