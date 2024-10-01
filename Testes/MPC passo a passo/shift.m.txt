@@ -1,0 +1,16 @@
+function [t0, x0, u0]=shift(T, t0, x0, u, f)
+% Função de Shift usada nos exemplos 4 a  7 para setar o novo estado como
+% referência para a próxima iteração
+    st=x0;                              % Assume estado st como sendo o estado que receceu como parâmetro
+    con=u(1,:)';                     % Extrai a ação de controle
+    f_value=f(st,con);          % Aplica a ação de controle no sistema (usa a função f definida)
+    st=st + (T*f_value);       % Atualiza os estados do sistema dinâmico
+    
+    % Retorno da função
+    x0=full(st);                      % Devolve os estados atualizados
+    t0=t0+T;                          % Devolve o tempo de referência incrementado por DeltaT
+    Hp=size(u,1);                 % Do tamanho da ação de controle, extrai tamanho do horizonte de predição
+    u0=[u(2:Hp,:); u(Hp,:)];   % Retorna tabela com ações de controle, Como não sabe o futuro Hp+1, substitui pelo último u calculado   
+%    u0=[u(2:size(u,1),:); u(size(u,1),:)];  
+end
+%=============================================
