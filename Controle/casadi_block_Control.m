@@ -119,10 +119,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             if t==0        % Assegura inicialização do solver e esquenta a ESN, caso esta seja o tipo do preditor usado
 %                 obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
 
-                [SolucaoOtimizador, limMax, limMin] = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
-                obj.casadi_solver = SolucaoOtimizador;
-                obj.limMax_casadi = limMax;
-                obj.limMin_casadi = limMin;
+                sol_args = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
+                obj.casadi_solver = sol_args.solucionador;
+
                 if EstruturaSolver==1      % Se estratura do solver for uma ESN, precisa equentar
                     obj.ModeloPreditor.data.a0 = esquenta_ESN(obj.ModeloPreditor.data,EntradasESN_Normalizadas,1000); % Atualiza várias vezes o estado do reservátório para esquentar ESN
                 end

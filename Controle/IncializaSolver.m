@@ -1,4 +1,4 @@
-function [SolucaoOtimizador, limMax, limMin] = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,matrizVazao,matrizLimitesDinamicos, dumax)
+function sol_args = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,matrizVazao,matrizLimitesDinamicos, dumax)
 % Parametros desta função:
 % EstruturaSolver =1/2 indica o tipo de modelo usado para o preditor do MPC: ESN/LSTM
 % Hp = Horizonte de predição
@@ -25,6 +25,8 @@ h=Function('h',{VarControladas},{[VarControladas(1);VarControladas(2)]}); % Defi
 switch EstruturaSolver
     case 1
         disp('Usando uma estrutura ESN como preditor para o MPC');
+        sol_args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos
+        
         %Parâmetros simbólicos específicos da ESN
         nx_ESN =      length(ModeloPreditor.data.Wir);   % Resgata o tamanho do reservatório da ESN utilizada como modelo preditor
         
@@ -43,7 +45,7 @@ switch EstruturaSolver
 
         % uk_11=floor(uk_1(1) * 10)/10; %arrendamento para baixo pois nao é possivel usar round
         uk_11 = uk_1(1);
-        limites = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
+        limites = encontrarRestricoesTabela_casadi(matrizLimitesDinamicos, uk_11);
         limMax = limites(1,:)';
         limMin = limites(2,:)';
         limMax_controladas = [limMax(1); limMax(2)];
@@ -73,7 +75,7 @@ switch EstruturaSolver
             
             %uk_11=floor(uk_1(1) * 10)/10;
             uk_11 = uk_1(1);
-            limites = encontrarRestricoesTabela(matrizLimitesDinamicos, uk_11);
+            limites = encontrarRestricoesTabela_casadi(matrizLimitesDinamicos, uk_11);
             limMax_atual = limites(1,:)';
             limMin_atual = limites(2,:)';
             %limMin_atual =  [limMin_tab, -dumax(1), -dumax(2), limMin_tab(iPSuc), limMin_tab(iPChe)];
@@ -159,5 +161,6 @@ options.ipopt.max_iter=100;                   % Especifica o número máximo de it
 options.ipopt.acceptable_tol=1e-4;            % Define a tolerância de convergência do solver. Um valor menor indica uma solução mais precisa.
 options.ipopt.acceptable_obj_change_tol=1e-4; % Define uma tolerância aceitável para uma solução "boa o suficiente", útil para problemas onde a solução perfeita pode ser muito difícil de alcançar.
 SolucaoOtimizador = nlpsol('SolucaoOtimizador','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
+sol_args.solucionador = SolucaoOtimizador;
 end
 
