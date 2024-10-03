@@ -42,19 +42,26 @@ switch EstruturaSolver
         uRTO =        P(nx+nu+ny+1:nx+nu+ny+nu);         % define variável simbólica para Alvo (Freq. e PmonAlvo)
         ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variável simbólica do reservatório da ESN
         g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
-
-        % uk_11=floor(uk_1(1) * 10)/10; %arrendamento para baixo pois nao é possivel usar round
-        uk_11 = uk_1(1);
-        limites = encontrarRestricoesTabela_casadi(matrizLimitesDinamicos, uk_11);
+        
+        %montando funcoes com expressoes casadi para acelerar o loop de
+        %horizonte de predicao
+        Freq_sym = MX.sym('Freq_sym',1);
+        Press_sym = MX.sym('Press_sym',1);
+        Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym, matrizVazao);
+        f_Interpola_casadi_vazao_sym = Function('f_vazao', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
+        
+        encontrarRestricoesLimites_casadi_sym = encontrarLimitesTabela_casadi(matrizLimitesDinamicos, Freq_sym);
+        f_encontrarRestricoesLimites_casadi_sym = Function('f_lim', {Freq_sym}, {encontrarRestricoesLimites_casadi_sym});
+        
+        %buscando limites dinamicos
+        uk_11 = uk_1(1); % frequencia atual para buscar limites
+        uk_11=floor(uk_11 * 10)/10; %arredondamento para uma casa decimal (em casadi nao existe round)
+        limites = f_encontrarRestricoesLimites_casadi_sym(uk_11);
         limMax = limites(1,:)';
         limMin = limites(2,:)';
         limMax_controladas = [limMax(1); limMax(2)];
         limMin_controladas = [limMin(1); limMin(2)];
 
-        %limMax = [limMax_tab, dumax(1), dumax(2), limMin_tab(iPSuc), limMin_tab(iPChe)];
-        %limMin = [limMin_tab, -dumax(1), -dumax(2), limMin_tab(iPSuc), limMin_tab(iPChe)];
-
-        %[repmat(RestricoesMax,(Hp+1),1);repmat(dumax,Hc,1); [Psuc(1) ;Pcheg(1)]];
 
         %Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
         for k=1:Hp
@@ -68,23 +75,29 @@ switch EstruturaSolver
             a_wbias = [1.0;next_state];                                                                         % 
             yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
             y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
-            VazaoEstimada=Interpola_casadi_vazao(uk_1(1), y_esn_pred(2)*1.019716, matrizVazao);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+            
+            %VazaoEstimada=Interpola_casadi_vazao(uk_1(1), y_esn_pred(2)*1.019716, matrizVazao);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+            VazaoEstimada=f_Interpola_casadi_vazao_sym(uk_1(1), y_esn_pred(2)*1.019716);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+
             y_esn_pred=[y_esn_pred; VazaoEstimada];
                        
             g=[g;X(:,k+1)-y_esn_pred];   % Define variável simbólica para atender as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
             
-            %uk_11=floor(uk_1(1) * 10)/10;
-            uk_11 = uk_1(1);
-            limites = encontrarRestricoesTabela_casadi(matrizLimitesDinamicos, uk_11);
+            %buscando limites dinamicos
+            uk_11 = uk_1(1); % frequencia atual para buscar limites
+            uk_11=floor(uk_11 * 10)/10; %arredondamento para uma casa decimal (em casadi nao existe round)
+            
+            %limites = encontrarRestricoesLimites_casadi(matrizLimitesDinamicos, uk_11);
+            %encontrarRestricoesLimites_casadi_sym = encontrarRestricoesLimites_casadi(matrizLimitesDinamicos, Freq_sym);
+            %f_encontrarRestricoesLimites_casadi_sym = Function('f_lim', {Freq_sym}, {encontrarRestricoesLimites_casadi_sym});
+            
+            limites = f_encontrarRestricoesLimites_casadi_sym(uk_11);
+
             limMax_atual = limites(1,:)';
             limMin_atual = limites(2,:)';
-            %limMin_atual =  [limMin_tab, -dumax(1), -dumax(2), limMin_tab(iPSuc), limMin_tab(iPChe)];
-            %limMax_atual = [limMax_tab, dumax(1), dumax(2), limMin_tab(iPSuc), limMin_tab(iPChe)];
-
             limMin = [limMin; limMin_atual];
             limMax = [limMax; limMax_atual];
-            %limMax_controladas = [limMax_controladas; [limMax_atual(1); limMax_atual(2)]];
-            %limMin_controladas = [limMin_controladas; [limMin_atual(1); limMin_atual(2)]];
+
         
         end
         limMax = [limMax; repmat(dumax,Hc,1); limMax_controladas];

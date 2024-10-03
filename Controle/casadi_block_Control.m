@@ -97,7 +97,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % Tabelas para cálculos das proteções dinâmicas
             TabelaLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
             obj.TabelaLimitesDinamicos =TabelaLimitesDinamicos;
-            obj.MatrizLimitesDinamicos = table2array(TabelaLimitesDinamicos(:, [1,3:end])); %cortando a coluna LIMITES
+            obj.MatrizLimitesDinamicos = table2array(obj.TabelaLimitesDinamicos(:, [1,3:end])); %cortando a coluna LIMITES
             TabelaSimulador=evalin('base', 'TabSimulador'); 
             obj.MatrizSimuladorVazao = table2array(TabelaSimulador(:,1:3));
 %             EstruturaSolver = obj.ModeloPreditor.data.tipo;       Se for  LSTM
@@ -192,8 +192,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% ========= Conta do Solver para Galdir
             if (obj.contador==PassoMPC)      % Solver só entra no passo definido pelos parâmetros de Passo do MPC
                 tStart=tic;                                                                     % Dispara contagem para medir o tempo do solver
-                %solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', LimitesMin,'ubx', LimitesMax,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
-                solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', obj.limMin_casadi,'ubx', obj.limMax_casadi,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
+                solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', LimitesMin,'ubx', LimitesMax,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
+                %solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', obj.limMin_casadi,'ubx', obj.limMax_casadi,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
                 Feasible=obj.casadi_solver.stats.success;             % Atualizar status do Feasible
                 % Usa resposta do solver para atualizar variáveis
                 obj.x0 = full(solver_MPC.x);                                       % Atualiza objeto com solução ótima no instante k (PredicaoHorizonteHp; Deltau_k, Ysp)

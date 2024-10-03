@@ -5,7 +5,7 @@ function Pontos = selPontos_casadi_vazao(Freq, Press, matriz)
 %   Entradas:
 %       Freq     - Valor de frequência para interpolar (objeto simbólico CasADi)
 %       Press    - Valor de pressão para interpolar (objeto simbólico CasADi)
-%       T_struct - Struct contendo os dados da tabela (resultado de table2struct)
+%       matriz - matrix contendo os dados de freq, press e vazao
 %
 %   Saída:
 %       Pontos - Struct contendo os 4 pontos selecionados para interpolação
@@ -27,6 +27,9 @@ Press = verificarLimites(Press, gridP);
 % Encontra pontos de interpolação para Frequência e Pressão
 [F1, F2] = encontrarPontosInterpolacao(Freq, gridF);
 [P1, P2] = encontrarPontosInterpolacao(Press, gridP);
+%Ps = encontrarPontosInterpolacao(Press, gridP);
+%P1 = Ps(1);
+%P2 = Ps(2);
 
 % Inicializa struct para armazenar os pontos
 Pontos = struct();
@@ -77,12 +80,16 @@ function [inferior, superior] = encontrarPontosInterpolacao(valor, grid)
         cond = (valor >= grid(i)) & (valor < grid(i+1));
         inferior = if_else(cond, grid(i), inferior);
         superior = if_else(cond, grid(i+1), superior);
+
+        % caso o valor buscado seja identico um ja existente
+        superior = if_else(valor == grid(i), grid(i), superior);
     end
     
     % Tratamento especial para o último ponto do grid
     cond_last = (valor == grid(end));
     inferior = if_else(cond_last, grid(end-1), inferior);
     superior = if_else(cond_last, grid(end), superior);
+
 end
 
 function valor = selecionarValor(matriz, gridP, gridF, P, F)

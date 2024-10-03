@@ -75,14 +75,14 @@ end
 % Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
 
 % Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
-  [YIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',TabSimulador);     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
+%  [YIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',TabSimulador);     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
 % [YIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',TabSimulador);       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
 % [YIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00',TabSimulador);       % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
 
 % Inicio de rampas de aceleração para comparação
 % [YIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',TabSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
 % [YIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',TabSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-% [YIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',TabSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
+ [YIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',TabSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
 
 % A condição inicial da vazão precisamos apenas para inicializar a visualização dos mapas  
 % VazaoIni=Interpola(UIni(1),YIni(2)*1.019716,TabSimulador,3);  % Entra Freq [Hz] e Presão [Kgf/cm2] para retornar a vazão estimada em m3/dia
