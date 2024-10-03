@@ -139,6 +139,20 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         
              % Calculando as restrições com base na tabela já prédefinida
             Freq=round(UProcesso(1),1);   % Arredonda em uma casa decimal - isso é feito considerando delta Freq Minimo =0.1 (Poderiamos interpolar, mas não parece mercer)
+            RestricoesX=obj.TabelaLimitesDinamicos(obj.TabelaLimitesDinamicos.Frequencia==Freq,:);   % Extrai restricões pela tabela já calculada
+            
+            Tmotor=RestricoesX.TMotor;
+            Tsuc=RestricoesX.Tsuc;
+            Vib=RestricoesX.Vibracao;
+            CTotal =RestricoesX.TotalCurrent;
+            Ctorque=RestricoesX.TorqueCurrent;
+            Psuc=RestricoesX.IntakePressure;
+            Pdesc=RestricoesX.DischargePressure;
+            Pdif=RestricoesX.DifferentialPressure;
+            Pcheg=RestricoesX.ProductionSurfacePressure;
+            Tche=RestricoesX.ProductionSurfaceTemperature;
+            Vazao=RestricoesX.VazaoOleo;  
+
 
             % Como está fora de ordem para o Casadi, devemos colocar em ordem manualmente !!!
             RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
