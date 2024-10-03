@@ -141,12 +141,12 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Freq=round(UProcesso(1),1);   % Arredonda em uma casa decimal - isso é feito considerando delta Freq Minimo =0.1 (Poderiamos interpolar, mas não parece mercer)
 
             % Como está fora de ordem para o Casadi, devemos colocar em ordem manualmente !!!
-            % RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
-            % RestricoesMin=[Psuc(2); Pcheg(2); Pdif(2); Pdesc(2); Tmotor(2); Ctorque(2); CTotal(2); Tsuc(2); Vib(2); Tche(2); Vazao(2)];
+            RestricoesMax=[Psuc(1); Pcheg(1); Pdif(1); Pdesc(1); Tmotor(1); Ctorque(1); CTotal(1); Tsuc(1); Vib(1); Tche(1); Vazao(1)];
+            RestricoesMin=[Psuc(2); Pcheg(2); Pdif(2); Pdesc(2); Tmotor(2); Ctorque(2); CTotal(2); Tsuc(2); Vib(2); Tche(2); Vazao(2)];
             
-            Restricoes = obj.MatrizLimitesDinamicos(obj.MatrizLimitesDinamicos==Freq, :);
-            RestricoesMax = Restricoes(1, 2:end)';
-            RestricoesMin = Restricoes(2, 2:end)';
+            %Restricoes = obj.MatrizLimitesDinamicos(obj.MatrizLimitesDinamicos(:,1)==Freq, :);
+            %RestricoesMax = Restricoes(1, 2:end)';
+            %RestricoesMin = Restricoes(2, 2:end)';
             %  Concatena limites das variáveis de processo (10) + restrições de manipulação (DeltaU) e das controladas
             %  variações nas manipuladas (Freq e PMonAlvo)  e faixa das  variáveis controladas (PSuc e PChegada)
             
