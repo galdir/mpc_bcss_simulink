@@ -119,9 +119,10 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             EntradasESN_Normalizadas = normaliza_entradas([UProcesso;DadosProcesso]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)
             if t==0        % Assegura inicialização do solver e esquenta a ESN, caso esta seja o tipo do preditor usado
 %                 obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
-                tic
-                obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
-                toc
+                
+                %obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
+                sol_args = InicializaSolver_limpo(Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao); % cria o solver (otimizador) uma vez
+                obj.casadi_solver = sol_args.solucionador;
                 
                 if EstruturaSolver==1      % Se estratura do solver for uma ESN, precisa equentar
                     obj.ModeloPreditor.data.a0 = esquenta_ESN(obj.ModeloPreditor.data,EntradasESN_Normalizadas,1000); % Atualiza várias vezes o estado do reservátório para esquentar ESN
