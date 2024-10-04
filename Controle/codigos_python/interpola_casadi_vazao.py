@@ -1,5 +1,58 @@
 import casadi as cs
 import numpy as np
+import pandas as pd
+
+def interpola_casadi_vazao(Freq, Press, matriz):
+    """
+    Interpola_casadi_vazao Realiza interpolação bilinear usando CasADi
+
+    Interpola valores baseados em Frequência e Pressão usando CasADi
+
+    Entradas:
+        Freq   - Valor de frequência para interpolar (objeto simbólico CasADi)
+        Press  - Valor de pressão para interpolar (objeto simbólico CasADi)
+        matriz - matriz contendo os dados de freq, press e vazao
+
+    Saída:
+        New - Valor interpolado de VazaoOleo
+    """
+    # Busca pontos da vizinhança para proceder a interpolação bilinear
+    Pontos = selPontos_casadi_vazao(Freq, Press, matriz)
+
+    # Realiza a interpolação bilinear para VazaoOleo
+    campo = 'VazaoOleo'
+    f1 = Pontos['FreqBCSS'][0]
+    f2 = Pontos['FreqBCSS'][2]
+    p1 = Pontos['PressChegada'][0]
+    p2 = Pontos['PressChegada'][1]
+    New = bilinear_casadi(Freq, Press, f1, f2, p1, p2, 
+                          Pontos[campo][0], Pontos[campo][1], 
+                          Pontos[campo][2], Pontos[campo][3])
+
+    return New
+
+def bilinear_casadi(x, y, x1, x2, y1, y2, f11, f12, f21, f22):
+    """
+    Bilinear_casadi Realiza interpolação bilinear usando CasADi
+    """
+    # Interpolação BILINEAR
+    K = (x2 - x1) * (y2 - y1)
+    f = f11*(x2-x)*(y2-y) + f21*(x-x1)*(y2-y) + f12*(x2-x)*(y-y1) + f22*(x-x1)*(y-y1)
+    f = f / K
+    
+    # Casos especiais para interpolação LINEAR
+    f_x = cs.if_else(x1 == x2, f11 + (f12 - f11) * (y - y1) / (y2 - y1), f)
+    
+    f_y = cs.if_else(y1 == y2, f11 + (f21 - f11) * (x - x1) / (x2 - x1), f)
+    
+    # Seleciona o resultado apropriado
+    f = cs.if_else(x1 == x2, f_x, cs.if_else(y1 == y2, f_y, f))
+    f = cs.if_else(x1 == x2, cs.if_else(y1 == y2, f11, f), f)
+    
+    return f
+
+# Nota: A função selPontos_casadi_vazao precisa ser implementada separadamente
+# ou importada de outro módulo onde já tenha sido definida.
 
 
 
@@ -90,3 +143,19 @@ def selecionarValor(matriz, gridP, gridF, P, F):
             cond = (gridP[i] == P) & (gridF[j] == F)
             valor = cs.if_else(cond, matriz[i,j], valor)
     return valor
+
+
+# Exemplo de uso
+if __name__ == "__main__":
+    TabLimitesDinamicos = pd.read_excel('./Tabelas/TabelaLimitesDinamicos.xlsx')  
+    
+    TabSimulador = TabLimitesDinamicos.iloc[1:]
+    TabSimulador.columns = ['FreqBCSS', 'PressChegada', 'VazaoOleo', 'VazaoLiquido', 'Twh', 'Pwh', 'DeltaP']
+    for coluna in TabSimulador.columns:
+        TabSimulador[coluna] = TabSimulador[coluna].astype('float')
+    TabSimulador['PressSuccao']=TabSimulador.Pwh-TabSimulador.DeltaP
+    
+    Freq = 50
+    Press = 35
+    Pontos = interpola_casadi_vazao(Freq, Press, MatrizLimitesDinamicos)
+    print(Pontos)
