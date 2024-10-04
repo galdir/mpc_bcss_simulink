@@ -41,22 +41,30 @@ switch EstruturaSolver
         erro =        P(nx+nu+1:nx+nu+ny);                         % define variável simbólica para erro (DadosProcesso-PrediçãoMPC) ->(Psuc. Pcheg)
         uRTO =        P(nx+nu+ny+1:nx+nu+ny+nu);         % define variável simbólica para Alvo (Freq. e PmonAlvo)
         ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variável simbólica do reservatório da ESN
-        g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
+        u = [uk_1;P(1:nx)];
+        g=[X(:,1)-P(1:nx)];                              % define variavel que vai empilhar as restrições durante o Hp
         
         %montando funcoes com expressoes casadi para acelerar o loop de
         %horizonte de predicao
-        Freq_sym = MX.sym('Freq_sym',1);
+        
         Press_sym = MX.sym('Press_sym',1);
+        
+        %entradas_sym = MX.sym('entradas_sym', nu+nx);
+        %ESNdataa0_sym = MX.sym('reservatorio_sym', nx_ESN);
+        %executa_predicao_ESN_vazao_sym = executa_predicao_ESN_vazao(entradas_sym, ESNdataa0_sym, ModeloPreditor, matrizVazao);
+        %f_executa_predicao_ESN_vazao_sym = Function('f_predicao',{entradas_sym, ESNdataa0_sym}, {executa_predicao_ESN_vazao_sym});
+
+        Freq_sym = MX.sym('Freq_sym',1);
         Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym, matrizVazao);
         f_Interpola_casadi_vazao_sym = Function('f_vazao', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
         
-        encontrarRestricoesLimites_casadi_sym = encontrarLimitesTabela_casadi(matrizLimitesDinamicos, Freq_sym);
-        f_encontrarRestricoesLimites_casadi_sym = Function('f_lim', {Freq_sym}, {encontrarRestricoesLimites_casadi_sym});
+        buscaRestricoesLimites_casadi_sym = buscaLimitesTabela_casadi(matrizLimitesDinamicos, Freq_sym);
+        f_buscaRestricoesLimites_casadi_sym = Function('f_lim', {Freq_sym}, {buscaRestricoesLimites_casadi_sym});
         
         %buscando limites dinamicos
         uk_11 = uk_1(1); % frequencia atual para buscar limites
         uk_11=floor(uk_11 * 10)/10; %arredondamento para uma casa decimal (em casadi nao existe round)
-        limites = f_encontrarRestricoesLimites_casadi_sym(uk_11);
+        limites = f_buscaRestricoesLimites_casadi_sym(uk_11);
         limMax = limites(1,:)';
         limMin = limites(2,:)';
         limMax_controladas = [limMax(1); limMax(2)];
@@ -69,17 +77,22 @@ switch EstruturaSolver
             ym = h(X(:,k+1));                                           % define variável simbólica que será controlada utilizando a função de saída (h) definida anteriomente 
             fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
             u = [uk_1;P(1:nx)];                                        % define uma matriz para armazenar as variáveis de entrada no modeloPreditor
-            ukk = normaliza_entradas(u);                       % normaliza as variáveis para entrada no modeloPreditor
-            x_ESN = ModeloPreditor.data.Wrr*ESNdataa0 + ModeloPreditor.data.Wir*ukk + ModeloPreditor.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
-            next_state = (1-ModeloPreditor.data.gama)*ESNdataa0 + ModeloPreditor.data.gama*tanh(x_ESN);         % Atualisa estado da ESN
-            a_wbias = [1.0;next_state];                                                                         % 
-            yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
-            y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
             
-            %VazaoEstimada=Interpola_casadi_vazao(uk_1(1), y_esn_pred(2)*1.019716, matrizVazao);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
-            VazaoEstimada=f_Interpola_casadi_vazao_sym(uk_1(1), y_esn_pred(2)*1.019716);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
-
-            y_esn_pred=[y_esn_pred; VazaoEstimada];
+            %resultado = full(f_executa_predicao_ESN_vazao_sym(u, ESNdataa0));
+            %y_esn_pred = resultado(1);
+            %ESNdataa0 = resultado(2);
+            %[y_esn_pred, ESNdataa0] = executa_predicao_ESN(u, ESNdataa0, ModeloPreditor);
+            [y_esn_pred, ESNdataa0] = executa_predicao_ESN_vazao(u, ESNdataa0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
+%             ukk = normaliza_entradas(u);                       % normaliza as variáveis para entrada no modeloPreditor            
+%             x_ESN = ModeloPreditor.data.Wrr*ESNdataa0 + ModeloPreditor.data.Wir*ukk + ModeloPreditor.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
+%             
+%             ESNdataa0 = (1-ModeloPreditor.data.gama)*ESNdataa0 + ModeloPreditor.data.gama*tanh(x_ESN);         % Atualisa estado da ESN
+%             a_wbias = [1.0;ESNdataa0];                                                                         % 
+%             yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
+%             y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
+%             
+            %VazaoEstimada=f_Interpola_casadi_vazao_sym(uk_1(1), y_esn_pred(2)*1.019716);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+            %y_esn_pred=[y_esn_pred; VazaoEstimada];
                        
             g=[g;X(:,k+1)-y_esn_pred];   % Define variável simbólica para atender as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
             
@@ -87,11 +100,7 @@ switch EstruturaSolver
             uk_11 = uk_1(1); % frequencia atual para buscar limites
             uk_11=floor(uk_11 * 10)/10; %arredondamento para uma casa decimal (em casadi nao existe round)
             
-            %limites = encontrarRestricoesLimites_casadi(matrizLimitesDinamicos, uk_11);
-            %encontrarRestricoesLimites_casadi_sym = encontrarRestricoesLimites_casadi(matrizLimitesDinamicos, Freq_sym);
-            %f_encontrarRestricoesLimites_casadi_sym = Function('f_lim', {Freq_sym}, {encontrarRestricoesLimites_casadi_sym});
-            
-            limites = f_encontrarRestricoesLimites_casadi_sym(uk_11);
+            limites = f_buscaRestricoesLimites_casadi_sym(uk_11);
 
             limMax_atual = limites(1,:)';
             limMin_atual = limites(2,:)';
@@ -177,3 +186,71 @@ SolucaoOtimizador = nlpsol('SolucaoOtimizador','ipopt', nlp,options); % Define o
 sol_args.solucionador = SolucaoOtimizador;
 end
 
+
+
+function [predicoes, novo_a0] = executa_predicao_ESN_vazao(entradas, ESNdataa0, modelo_ESN, f_matrizVazao_sym)
+%%
+% entradas é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
+%           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+%           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+%           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+%   
+% modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
+%
+% ESNdataa0 é o estado do reservatorio da esn após a ultima predicao
+%
+% matrizVazao é a matriz com vazoes estimadas por frequencia e pressao de
+% chegada
+%
+% saidas é um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
+%           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+%           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+%           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada,
+%           vazaoOleo
+
+[predicoes, novo_a0] = executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN);
+ 
+%vazaoOleo_estimada = Interpola_casadi_vazao(entradas(1), predicoes(2)*1.019716, matrizVazao);
+vazaoOleo_estimada = f_matrizVazao_sym(entradas(1), predicoes(2)*1.019716);
+
+predicoes = [predicoes; vazaoOleo_estimada];
+
+end
+
+
+function [predicoes, novo_a0] = executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN)
+%%
+% entradas é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
+%           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+%           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+%           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+%   
+% modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
+%
+% ESNdataa0 é o estado do reservatorio da esn após a ultima predicao
+%
+% saidas é um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
+%           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+%           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+%           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+ 
+entradas_normalizadas = normaliza_entradas(entradas); 
+x_ESN = modelo_ESN.data.Wrr*ESNdataa0 + modelo_ESN.data.Wir*entradas_normalizadas + modelo_ESN.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
+novo_a0 = (1-modelo_ESN.data.gama)*ESNdataa0 + modelo_ESN.data.gama*tanh(x_ESN);         % Atualisa estado da ESN
+a_wbias = [1.0; novo_a0];                                                                         % 
+predicoes_normalizadas = modelo_ESN.data.Wro*a_wbias;  
+
+predicoes = desnormaliza_predicoes(predicoes_normalizadas);  
+
+end
+
+function controladas = busca_controladas(estados, matriz_h)
+n_estados = size(estados, 1);
+n_matriz_h_2 = size(matriz_h, 1);
+if n_estados == n_matriz_h_2
+    controladas = matriz_h * estados;
+else
+    error('matriz_h incompativel');
+end
+
+end

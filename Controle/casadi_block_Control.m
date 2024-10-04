@@ -120,6 +120,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 %                 obj.casadi_solver = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor); % cria o solver (otimizador) uma vez
 
                 sol_args = IncializaSolver(obj.ModeloPreditor.data.tipo,Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos, dumax); % cria o solver (otimizador) uma vez
+                %sol_args = IncializaSolver_limpo(Hp,Hc,Qy,Qu,R,ny,nu,nx,obj.ModeloPreditor,obj.MatrizSimuladorVazao, obj.MatrizLimitesDinamicos); % cria o solver (otimizador) uma vez
+                
                 obj.casadi_solver = sol_args.solucionador;
 
                 if EstruturaSolver==1      % Se estratura do solver for uma ESN, precisa equentar

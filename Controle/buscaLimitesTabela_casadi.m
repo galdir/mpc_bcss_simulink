@@ -1,4 +1,4 @@
-function lim = encontrarLimitesTabela_casadi(matriz, valorProcurado)
+function lim = buscaLimitesTabela_casadi(matriz, valorProcurado)
     import casadi.*
     n = size(matriz, 1);  % Número de linhas na coluna
     n2 = size(matriz, 2);  % Número de colunas
