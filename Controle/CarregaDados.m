@@ -57,7 +57,7 @@ matriz_h(2,2)=1;            % Coluna na linha 2  que indica a segunda variável 
 
 % AVALIAR SE VALE A PENA MUDAR A ORDEM DE TODA A CALC_LIMITES
 % Talvez possamos usar a matriz_h para facilitar a extração dos limites (alarmes),
-% Só para lembrar a ordem (coluna) que das variáveis qye retornam da CalcLimites atual
+% Só para lembrar a ordem (coluna) que das variáveis que retornam da CalcLimites atual
 % 1 = TMotor
 % 2 = TSuc
 % 3 = Vibracao

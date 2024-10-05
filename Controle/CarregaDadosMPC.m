@@ -36,25 +36,6 @@ R=    [1  1];                  % R - Peso na variação das ações de controle 
 R =  diag(repmat(R,1,Hc));   % Para ponderar o custo de variação nas manipuladas (Freq. e PmonAlvo) em todo o Hc
 % Ver como levar esta expansão de R em todo Hc para dentro da inicialização
 
-%  % Usa uma matriz h para seleção dos estados que vão compor a saida. Representa a função y=h(x) 
-% matriz_h=zeros(2,height(XIni)); % Tamanho da matriz que vai oferecer a saida do sistema    
-% matriz_h(1,1)=1;            % Coluna na linha 1 que indica a primeira variável controlada
-% matriz_h(2,2)=1;            % Coluna na linha 2  que indica a segunda variável controlada 
-% 
-% % Só para lembrar do nome das variáveis e a ordem (coluna) delas nos estados X
-% % 1 = PSuc
-% % 2 = P.Chegada
-% % 3 = PDiff
-% % 4 = PDescarga
-% % 5 = TMotor
-% % 6 = ITorque
-% % 7 = ITotal
-% % 8 = TSuc
-% % 9 = Vibracao
-% % 10 = TChegada
-% % 11 = Vazao
-% 
-
 %% =============================================================================
 disp('Configurações e parâmetros do controlador foram carregados para a área de trabalho')
 %% =============================================================================

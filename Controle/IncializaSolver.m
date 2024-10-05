@@ -1,4 +1,4 @@
-function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,MatrizSimuladorVazao,MatrizLimitesDinamicos)
+function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,MatrizSimuladorVazao,MatrizLimitesDinamicos,Matriz_h)
 % Parametros desta função:
 % EstruturaSolver =1/2 indica o tipo de modelo usado para o preditor do MPC: ESN/LSTM
 % Hp = Horizonte de predição
@@ -20,9 +20,10 @@ function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu
     du =    MX.sym('du',Hc*nu,1);                          % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
     Du =    [du;zeros(nu*(Hp-Hc),1)];                    % Sequencia de ação de controle
     ysp =   MX.sym('ysp',ny,1);                              % Set-point otimo calculado pelo otimizador (Variável de decisão)
-    VarControladas = MX.sym('X_MPC',nx);       % Cria uma função de saída (h) em função dos estados X    
-    h=Function('h',{VarControladas},{[VarControladas(1);VarControladas(2)]}); % Define os dois primeiros estados como controladas (Psuc e Pcheg) para o solver comparar com setpoint (ysp)
-
+    
+    EstadosMedidos=MX.sym('HdeX',nx,1); 
+    h=Function('h',{EstadosMedidos},{Matriz_h*EstadosMedidos}); 
+    
     %% ========================Escolha o modeloPreditor que será usando no MPC (1=ESN, 2=LSTM)  =====================================
     switch EstruturaSolver
         case 1
@@ -43,29 +44,27 @@ function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu
             ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variável simbólica do reservatório da ESN
             g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
 
-            Freq_sym = MX.sym('Freq_sym',1);
             Press_sym = MX.sym('Press_sym',1);
-            Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym,MatrizSimuladorVazao);
-            f = Function('f', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
+            Freq_sym = MX.sym('Freq_sym',1);
+
+            Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym, MatrizSimuladorVazao);
+            f_Interpola_casadi_vazao_sym = Function('f_vazao', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
 
     %         Limites_sym=MatrizLimitesDinamicos(MatrizLimitesDinamicos(:,1)==Freq_sym,2:end);   % Extrai restrições das variáveis do processo, extraindo a 1a coluna = Freq
     %        f1=Function('f', {Freq_sym}, {Limites_sym});
 %             f1=Function('f', {Freq_sym}, {MatrizLimitesDinamicos(MatrizLimitesDinamicos(:,1)==Freq_sym,2:end)});
 
-                    %Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
+            % Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
             for k=1:Hp
                 uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);           % define variável simbólica para soma dos incrementos de controle
                 ym = h(X(:,k+1));                                           % define variável simbólica que será controlada utilizando a função de saída (h) definida anteriomente 
                 fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
-                u = [uk_1;P(1:nx)];                                         % Define uma matriz para armazenar as variáveis de entrada no modeloPreditor
-                ukk = normaliza_entradas(u);                       % Normaliza as variáveis para entrada no modeloPreditor
-                x_ESN = ModeloPreditor.data.Wrr*ESNdataa0 + ModeloPreditor.data.Wir*ukk + ModeloPreditor.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
-                next_state = (1-ModeloPreditor.data.gama)*ESNdataa0 + ModeloPreditor.data.gama*tanh(x_ESN);         % Atualisa estado da ESN
-                a_wbias = [1.0;next_state];                                                                         % 
-                yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
-                y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
-                VazaoEstimada=f(uk_1(1), y_esn_pred(2)*1.019716);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
-                y_esn_pred=[y_esn_pred; VazaoEstimada];                         % Insere vazão como mais uma variável predita
+                
+                EstadosMedidos=P(1:nx);
+                EntradaModeloPreditor = [uk_1;EstadosMedidos];                                         % Define uma matriz para armazenar as variáveis de entrada no modeloPreditor
+ 
+                [y_esn_pred, ESNdataa0] = executa_predicao(EntradaModeloPreditor  , ESNdataa0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
+               
 
     %             Restricoes=MatrizLimitesDinamicos(MatrizLimitesDinamicos(:,1)==uk_1(1),:);    % Extrai restricões pela tabela já calculada
 
@@ -100,3 +99,57 @@ function SolucaoOtimizador = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu
     SolucaoOtimizador = nlpsol('SolucaoOtimizador','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
 end
 %% =======================   FIM DA FUNÇÃO PRINCIPAL  ===========================================
+function [predicoes, novo_a0] = executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN)
+    %%
+    % entradas é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
+    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+    %   
+    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
+    %
+    % ESNdataa0 é o estado do reservatorio da esn após a ultima predicao
+    %
+    % saidas é um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
+    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+
+    entradas_normalizadas = normaliza_entradas(entradas); 
+    x_ESN = modelo_ESN.data.Wrr*ESNdataa0 + modelo_ESN.data.Wir*entradas_normalizadas + modelo_ESN.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
+    novo_a0 = (1-modelo_ESN.data.gama)*ESNdataa0 + modelo_ESN.data.gama*tanh(x_ESN);         % Atualisa estado da ESN
+    a_wbias = [1.0; novo_a0];                                                                         % 
+    predicoes_normalizadas = modelo_ESN.data.Wro*a_wbias;  
+
+    predicoes = desnormaliza_predicoes(predicoes_normalizadas);  
+
+end
+%%========================
+function [predicoes, novo_a0] = executa_predicao(entradas, ESNdataa0, modelo_ESN, f_matrizVazao_sym)
+    %%
+    % entradas é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
+    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+    %   
+    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
+    %
+    % ESNdataa0 é o estado do reservatorio da esn após a ultima predicao
+    %
+    % matrizVazao é a matriz com vazoes estimadas por frequencia e pressao de
+    % chegada
+    %
+    % saidas é um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
+    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada,
+    %           vazaoOleo
+
+    [predicoes, novo_a0] = executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN);
+
+    %vazaoOleo_estimada = Interpola_casadi_vazao(entradas(1), predicoes(2)*1.019716, matrizVazao);
+    vazaoOleo_estimada = f_matrizVazao_sym(entradas(1), predicoes(2)*1.019716);
+
+    predicoes = [predicoes; vazaoOleo_estimada];
+
+end

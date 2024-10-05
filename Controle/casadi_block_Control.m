@@ -141,10 +141,12 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             ModeloPreditor.data.a0 = esquenta_ESN(ModeloPreditor.data,EntradasESN_Normalizadas,1000); % Atualiza várias vezes o estado do reservátório para esquentar ESN
             obj.ModeloPreditor = ModeloPreditor;   % ESN precisará ter seus estados internos atualizados a cada amostragem
 
+            %% Montar restrições 
+            
             %% Inicialização dos estados do MPC
             
             tInicializa=tic;                                       % Marcador para o tempo gasto no Solver
-            obj.casadi_solver = IncializaSolver(TipoPreditor,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,MatrizSimuladorVazao,MatrizLimitesDinamicos); % cria o solver (otimizador) uma vez
+            obj.casadi_solver = IncializaSolver(TipoPreditor,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,MatrizSimuladorVazao,MatrizLimitesDinamicos,matriz_h); % cria o solver (otimizador) uma vez
             t_inicializacao = toc(tInicializa);           % Tempo gasto para a inicialização do Solver
 %            disp(strcat("Tempo para inicialização do Solver = ",num2str(t_inicializacao)))
 
