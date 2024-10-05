@@ -159,7 +159,14 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# No meu ambiente
 ./AjustaPath.m
 *.asv
 *.slxc
+./Controle/OLD/
+./Controle/Rasc/
+./Controle/slprj/
+./Uteis/OLD/
+./Uteis/Rasc/
+./Tabelas/Rasc/
 

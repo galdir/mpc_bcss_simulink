@@ -1,4 +1,4 @@
-function NovaT=RepSimulador(SalvaTabela, PassoF,PassoP);
+function NovaT=RepSimulador(SalvaTabela, PassoF,PassoP,NomeArq);
 %  Função para gerar nova tabela (com maior resoluçlão), com base na tabela original do Simulador
 %  
 % Permite salvar a nova Tabela num arquivo XLSX ou apenas consumir para
@@ -14,8 +14,9 @@ function NovaT=RepSimulador(SalvaTabela, PassoF,PassoP);
 
 if nargin<1                    % Não foi passar parâmetro pelo usuário
     SalvaTabela=1;       % Por padrão, salva a tabela em um novo arquivo XLSX.
-    PassoF=0.5;                % Por padrão, usa grid de 0,5Hz como passo para montar o Grid de Frequência (do Min ao Max)  
-    PassoP=0.5;                % Por padrão, usa grid de 0,5 Kgf/cm2 como passo para montar o Grid de Pressão (do Min ao Max) 
+    PassoF=0.5;            % Por padrão, usa grid de 0,5Hz como passo para montar o Grid de Frequência (do Min ao Max)  
+    PassoP=0.5;            % Por padrão, usa grid de 0,5 Kgf/cm2 como passo para montar o Grid de Pressão (do Min ao Max) 
+    NomeArq='DaNovaTabela.xlsx';
 end
 
 % Carrega tabela com dados do simulador (já converte os nomes no formato adotado)
@@ -36,8 +37,8 @@ NovaT=T(1,:);
 i=1; % contador de registros
 for Freq=FMin:PassoF:FMax
     for Pchegada=PMin:PassoP:PMax
-        NewReg=Interpola(Freq,Pchegada,T);
-        NovaT(i,:)=NewReg;
+        NewReg=Interpola(Freq,Pchegada,table2array(T));
+        NovaT{i,:}=NewReg;
         i=i+1;        % Incrementa contador de registro
     end
 end
@@ -45,5 +46,5 @@ end
 %==============================
 % Se quiser salvar a nova tabela
 if SalvaTabela
-    writetable(NovaT,'DaNovaTabela.xlsx');
+    writetable(NovaT,NomeArq);
 end

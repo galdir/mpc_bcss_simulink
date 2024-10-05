@@ -1,4 +1,4 @@
-function Pontos = selPontos_casadi(Freq, Press, T_struct)
+function Pontos = selPontos_casadi_vazao(Freq, Press, matriz)
 % selPontos_casadi Seleciona 4 pontos da tabela T para interpolação bilinear usando CasADi
 %   Conhecido (Freq,Press), seleciona os 4 pontos da tabela T para proceder a interpolação Bilinear
 %
@@ -13,8 +13,8 @@ function Pontos = selPontos_casadi(Freq, Press, T_struct)
 import casadi.*
 
 % Extrai os vetores de Frequência e Pressão
-FreqBCSS = [T_struct.FreqBCSS];
-PressChegada = [T_struct.PressChegada];
+FreqBCSS = matriz(:,1);
+PressChegada = matriz(:,2);
 
 % Obtém grids únicos para Frequência e Pressão
 gridF = unique(FreqBCSS);
@@ -32,24 +32,23 @@ Press = verificarLimites(Press, gridP);
 Pontos = struct();
 
 % Obtém os nomes dos campos
-campos = fieldnames(T_struct);
+%campos = fieldnames(T_struct);
 
-% Para cada campo, seleciona os 4 pontos necessários para interpolação
-for i = 1:length(campos)
-    campo = campos{i};
-    valores = [T_struct.(campo)];
-    
-    % Reorganiza os valores em uma matriz 2D
-    valores_2d = reshape(valores, length(gridP), length(gridF));
-    
-    % Seleciona os 4 pontos para interpolação usando indexação simbólica
-    Pontos.(campo) = [
-        selecionarValor(valores_2d, gridP, gridF, P1, F1);
-        selecionarValor(valores_2d, gridP, gridF, P2, F1);
-        selecionarValor(valores_2d, gridP, gridF, P1, F2);
-        selecionarValor(valores_2d, gridP, gridF, P2, F2)
-    ];
-end
+%campo = 'VazaoOleo';
+%valores = [T_struct.(campo)];
+valores=matriz(:,3);
+
+% Reorganiza os valores em uma matriz 2D
+valores_2d = reshape(valores, length(gridP), length(gridF));
+
+% Seleciona os 4 pontos para interpolação usando indexação simbólica
+Pontos.VazaoOleo = [
+    selecionarValor(valores_2d, gridP, gridF, P1, F1);
+    selecionarValor(valores_2d, gridP, gridF, P2, F1);
+    selecionarValor(valores_2d, gridP, gridF, P1, F2);
+    selecionarValor(valores_2d, gridP, gridF, P2, F2)
+];
+
 
 % Adiciona Freq e Press selecionados
 Pontos.FreqBCSS = [F1; F1; F2; F2];

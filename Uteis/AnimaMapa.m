@@ -1,6 +1,6 @@
-function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonIni,PSucIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro,TabelaIsometricas)
+function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimuladorContas,BTP,FreqIni,PMonIni,PSucIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro,TabelaIsometricas)
 % Animação para atualização do ponto de operação nos mapas em tempo de simulação 
-
+    
     global TituloMapa1                  % Título no mapa de Frequência x PChegada
     global SubTituloMapa1            % SubTítulo no mapa de Frequência x PChegada
     global TituloMapa2                   % Título no mapa de Frequência x PSuc
@@ -33,7 +33,7 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
         x0=[];                                        % Não armazena estados internos
         % Prepara plotagem dos mapas
         if PlotaMapas                                                    % Se for para plotar os mapas
-            monta_mapas(TabSimulador,BTP,TabelaIsometricas);            % Apenas na inicialização, monta mapas como pano de fundo
+            monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas);            % Apenas na inicialização, monta mapas como pano de fundo
             % Corrige unidades de pressão da operação [bar]  para unidades de pressão nos  mapas [Kgf/cm2]
             PMonIni=PMonIni*1.019716;
             PSucIni=PSucIni*1.019716;
@@ -48,7 +48,7 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
             SetPointMapa1=plot(FreqIni,PMonAlvoIni,'k*');               % Inicializa no mesmo ponto de inicialização da operação
             AlvoENGMapa1=plot(FreqAlvoIni,PMonAlvoIni,'bx');      % Incializa alvo da ENG no mapa
             % Prepara isométrica da vazão para o alvo da engenharia
-            VazaoAlvoIni=Interpola(FreqAlvoIni, PMonAlvoIni,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
+            VazaoAlvoIni=Interpola(FreqAlvoIni, PMonAlvoIni,MatrizSimulador,3);  % Estima vazão em função da Freq e Pressao
             
             VarX=TabelaIsometricas.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
             VarY=TabelaIsometricas.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
@@ -64,7 +64,7 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
             SubTituloMapa2=subtitle("");
             SubTituloMapa2.Color='blue';
             OperacaoMapa2=plot(FreqIni,PSucIni,'ko');                    % Inicializa ponto de operação neste gráfico
-%            PSucOtimaIni=Interpola(FreqAlvoIni, PMonAlvoIni,TabSimulador,8);  % Estima em função da Freq e Pressao
+%            PSucOtimaIni=Interpola(FreqAlvoIni, PMonAlvoIni,MatrizSimulador,8);  % Estima em função da Freq e Pressao
             PSucOtimaIni=PSucIni;
             SetPointMapa2=plot(FreqIni,PSucOtimaIni,'k*');              % Inicializa no mesmo ponto de inicialização da operação
             AlvoENGMapa2=plot(FreqAlvoIni,PSucOtimaIni,'bx');     % Incializa alvo da ENG no mapa
@@ -75,8 +75,8 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
             TituloMapa3=title("Mapa Vazão de Óleo x Frequência");
             SubTituloMapa3=subtitle("");
             SubTituloMapa3.Color='blue';
-            VazaoIni=Interpola(FreqIni, PMonIni,TabSimulador,3);                       % Estima vazão em função da Freq e Pressao
-            VazaoAlvoIni=Interpola(FreqAlvoIni, PMonAlvoIni,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
+            VazaoIni=Interpola(FreqIni, PMonIni,MatrizSimulador,3);                       % Estima vazão em função da Freq e Pressao
+            VazaoAlvoIni=Interpola(FreqAlvoIni, PMonAlvoIni,MatrizSimulador,3);  % Estima vazão em função da Freq e Pressao
             OperacaoMapa3=plot(FreqIni,VazaoIni,'ko');                  % Inicializa ponto de operação neste gráfico
             SetPointMapa3=plot(FreqIni,VazaoAlvoIni,'k*');               % Inicializa no mesmo ponto de inicialização da operação
             AlvoENGMapa3=plot(FreqAlvoIni,VazaoAlvoIni,'bx');      % Incializa alvo da ENG no mapa
@@ -91,20 +91,20 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,TabSimulador,BTP,FreqIni,PMonI
             FreqOperacao=u(1);                        % Frequencia de operação [Hz] 
             PChegada=u(2)*1.019716;             % Pressão de Chegada convertida de bar para Kgf/cm2
             PSuc=u(3)*1.019716;                      % Pressão de Sucção convertida de bar para Kgf/cm2
-            VazaoOleo=Interpola(FreqOperacao, PChegada,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
+            VazaoOleo=Interpola(FreqOperacao, PChegada,MatrizSimulador,3);  % Estima vazão em função da Freq e Pressao
 
             % Dados do otimizador
             FreqOtima=u(4);                          % Frequencia proposta pelo Controlador
             PChegadaOtima=u(5)*1.019716;    % Pressão de Chegada dada pelo otimizador  convertida de bar para Kgf/cm2
             PSucOtima=u(6)*1.019716;             % Pressão de Sucção dada pelo otimizador convertida de bar para Kgf/cm2
-%            VazaoOleoOtima=Interpola(FreqOperacao, PChegadaOtima,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
-            VazaoOleoOtima=Interpola(FreqOtima, PChegadaOtima,TabSimulador,3);  % Estima vazão em função da Freq e Pressao
+%            VazaoOleoOtima=Interpola(FreqOperacao, PChegadaOtima,MatrizSimulador,3);  % Estima vazão em função da Freq e Pressao
+            VazaoOleoOtima=Interpola(FreqOtima, PChegadaOtima,MatrizSimulador,3);  % Estima vazão em função da Freq e Pressao
 
             % Dados desejados pela engenharia (Alvos)
             FreqAlvoENG=u(7);                                  % Frequência Alvo ENG atual
             PMonAlvoENG=u(8)*1.019716;              % PMon Alvo ENG atual, convertida de bar para Kgf/cm2
-            PSucAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,TabSimulador,8);    % Estima em função da Freq e Pressao
-            VazaoAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,TabSimulador,3);  % Estima em função da Freq e Pressao
+            PSucAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,MatrizSimulador,8);    % Estima em função da Freq e Pressao
+            VazaoAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,MatrizSimulador,3);  % Estima em função da Freq e Pressao
 
             % Monta vetores sempre na sequencia de [Medido,   AlvoENG,  Otima]
             PChegada= [PChegada,        PMonAlvoENG,    PChegadaOtima];
@@ -172,21 +172,20 @@ function  AtualizaMapa(Mapa,OperacaoMapa,AlvoENGMapa,SetPointMapa,Rastro,Freq,Va
 end
 
 %% ==================================================================================
-function monta_mapas(TabSimulador,BTP,TabelaIsometricas)
+function monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas)
     close all
     figure(1)
     set(gcf,'position',[20   5   570   875]);
     % set(gcf,'MenuBar','none');
     set(gcf,'name','MAPAS DE OPERAÇÃO');
 
-    [Qdt, Qut,Condicao,Cor]=AvaliaCondicao(TabSimulador,BTP);
-    gridFreq=unique(TabSimulador.FreqBCSS);   % Verifica o grid da frequencia
+    [Qdt, Qut,Condicao,Cor]=AvaliaCondicao(MatrizSimulador,BTP);
+    gridFreq=unique(MatrizSimulador(:,1));   % Verifica o grid da frequencia
     Tam=0.1*10/height(gridFreq);       % Usa o tamanho do grid para propor o tamanho do cículo na plotagem
 
     % Varre grid definido para a frequência e calcula os limites de proteção
-    GridP=0.5;        % Grid para fazer o cálculo em uma frequência específica. Grids menores dão maior precisão aos limites das curvas
     for i=1:height(gridFreq)
-         [QMin(i), QMax(i),PSucMin(i),PSucMax(i), PChegadaMin(i),PChegadaMax(i)]=ProtecoesMapas(TabSimulador,BTP,gridFreq(i),GridP);
+         [QMin(i), QMax(i),PSucMin(i),PSucMax(i), PChegadaMin(i),PChegadaMax(i)]=ProtecoesMapas(MatrizSimuladorContas,BTP,gridFreq(i));
     end
 
     % =================================================
@@ -197,7 +196,7 @@ function monta_mapas(TabSimulador,BTP,TabelaIsometricas)
     % axis([ 39.9   60   10   50])
     % xlabel('Frequencia [Hz]');
     ylabel('Pressão de Chegada [Kgf/cm^2]');
-    scatter(TabSimulador.FreqBCSS,TabSimulador.PressChegada,Tam*TabSimulador.VazaoOleo,Cor,'filled')
+    scatter(MatrizSimulador(:,1),MatrizSimulador(:,2),Tam*MatrizSimulador(:,3),Cor,'filled')
     colormap(prism)
     % Traça limites do mapa
     plot(gridFreq,PChegadaMin,'r')
@@ -224,7 +223,7 @@ function monta_mapas(TabSimulador,BTP,TabelaIsometricas)
     % axis([ 39.9  60   65   105])
     % xlabel('Frequencia [Hz]');
     ylabel('Pressão de Sucção [Kgf/cm^2]');
-    scatter(TabSimulador.FreqBCSS,TabSimulador.PressSuccao,Tam*TabSimulador.VazaoOleo,Cor,'filled')
+    scatter(MatrizSimulador(:,1),MatrizSimulador(:,8),Tam*MatrizSimulador(:,3),Cor,'filled')
     colormap(prism)
     % Traça limites do mapa
     plot(gridFreq,PSucMin,'r')
@@ -250,7 +249,7 @@ function monta_mapas(TabSimulador,BTP,TabelaIsometricas)
     % axis([ 39.9  60   65   105])
     xlabel('Frequencia [Hz]');
     ylabel('Vazão de Óleo [m3/dia]');
-    scatter(TabSimulador.FreqBCSS,TabSimulador.VazaoOleo,Tam*TabSimulador.VazaoOleo,Cor,'filled')
+    scatter(MatrizSimulador(:,1),MatrizSimulador(:,3),Tam*MatrizSimulador(:,3),Cor,'filled')
     colormap(prism)
     % Traça limites do mapa
     plot(gridFreq,QMin,'b')

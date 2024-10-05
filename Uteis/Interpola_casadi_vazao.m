@@ -1,11 +1,11 @@
-function New = Interpola_casadi(Freq, Press, T, Indice)
+function New = Interpola_casadi_vazao(Freq, Press, matriz)
 % Interpola_casadi Realiza interpolação bilinear usando CasADi
 %   Interpola valores baseados em Frequência e Pressão usando CasADi
 %
 %   Entradas:
 %       Freq   - Valor de frequência para interpolar (objeto simbólico CasADi)
 %       Press  - Valor de pressão para interpolar (objeto simbólico CasADi)
-%       T      - Tabela contendo os dados
+%       matriz      - matriz contendo os dados
 %       Indice - (Opcional) Índice específico para retornar
 %
 %   Saída:
@@ -13,41 +13,28 @@ function New = Interpola_casadi(Freq, Press, T, Indice)
 
 import casadi.*
 
-% Converte a tabela para struct
-T_struct = table2struct(T);
 
 % Busca pontos da vizinhança para proceder a interpolação bilinear
-Pontos = selPontos_casadi(Freq, Press, T_struct);
+Pontos = selPontos_casadi_vazao(Freq, Press, matriz);
 
 % Inicializa New como uma struct
 New = struct();
 
 % Lista de campos para interpolação
-campos = {'VazaoOleo', 'VazaoLiquido', 'Twh', 'Pwh', 'DeltaP', 'PressSuccao'};
+%campos = {'VazaoOleo', 'VazaoLiquido', 'Twh', 'Pwh', 'DeltaP', 'PressSuccao'};
 
 % Realiza a interpolação bilinear para cada campo
-for i = 1:length(campos)
-    campo = campos{i};
-    f1 = Pontos.FreqBCSS(1);
-    f2 = Pontos.FreqBCSS(3);
-    p1 = Pontos.PressChegada(1);
-    p2 = Pontos.PressChegada(2);
-    New.(campo) = Bilinear_casadi(Freq, Press, f1, f2, p1, p2, Pontos.(campo)(1), Pontos.(campo)(2), Pontos.(campo)(3), Pontos.(campo)(4));
-end
 
-% Adiciona Freq e Press
-New.FreqBCSS = Freq;
-New.PressChegada = Press;
+campo = 'VazaoOleo';
+f1 = Pontos.FreqBCSS(1);
+f2 = Pontos.FreqBCSS(3);
+p1 = Pontos.PressChegada(1);
+p2 = Pontos.PressChegada(2);
+New.(campo) = Bilinear_casadi(Freq, Press, f1, f2, p1, p2, Pontos.(campo)(1), Pontos.(campo)(2), Pontos.(campo)(3), Pontos.(campo)(4));
 
-% Se um índice específico for solicitado
-if nargin == 4
-    campos_ordenados = {'FreqBCSS', 'PressChegada', 'VazaoOleo', 'VazaoLiquido', 'Twh', 'Pwh', 'DeltaP', 'PressSuccao'};
-    valores = [];
-    for i = 1:length(campos_ordenados)
-        valores = [valores; New.(campos_ordenados{i})];
-    end
-    New = valores(Indice);
-end
+
+New = New.(campo);
+
 
 end
 
@@ -67,4 +54,7 @@ function f = Bilinear_casadi(x, y, x1, x2, y1, y2, f11, f12, f21, f22)
     
     % Seleciona o resultado apropriado
     f = if_else(x1 == x2, f_x, if_else(y1 == y2, f_y, f));
+
+    % Para o caso em que os pontos são iguais aos conhecidos (não precisa interpolar)
+    f = if_else(x1 == x2, if_else(y1 == y2, f11, f), f);  
 end

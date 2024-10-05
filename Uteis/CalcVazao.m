@@ -1,4 +1,4 @@
-function  [sys, x0]  = CalcVazao(t,x,u,flag,TabSimulador,DeltaT,QIni)
+function  [sys, x0]  = CalcVazao(t,x,u,flag,MatrizSimulador,DeltaT,QIni)
 % Função para calcular a produção de óleo acumulada ao longo da simulação
 %---------------------------------------------------------------------------------------------
 % flag = 0 --> Define condições iniciais
@@ -16,7 +16,7 @@ elseif flag == 2
     
     %  Novas contas para saber da producao na janela da tempo da simulação
      % Vazão Instantânea em m3/dia
-    Vazao=Interpola(Freq,PChegada,TabSimulador,3);  % Busca referência de vazão através da tabela do simulador da Petrobras 
+    Vazao=Interpola(Freq,PChegada,MatrizSimulador,3);  % Busca referência de vazão através da tabela do simulador da Petrobras 
 
     % Calcula produção em função da vazão estimada
     Producao=Vazao/(24*3600);      % Vazão Instantânea em m3/s

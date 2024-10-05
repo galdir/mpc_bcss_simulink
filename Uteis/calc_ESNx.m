@@ -1,4 +1,4 @@
-function [sys,x0] = calc_ESNx(t,x,u,flag,ESN,YIni,TabSimulador)
+function [sys,x0] = calc_ESNx(t,x,u,flag,ESN,YIni,MatrizSimulador)
  nx = height(YIni);      % Número de variáveis do processo. Mesma variável consumida em "flags" diferentes
 % =========================================================================
 % flag = 0 --> Define condições iniciais do processo   
@@ -30,7 +30,7 @@ elseif abs(flag) == 2
     yk_aux = ESN.Wro*a_wbias;                                 % Calcula a saída com estado do reserv. atualizado
     yk_1 = desnormaliza_predicoes(yk_aux);             % Resgata unidades de engenharia para simulação
     
-    VazaoEstimada=Interpola(u(1),yk_1(2)*1.019716,TabSimulador,3);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
+    VazaoEstimada=Interpola(u(1),yk_1(2)*1.019716,MatrizSimulador,3);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
 
     t_execucao = toc(tStart);                                        % Tempo gasto para o processamento em segundos
     

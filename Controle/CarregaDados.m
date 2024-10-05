@@ -7,7 +7,7 @@ close all
 % Na pasta Uteis, há uma rotina AjustaPath.m
 
 %% =============================================================================
-% Carrega as tabelas de referências da Petrobras para as proteções
+% Carrega as tabelas e matrizes de referências da Petrobras para as proteções
 CarregaTabelas; 
 
 %% =============================================================================
@@ -15,6 +15,60 @@ CarregaTabelas;
 % OBS: Simulação funciona com Ts diferente de 10s, mas isso faz sair da escala de tempo real e também faz errar o cálculo
 % do volume produzido, já que a vazão estimada é em m3/dia. Assim, é importante manter Ts = 10
 Ts =10;                                            % Passo de simulação (1 passo = 10s do processo) 
+
+%% =============================================================================
+% Define condição inicial para a simulação de acordo com um instante com valores reais das variáveis do processo 
+% 
+% Observar que a condilçao inicial UIni (Freq e PMonAlvo) vem da condição
+% do processo no instante selecionado e possivelmente serão diferentes dos alvos estabelecidos pelo usuário. 
+% Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
+
+% Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
+%  [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',MatrizSimulador);     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
+% [XIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',MatrizSimulador);       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
+% [XIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00',MatrizSimulador);       % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
+
+% Inicio de rampas de aceleração para comparação
+% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',MatrizSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
+% [XIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',MatrizSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
+[XIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',MatrizSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
+
+% A condição inicial da vazão precisamos apenas para inicializar a visualização dos mapas  
+% VazaoIni=Interpola(UIni(1),XIni(2)*1.019716,MatrizSimulador,3);  % Entra Freq [Hz] e Presão [Kgf/cm2] para retornar a vazão estimada em m3/dia
+VazaoIni=XIni(11);   % Avaliar se vale a pena atualizar nos blocos do Simulink
+
+ % Usa uma matriz h para seleção dos estados que vão compor a saida. Representa a função y=h(x) 
+matriz_h=zeros(2,height(XIni)); % Tamanho da matriz que vai oferecer a saida do sistema    
+matriz_h(1,1)=1;            % Coluna na linha 1 que indica a primeira variável controlada
+matriz_h(2,2)=1;            % Coluna na linha 2  que indica a segunda variável controlada 
+
+% Só para lembrar do nome das variáveis e a ordem (coluna) delas nos estados X
+% 1 = PSuc
+% 2 = P.Chegada
+% 3 = PDiff
+% 4 = PDescarga
+% 5 = TMotor
+% 6 = ITorque
+% 7 = ITotal
+% 8 = TSuc
+% 9 = Vibracao
+% 10 = TChegada
+% 11 = Vazao
+
+% AVALIAR SE VALE A PENA MUDAR A ORDEM DE TODA A CALC_LIMITES
+% Talvez possamos usar a matriz_h para facilitar a extração dos limites (alarmes),
+% Só para lembrar a ordem (coluna) que das variáveis qye retornam da CalcLimites atual
+% 1 = TMotor
+% 2 = TSuc
+% 3 = Vibracao
+% 4 = ITotal
+% 5 = ITorque
+% 6 = PSuc
+% 7 = PDescarga
+% 8 = PDiff
+% 9 = P.Chegada
+% 10 = TChegada
+% 11 = Vazao
 
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
@@ -52,8 +106,8 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
     AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
          FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
-         Limites=CalcLimites(FreqAlvoIni,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
-         PMonAlvoIni=Limites.ProductionSurfacePressure(2);      % Extrai ponto limite minimo da PChegada (em bar)
+         Limites=CalcLimites(FreqAlvoIni,MatrizSimuladorContas,BTP,MatrizRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
+         PMonAlvoIni=Limites(2,3+8)     % Extrai ponto limite minimo da PChegada (em bar)
     else                                  % Os alvos serão dados manualmente pela engenharia
         %    Inicializa alvo da ENG manualmente
         FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
@@ -61,33 +115,11 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
         PMonAlvoIni=32;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
-        Limites=CalcLimites(FreqAlvoIni,TabSimulador,BTP,TabRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
-        FaixaPChegada=Limites.ProductionSurfacePressure;      % Extrai faixa [ Max  Min] da PChegada (em bar)
+        Limites=CalcLimites(FreqAlvoIni,MatrizSimuladorContas,BTP,MatrizRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
+        FaixaPChegada=Limites(:,3+7);      % Extrai faixa [ Max  Min] da PChegada (em bar)
         PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos
     end
 end
-
-%% =============================================================================
-% Define condição inicial para a simulação de acordo com um instante com valores reais das variáveis do processo 
-% 
-% Observar que a condilçao inicial UIni (Freq e PMonAlvo) vem da condição
-% do processo no instante selecionado e possivelmente serão diferentes dos alvos estabelecidos pelo usuário. 
-% Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
-
-% Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
-%  [YIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',TabSimulador);     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
-% [YIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',TabSimulador);       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
-% [YIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00',TabSimulador);       % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
-
-% Inicio de rampas de aceleração para comparação
-% [YIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',TabSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
-% [YIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',TabSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-[YIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',TabSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
-
-% A condição inicial da vazão precisamos apenas para inicializar a visualização dos mapas  
-% VazaoIni=Interpola(UIni(1),YIni(2)*1.019716,TabSimulador,3);  % Entra Freq [Hz] e Presão [Kgf/cm2] para retornar a vazão estimada em m3/dia
-VazaoIni=YIni(11);   % Avaliar se vale a pena atualizar nos blocos do Simulink
-
 
 %% =============================================================================
 % Carrega uma rede (ESN qualquer) para ser usada como modelo do processo
