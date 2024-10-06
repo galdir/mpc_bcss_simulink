@@ -18,8 +18,13 @@ X =     MX.sym('X',nx,Hp+1);                           % Predição dos estados 
 du =    MX.sym('du',Hc*nu,1);                          % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
 Du =    [du;zeros(nu*(Hp-Hc),1)];                    % Sequencia de ação de controle
 ysp =   MX.sym('ysp',ny,1);                              % Set-point otimo calculado pelo otimizador (Variável de decisão)
-VarControladas = MX.sym('X_MPC',nx);       % Cria uma função de saída (h) em função dos estados (Psuc e Pcheg) para controldas    
-h=Function('h',{VarControladas},{[VarControladas(1);VarControladas(2)]}); % Define os dois primeiros estados como controladas (Psuc e Pcheg) para o solver comparar com setpoint (ysp)
+var_estados_sym = MX.sym('X_MPC',nx);       % Cria uma função de saída (h) em função dos estados (Psuc e Pcheg) para controldas    
+
+matriz_selectora_h = zeros(2,11); %matriz para selecionar variaveis 
+matriz_selectora_h(1,1)=1;
+matriz_selectora_h(2,2)=1;
+%h=Function('h',{var_estados_sym},{[var_estados_sym(1);var_estados_sym(2)]}); % Define os dois primeiros estados como controladas (Psuc e Pcheg) para o solver comparar com setpoint (ysp)
+h=Function('h',{var_estados_sym},{matriz_selectora_h * var_estados_sym}); % Define os dois primeiros estados como controladas (Psuc e Pcheg) para o solver comparar com setpoint (ysp)
 
 disp('Usando uma estrutura ESN como preditor para o MPC');
 sol_args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos
@@ -147,5 +152,14 @@ a_wbias = [1.0; novo_a0];                                                       
 predicoes_normalizadas = modelo_ESN.data.Wro*a_wbias;  
 
 predicoes = desnormaliza_predicoes(predicoes_normalizadas);  
+
+end
+
+function [controlada1, controlada2] = busca_controladas(variaveis_estados, matriz_seletora)
+
+controladas = matriz_seletora * variaveis_estados;
+
+controlada1 = controladas(1);
+controlada2 = controladas(2);
 
 end

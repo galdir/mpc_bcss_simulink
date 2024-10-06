@@ -122,7 +122,7 @@ def encontrarPontosInterpolacao(valor, grid):
     superior = grid[-1]
     
     for i in range(n-1):
-        cond = (valor >= grid[i]) & (valor < grid[i+1])
+        cond = cs.logic_and(valor >= grid[i], valor < grid[i+1])
         inferior = cs.if_else(cond, grid[i], inferior)
         superior = cs.if_else(cond, grid[i+1], superior)
 
@@ -140,22 +140,40 @@ def selecionarValor(matriz, gridP, gridF, P, F):
     valor = 0
     for i in range(len(gridP)):
         for j in range(len(gridF)):
-            cond = (gridP[i] == P) & (gridF[j] == F)
+            cond = cs.logic_and(gridP[i] == P, gridF[j] == F)
             valor = cs.if_else(cond, matriz[i,j], valor)
     return valor
 
 
 # Exemplo de uso
 if __name__ == "__main__":
-    TabLimitesDinamicos = pd.read_excel('./Tabelas/TabelaLimitesDinamicos.xlsx')  
+    df_simulador = pd.read_excel('./Tabelas/DoSimulador.xlsx')  
     
-    TabSimulador = TabLimitesDinamicos.iloc[1:]
-    TabSimulador.columns = ['FreqBCSS', 'PressChegada', 'VazaoOleo', 'VazaoLiquido', 'Twh', 'Pwh', 'DeltaP']
-    for coluna in TabSimulador.columns:
-        TabSimulador[coluna] = TabSimulador[coluna].astype('float')
-    TabSimulador['PressSuccao']=TabSimulador.Pwh-TabSimulador.DeltaP
+    #matriz_LimitesDinamicos_vazao = df_LimitesDinamicos.drop('LIMITES', axis=1).values
+    matriz_simulador_vazao = df_simulador.iloc[1:,:3].values
+
+    # matriz_teste = np.array([
+    #     [30, 10, 100],
+    #     [30, 20, 150],
+    #     [40, 10, 200],
+    #     [40, 20, 250],
+    #     [50, 10, 300],
+    #     [50, 20, 350],
+    # ])
+   
+    # Criar símbolos CasADi para Freq e Press
+    Freq_sym = cs.MX.sym('Freq')
+    Press_sym = cs.MX.sym('Press')
+
+    # Criar uma função CasADi
+    interpola_func = cs.Function('interpola', [Freq_sym, Press_sym], 
+                                [interpola_casadi_vazao(Freq_sym, Press_sym, matriz_simulador_vazao)])
+
+    freq = 50
+    press = 35
+
+    # Avaliar a função
+    resultado = interpola_func(freq, press)
+    print(f"Para Freq = {freq} e Press = {press}")
     
-    Freq = 50
-    Press = 35
-    Pontos = interpola_casadi_vazao(Freq, Press, MatrizLimitesDinamicos)
-    print(Pontos)
+    print(f"VazaoOleo interpolada: {resultado}")    

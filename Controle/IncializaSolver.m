@@ -42,7 +42,7 @@ switch EstruturaSolver
         
         Freq_sym = MX.sym('Freq_sym',1);
         Press_sym = MX.sym('Press_sym',1);
-        Interpola_casadi_vazao_sym = Interpola_casadi_vazao_v2(Freq_sym, Press_sym,matrizVazao);
+        Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym,matrizVazao);
         f = Function('f', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
 
         %Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.

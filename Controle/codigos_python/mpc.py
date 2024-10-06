@@ -1,5 +1,9 @@
 import casadi as cs
 import numpy as np
+import pandas as pd
+
+from Controle.codigos_python import interpola_casadi_vazao
+from Controle.codigos_python.normalizacao import desnormaliza_predicoes, normaliza_entradas
 
 def inicializa_solver(Hp, Hc, Qy, Qu, R, ny, nu, nx, ModeloPreditor, matrizVazao):
     """
@@ -47,7 +51,7 @@ def inicializa_solver(Hp, Hc, Qy, Qu, R, ny, nu, nx, ModeloPreditor, matrizVazao
     Press_sym = cs.MX.sym('Press_sym')
     Freq_sym = cs.MX.sym('Freq_sym')
 
-    Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym, matrizVazao)
+    Interpola_casadi_vazao_sym = interpola_casadi_vazao(Freq_sym, Press_sym, matrizVazao)
     f_Interpola_casadi_vazao_sym = cs.Function('f_vazao', [Freq_sym, Press_sym], [Interpola_casadi_vazao_sym])
 
     # Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
@@ -151,3 +155,37 @@ def executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN):
 # Nota: As funções normaliza_entradas, desnormaliza_predicoes e Interpola_casadi_vazao 
 # não foram fornecidas no código original, então elas precisarão ser implementadas separadamente.
 
+
+
+# Exemplo de uso
+if __name__ == "__main__":
+    df_simulador = pd.read_excel('./Tabelas/DoSimulador.xlsx')  
+    
+    #matriz_LimitesDinamicos_vazao = df_LimitesDinamicos.drop('LIMITES', axis=1).values
+    matriz_simulador_vazao = df_simulador.iloc[1:,:3].values
+
+    # matriz_teste = np.array([
+    #     [30, 10, 100],
+    #     [30, 20, 150],
+    #     [40, 10, 200],
+    #     [40, 20, 250],
+    #     [50, 10, 300],
+    #     [50, 20, 350],
+    # ])
+   
+    # Criar símbolos CasADi para Freq e Press
+    Freq_sym = cs.MX.sym('Freq')
+    Press_sym = cs.MX.sym('Press')
+
+    # Criar uma função CasADi
+    interpola_func = cs.Function('interpola', [Freq_sym, Press_sym], 
+                                [interpola_casadi_vazao(Freq_sym, Press_sym, matriz_simulador_vazao)])
+
+    freq = 50
+    press = 35
+
+    # Avaliar a função
+    resultado = interpola_func(freq, press)
+    print(f"Para Freq = {freq} e Press = {press}")
+    
+    print(f"VazaoOleo interpolada: {resultado}")    
