@@ -5,9 +5,13 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
     properties (Access = private)                       % Criação das variáveis que vão compor o OBJETO
         casadi_solver                                            % Criação do solver Casadi
         x0                                                                % Criação da variável para guardar os estados para operação do MPC
+        lbx                                                                % Lower Bounds para os Estados do MPC
+        ubx                                                               % Upper Bounds para os Estados do MPC
+        lbg                                                                % Lower Bounds para as restrições [g] que forem criadas
+        ubg                                                               % Upper Bounds para as restrições [g] que forem criadas
+        
         contador                                                     % Criação da variável para guardar o contador de loops - define momentos de atuação do MPC
         ModeloPreditor                                           % Criação da variável para guardar modelo de preditor do processo e que será utilizada pelo solver para a predição
-
         MatrizLimitesDinamicos                            % Matriz correspondente a Tabela com resultados dos limites Max/Min de proteção dinâmica para todas as frequências
        
     end
@@ -85,7 +89,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
        function setupImpl(obj,~)
             import casadi.*                                    % Importação da biblioteca Casadi (tem de estar no path)
             
-            %% Tabelas Petrobras
+            %% Carrega tabelas Petrobras
             % Tabelas para cálculos das proteções dinâmicas
             % Transforma tabelas em matrizes para melhorar desempenho computacional e permitir o uso de algébra simbólica (CaSAdi)
             TabelaLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
@@ -116,15 +120,16 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% Carrega condições inciais conhecidas para inicialização dos estados X0 do MPC
             XIni=evalin('base','XIni');                       % Condições iniciais das variáveis (estados) do processo
             UIni=evalin('base','UIni');                       % Condições iniciais das entradas (variáveis manipuladas) do processo
-                        
-            %% Carrega condições inciais conhecidas para inicialização dos estados X0 do MPC
+            nu=height(UIni);
+            nx=height(XIni);
+                      
+            %% Carrega matriz que faz o papel de Y=h(x), onde a saída Y(k) é função dos estados X(k)
             matriz_h=evalin('base','matriz_h');        % matriz para calcular as saidas na forma y=h(x)
+            EstadosMedidos=MX.sym('HdeX',nx,1); 
+            h=Function('h',{EstadosMedidos},{matriz_h*EstadosMedidos}); 
 
             %% Inicializa estados para atuação do MPC
             YIni=matriz_h*XIni;                               % Extrai de X os valores iniciais das saidas, antes de expaldir os estados no Hp   
-            % Aproveita e guarda as dimensões das entradas (nu), estados (nx) e saidas (ny) antes de expandir
-            nu=height(UIni);
-            nx=height(XIni);
             ny=height(YIni);
             
             % Expande as matrizes nos respectivos horizontes (padrão Casadi para o MPC)
@@ -134,6 +139,10 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 
             x0=[XIni;UIni;YIni];    % Monta vetor de estados iniciais X0 para operação do MPC (é para eles que teremos de criar os limites lbx e ubx)
 
+            obj.x0 = x0;                                             % Condição inicial para operação do MPC  
+%            obj.contador = -1;                                   % Contador para indicar passos/momentos de atuação do controle MPC (-1 para contagem de tempo sincronizar com passos de 30)
+            obj.contador = 0;                                   % Contador para indicar passos/momentos de atuação do controle MPC (-1 para contagem de tempo sincronizar com passos de 30)
+          
             %% Carrega modelo preditor e esquenta a ESN
             ModeloPreditor = evalin('base', 'ModeloPreditor');   % Modelos do preditor que será usada pelo MPC
             TipoPreditor=ModeloPreditor.data.tipo;                    % Verifica tipo 1=ESN, 2 = LSTM
@@ -141,14 +150,83 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             ModeloPreditor.data.a0 = esquenta_ESN(ModeloPreditor.data,EntradasESN_Normalizadas,1000); % Atualiza várias vezes o estado do reservátório para esquentar ESN
             obj.ModeloPreditor = ModeloPreditor;   % ESN precisará ter seus estados internos atualizados a cada amostragem
 
+             %% Funções simbólicas que serão necessárias ao Solver
+            f_Interpola_casadi_vazao_sym = evalin('base', 'f_Interpola_casadi_vazao_sym'); 
+            f_buscaLimites_sym=evalin('base', 'f_buscaLimites_sym'); 
+            
             %% Montar restrições 
             
-            %% Inicialização dos estados do MPC
+           
+            %% Inicialização do SOLVER (antigo InicializaSolver)
+            % Cria o Solver em formato simbólico em formato para o CaSAdi
+            tInicializa=tic;                                        % Marcador para o tempo gasto no Solver
             
-            tInicializa=tic;                                       % Marcador para o tempo gasto no Solver
-            obj.casadi_solver = IncializaSolver(TipoPreditor,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,MatrizSimuladorVazao,MatrizLimitesDinamicos,matriz_h); % cria o solver (otimizador) uma vez
+            %% ========================Define parâmetros simbolicos (Casadi) gerais para o problema de otimização=====================================
+            X =     MX.sym('X',nx,Hp+1);                           % Predição dos estados sobre o horizonte Hp  
+            du =    MX.sym('du',Hc*nu,1);                          % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
+            Du =    [du;zeros(nu*(Hp-Hc),1)];                    % Sequencia de ação de controle
+            ysp =   MX.sym('ysp',ny,1);                              % Set-point otimo calculado pelo otimizador (Variável de decisão)
+
+            %% ========================Escolha o modeloPreditor que será usando no MPC (1=ESN, 2=LSTM)  =====================================
+            %Parâmetros simbólicos específicos da ESN
+            nx_ESN =      length(ModeloPreditor.data.Wir);   % Resgata o tamanho do reservatório da ESN utilizada como modelo preditor
+
+            % P = quantidade de parâmetros para o Solver. Os P parâmetros são:
+            % - DadosProcesso (dimensão=nx)
+            % - uk(entradas) (dimensão=nu)
+            % - Erro, sendo a diferença entre a medição do processo e a última predição das variáveis controladas (dimensão=ny)
+            % - Alvo dado pelo RTO (dimensão=nu)
+            % - Dados do reservatório da ESN utilizada pelo controlador (dimensão=nx_ESN)
+            P =           MX.sym('P',nx+nu+ny+nu+nx_ESN);    % qtd de parâmetros para o Solver
+            uk_1 =        P(nx+1:nx+nu);                                    % define variável simbólica das entradas (Freq. PmonAlvo)
+            erro =        P(nx+nu+1:nx+nu+ny);                         % define variável simbólica para erro (DadosProcesso-PrediçãoMPC) ->(Psuc e Pcheg)
+            uRTO =        P(nx+nu+ny+1:nx+nu+ny+nu);         % define variável simbólica para Alvo (Freq. e PmonAlvo)
+            ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variável simbólica do reservatório da ESN
+            g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
+
+            % Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
+            for k=1:Hp
+                uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);           % define variável simbólica para soma dos incrementos de controle
+                LL= f_buscaLimites_sym(uk_1(1));             % rascunho !!!
+
+                ym = h(X(:,k+1));                                           % define variável simbólica que será controlada utilizando a função de saída (h) definida anteriomente 
+                fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
+
+                EstadosMedidos=P(1:nx);
+%                 EstadosMedidos=X(:,1);   % Why not X???
+%                 EntradaModeloPreditor = [uk_1;EstadosMedidos];                                         % Define uma matriz para armazenar as variáveis de entrada no modeloPreditor
+
+                [y_esn_pred, ESNdataa0] = executa_predicao(uk_1,EstadosMedidos , ESNdataa0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
+
+                g=[g;X(:,k+1)-y_esn_pred];   % Define variável simbólica para compor as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
+            end
+            %% ========================Define as matrizes auxiliares (Mtil, Itil) para o incremento de controle (ação de controle) ao longo de Hc passos, no conjunto de restrições (g)====================================
+            Mtil=[];                         
+            Itil=[];
+            auxM=zeros(nu,Hc*nu);
+            for in=1:Hc
+                auxM=[eye(nu) auxM(:,1:(Hc-1)*nu)];
+                Mtil=[Mtil;auxM];
+                Itil=[Itil;eye(nu)];
+            end
+            % Conclui a inclusão das restrições nos estados e nas entradas.
+            g = [g;Mtil*du+Itil*P(nx+1:nx+nu)]; 
+
+            %% ========================Configuração do otimizador====================================
+            opt_variable=[X(:);du;ysp];                   %variáveis calculadas pelo Solver(predição;incrementos de controle;set-point*) 
+            nlp = struct('f',fob,'x',opt_variable,'g', g, 'p', P); %define a estrutura para problema de otimização não linear (NLP, Nonlinear Programming), sendo: 1-fob, definida acima; 2-opt_variable: variáveis de decisão; 3-g, as restrições do processo e 4-P, parâmetros de entrada para Solver   
+
+            %Configuração específica do otimizador
+            options=struct;
+            options.print_time=0;                         % Habilita tempo total de execução do solver deve ser impresso ou não.
+            options.ipopt.print_level=1;                  % Nível de detalhamento das mensagens de saída do IPOPT. Valores mais baixos resultam em menos mensagens (0 significa sem mensagens).
+            options.ipopt.max_iter=100;                   % Especifica o número máximo de iterações que o solver deve executar antes de parar.
+            options.ipopt.acceptable_tol=1e-4;            % Define a tolerância de convergência do solver. Um valor menor indica uma solução mais precisa.
+            options.ipopt.acceptable_obj_change_tol=1e-4; % Define uma tolerância aceitável para uma solução "boa o suficiente", útil para problemas onde a solução perfeita pode ser muito difícil de alcançar.
+            obj.casadi_solver = nlpsol('MontagemSolver','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)            
+  
             t_inicializacao = toc(tInicializa);           % Tempo gasto para a inicialização do Solver
-%            disp(strcat("Tempo para inicialização do Solver = ",num2str(t_inicializacao)))
+%             disp(strcat("Tempo para inicialização do Solver = ",num2str(t_inicializacao)))
 
 % IMPORTANTE:
 % Como está:
@@ -161,8 +239,6 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo HP  +  Ações de controle em todo Hc ]
 %                             Dimensão = [        nx                      nx*Hp                                                 nu*Hc ]
 
-            obj.x0 = x0;                                                          % Condição inicial para operação do MPC  
-            obj.contador = -1;                                                 % Contador para indicar passos/momentos de atuação do controle MPC (-1 para contagem de tempo sincronizar com passos de 30)
             
         end
 %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
@@ -176,7 +252,6 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             
             % Prepara dados para atualizar a ESN  (AVALIAR SE ESTE É O LOCAL CORRETO )
             EntradasESN_Normalizadas = normaliza_entradas([UProcesso;DadosProcesso]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)
-
             
             %% ===================== Dados do processo e da predição ========================================
              PredicaoHorizonteHp=obj.x0(nx*(Hp)+1:nx*(Hp)+nx);                     % Busca variáveis preditas no horizonte Hp (futuro mais distante possível) 
@@ -268,10 +343,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
     end
 end
 %===============================================================================
-% ==================  FIM DO PROGRAMA PRINCIPAL % ==============================
+% ==================  FIM DO PROGRAMA PRINCIPAL  ================================
 %===============================================================================
 
-%% ==================        Outras funções adicionar   ====================================
+%% ==================        Outras funções adicionais   ================================
+%% ==============================================================================
 %% Função para ter as dimensões das variáveis em função dos parâmetros indicados pelo usuário na inicialização
 function [ny, nu, nx] = DimensoesVariaveisProcesso(Qy,Qu,DadosProcesso);
     ny=length(Qy);         % Associa número de variáveis controladas (no caso, 2: PSuc e PChegada)
@@ -279,7 +355,7 @@ function [ny, nu, nx] = DimensoesVariaveisProcesso(Qy,Qu,DadosProcesso);
     T=length(DadosProcesso);    % Tamanho do vetor de dados do processo, mas precisa descontar as manipuladas que vieram junto
     nx = T-nu;                 % Associa número de variáveis coletadas do processo (no caso, 11 = 13 menos as 2 manipuladas)
 end
-%=================================================================
+%% ==============================================================================
 %% Função para ajustar o DeltaU mínimo - ao menos enquanto não for tratada na formulação do solver
 function RetornoDeltaU=AvaliaDeltaU(DeltaU,dumin);
     RetornoDeltaU=DeltaU;                                     % Retorna valor valor padrão calculado, sem correção pelo mínimo
@@ -289,7 +365,7 @@ function RetornoDeltaU=AvaliaDeltaU(DeltaU,dumin);
        RetornoDeltaU=round(DeltaU,CasasDecimais);   % Retorna o DeltaU arredondado pelo numero de casas decimais com a resolução definida pelo valor minimo
     end
 end
-%   ============================================
+%% ==============================================================================
 %% Função para contar numero de casas decimais
 function num_decimals = countDecimals(number)
     str = num2str(number);                                  % Converte o número para string
@@ -300,5 +376,66 @@ function num_decimals = countDecimals(number)
         num_decimals = length(str) - decimalPos;
     end
 end
-%    ============================================
+%% ==============================================================================
+%% Função para execução a função de predição x(k+1)=f(xk,uk)
+function [predicoes, novo_a0] = executa_predicao(EntradaU,EstadosX, ESNdataa0, modelo_ESN, f_matrizVazao_sym)
+    %%
+    % EntradaU são as entradas do processo no instante atual : frequencia_aplicada, pressao_montante_alvo_aplicada
+    % EstadosX são as 11 variáveis do processo no instante atual:
+    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, 
+    %           temperatura_succao_BCSS, vibracao_BCSS,  temperatura_chegada, VazãoOleo
+    %   
+    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
+    %
+    % ESNdataa0 é o estado atual do reservatorio
+    %
+    % matrizVazao é a matriz com vazoes estimadas em função da frequencia e pressao de chegada
+    %
+    % saidas é um vetor coluna com as predições dos novos estados referentes as 11 variáveis do processo:
 
+    % Executa predição da ESN
+    [predicoes, novo_a0] = executa_predicao_ESN(EntradaU,EstadosX, ESNdataa0, modelo_ESN);
+    % Executa predição da vazão (não é feita pela ESN)
+    Freq=EntradaU(1);
+    PChegada=predicoes(2)*1.019716;   % Tabela Simulador usa as pressões em Kgf/cm2, quando as medições do processo são em bar
+    vazaoOleo_estimada = f_matrizVazao_sym(Freq,PChegada); % A predição é feita com base na Tabela do Simulador, 
+    % Monta vetor para retornar a predição no instante seguinte
+    predicoes = [predicoes; vazaoOleo_estimada];
+
+end
+%% ==============================================================================
+%% Função para execução da predição da ESN um passo a frente
+function [predicoes, novo_a0] = executa_predicao_ESN(EntradaU,EstadosX, ESNdataa0, modelo_ESN)
+    % EntradaU são as entradas do processo no instante atual : frequencia_BCSS, pressao_montante_alvo
+    % EstadosX são as 11 variáveis do processo no instante atual:
+
+    % Observar que a ESN tem como entrada as 2 variáveis manipuladas e 10 variáveis do processo
+    % uma vez que não trata a vazão
+    
+    % Assim, "entradas" na função é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
+    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+    %   
+    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
+    %
+    % ESNdataa0 é o estado atual do reservatorio da ESN
+    %
+    % Saidas: 
+    %           Retorna um vetor coluna com a estimativa das 11 variáveis do processo:
+    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
+    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
+    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+    % Retorna os estados do reservatório da ESN para atualizar
+
+    entradas=[EntradaU;EstadosX(1:end-1)];   % Monta vetor para entrada da ESN
+    entradas_normalizadas = normaliza_entradas(entradas); 
+    x_ESN = modelo_ESN.data.Wrr*ESNdataa0 + modelo_ESN.data.Wir*entradas_normalizadas + modelo_ESN.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
+    novo_a0 = (1-modelo_ESN.data.gama)*ESNdataa0 + modelo_ESN.data.gama*tanh(x_ESN);         % Atualiza estado da ESN
+    a_wbias = [1.0; novo_a0];                                                                         % 
+    predicoes_normalizadas = modelo_ESN.data.Wro*a_wbias;  
+
+    % Retorna os valores dos novos estados preditos pela ESN com 1 passo a frente
+    predicoes = desnormaliza_predicoes(predicoes_normalizadas);  
+end

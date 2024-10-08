@@ -11,6 +11,10 @@ close all
 CarregaTabelas; 
 
 %% =============================================================================
+% Carregar funções simbólicas que serão consumidas pelos códigos Matlab e CaSAdi
+CarregaFuncoesSym;    
+
+%% =============================================================================
 % Definição da base de tempo para simulação. 
 % OBS: Simulação funciona com Ts diferente de 10s, mas isso faz sair da escala de tempo real e também faz errar o cálculo
 % do volume produzido, já que a vazão estimada é em m3/dia. Assim, é importante manter Ts = 10
@@ -95,7 +99,7 @@ Plano=readtable('PlanoVerIsovazao.xlsx');     % Plano com partida "puxando" para
 %  Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 
 % Define se vai usar plano (tabela excel) para alterar alvos da engenharia ao longo da simulação
-UsaPlano=1;
+UsaPlano=0;
 if UsaPlano    % Sequencia para usar plano definido em planilha
     %     Inicializa o alvo da ENG como sendo o primeiro registro do plano proposto
     FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
@@ -103,21 +107,20 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
-         FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
-         Limites=CalcLimites(FreqAlvoIni,MatrizSimuladorContas,BTP,MatrizRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
-         PMonAlvoIni=Limites(2,3+8)     % Extrai ponto limite minimo da PChegada (em bar)
+        FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
+        Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
+        PMonAlvoIni=Limites(2,2);     % Extrai ponto limite minimo (linha 2) da PChegada (coluna 2)
     else                                  % Os alvos serão dados manualmente pela engenharia
         %    Inicializa alvo da ENG manualmente
         FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
-       
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
         PMonAlvoIni=32;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
-        Limites=CalcLimites(FreqAlvoIni,MatrizSimuladorContas,BTP,MatrizRestricoesDinamicas,FxPercent,ProtecaoFixa);    % Extrai limites
-        FaixaPChegada=Limites(:,3+7);      % Extrai faixa [ Max  Min] da PChegada (em bar)
-        PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos
+        Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
+        FaixaPChegada=Limites(:,2);      % Extrai faixa [ Max  Min] da PChegada (coliuna 2) em bar
+        PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos. Se for dentro da faixa, não muda em nada o que foi definido pela ENG
     end
 end
 
@@ -139,8 +142,17 @@ SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplic
 % Uma relação sinal-ruído (SNR) de 20 dB significa que o sinal é 100 vezes mais potente que o ruído. 
 % Uma relação sinal-ruído (SNR) de 30 dB significa que o sinal é 1000 vezes mais potente que o ruído. 
 
+%% =============================================================================
+% Sabendo que os limites são calculados baseados na frequência e os valores são estabelecidos em função dos valores de 
+% alarme L e H. Há variáveis, porém, cujos alarmes H ou L, por sí só, podem gerar TRIP da planta.
+% Neste caso, definimos uma margem percentual como sendo uma região em que
+% o controlador deve considerar como limite, antes de chegar no limite propriamente dito.
+% O valor da margem é dado em % e pode ser ZERO
+MargemPercentual=0.5;
 
 %% =============================================================================
 disp('Configurações gerais carregadas para a área de trabalho')
+disp('Funções simbólicas carregadas para a área de trabalho')
+
 
 
