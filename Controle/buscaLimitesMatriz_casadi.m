@@ -3,6 +3,12 @@ function lim = buscaLimitesMatriz_casadi(matriz, valorProcurado)
     n = size(matriz, 1);  % Número de linhas na coluna
     n2 = size(matriz, 2);  % Número de colunas
     %indices = MX.zeros(2, 1);
+    
+    valorProcurado = ceil(valorProcurado*10)/10;
+    valorProcurado = if_else(valorProcurado<40,40, valorProcurado);
+    valorProcurado = if_else(valorProcurado>60,60, valorProcurado);
+
+
     contador = MX.zeros(1);
     limMax = MX.zeros(1, n2);
     limMin = MX.zeros(1, n2);
