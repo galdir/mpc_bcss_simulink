@@ -1,9 +1,12 @@
 import casadi as cs
 import numpy as np
 import pandas as pd
+import scipy.io as sio
+import os
 
-from Controle.codigos_python import interpola_casadi_vazao
-from Controle.codigos_python.normalizacao import desnormaliza_predicoes, normaliza_entradas
+from forecasting import get_ESN_models_and_required_variables
+from interpola_casadi_vazao import interpola_casadi_vazao
+from normalizacao import desnormaliza_predicoes, normaliza_entradas
 
 def inicializa_solver(Hp, Hc, Qy, Qu, R, ny, nu, nx, ModeloPreditor, matrizVazao):
     """
@@ -31,7 +34,7 @@ def inicializa_solver(Hp, Hc, Qy, Qu, R, ny, nu, nx, ModeloPreditor, matrizVazao
     sol_args = {}  # Inicializa dicionário que vai armazenar a estrutura de argumentos
 
     # Parâmetros simbólicos específicos da ESN
-    nx_ESN = len(ModeloPreditor['data']['Wir'])  # Resgata o tamanho do reservatório da ESN utilizada como modelo preditor
+    nx_ESN = len(ModeloPreditor['data']['Wir'][0][0])  # Resgata o tamanho do reservatório da ESN utilizada como modelo preditor
 
     # P = quantidade de parâmetros para o Solver. Os P parâmetros são:
     # - DadosProcesso (dimensão=nx)
@@ -62,7 +65,7 @@ def inicializa_solver(Hp, Hc, Qy, Qu, R, ny, nu, nx, ModeloPreditor, matrizVazao
         fob += (ym - ysp + erro).T @ Qy @ (ym - ysp + erro) + du.T @ R @ du + (uk_1 - uRTO).T @ Qu @ (uk_1 - uRTO)  # define a função objetivo proposta
         u = cs.vertcat(uk_1, P[:nx])  # define uma matriz para armazenar as variáveis de entrada no modeloPreditor
         
-        y_esn_pred, ESNdataa0 = executa_predicao_ESN_vazao(u, ESNdataa0, ModeloPreditor, f_Interpola_casadi_vazao_sym)
+        y_esn_pred, ESNdataa0 = executa_predicao_ESN_vazao_casadi(u, ESNdataa0, ModeloPreditor, f_Interpola_casadi_vazao_sym)
         
         g.append(X[:, k+1] - y_esn_pred)  # Define variável simbólica para atender as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)
 
@@ -99,7 +102,7 @@ def inicializa_solver(Hp, Hc, Qy, Qu, R, ny, nu, nx, ModeloPreditor, matrizVazao
 
     return sol_args
 
-def executa_predicao_ESN_vazao(entradas, ESNdataa0, modelo_ESN, f_matrizVazao_sym):
+def executa_predicao_ESN_vazao_casadi(entradas, ESNdataa0, modelo_ESN, f_matrizVazao_sym):
     """
     entradas é um vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
               pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
@@ -118,7 +121,7 @@ def executa_predicao_ESN_vazao(entradas, ESNdataa0, modelo_ESN, f_matrizVazao_sy
               temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada,
               vazaoOleo
     """
-    predicoes, novo_a0 = executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN)
+    predicoes, novo_a0 = executa_predicao_ESN_casadi(entradas, ESNdataa0, modelo_ESN)
     
     vazaoOleo_estimada = f_matrizVazao_sym(entradas[0], predicoes[1] * 1.019716)
     
@@ -126,7 +129,7 @@ def executa_predicao_ESN_vazao(entradas, ESNdataa0, modelo_ESN, f_matrizVazao_sy
     
     return predicoes, novo_a0
 
-def executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN):
+def executa_predicao_ESN_casadi(entradas, ESNdataa0, modelo_ESN):
     """
     entradas é um vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
               pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
@@ -143,10 +146,28 @@ def executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN):
               temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
     """
     entradas_normalizadas = normaliza_entradas(entradas)
-    x_ESN = modelo_ESN['data']['Wrr'] @ ESNdataa0 + modelo_ESN['data']['Wir'] @ entradas_normalizadas + modelo_ESN['data']['Wbr']  # usar o modeloPreditor(ESN) para fazer a predição
-    novo_a0 = (1 - modelo_ESN['data']['gama']) * ESNdataa0 + modelo_ESN['data']['gama'] * cs.tanh(x_ESN)  # Atualiza estado da ESN
+    # wrr = modelo_ESN['data']['Wrr'][0][0]
+    # wir = modelo_ESN['data']['Wir'][0][0]
+    # wbr = modelo_ESN['data']['Wbr'][0][0]
+    # wro = modelo_ESN['data']['Wro'][0][0]
+    # gama = modelo_ESN['data']['gama'][0][0][0][0]
+    wrr = cs.MX(modelo_ESN['data']['Wrr'][0][0])
+    wir = cs.MX(modelo_ESN['data']['Wir'][0][0])
+    wbr = cs.MX(modelo_ESN['data']['Wbr'][0][0])
+    wro = cs.MX(modelo_ESN['data']['Wro'][0][0])
+    gama = cs.MX(modelo_ESN['data']['gama'][0][0][0][0])
+
+
+    if isinstance(ESNdataa0, np.ndarray):
+        ESNdataa0 = cs.MX(ESNdataa0)
+    if isinstance(entradas_normalizadas, np.ndarray):
+        entradas_normalizadas = cs.MX(entradas_normalizadas)
+
+    x_ESN = cs.mtimes(wrr, ESNdataa0) + cs.mtimes(wir, entradas_normalizadas) + wbr
+    #x_ESN = wrr @ ESNdataa0 + wir @ entradas_normalizadas + wbr  # usar o modeloPreditor(ESN) para fazer a predição
+    novo_a0 = (1 - gama) * ESNdataa0 + gama * cs.tanh(x_ESN)  # Atualiza estado da ESN
     a_wbias = cs.vertcat(1.0, novo_a0)
-    predicoes_normalizadas = modelo_ESN['data']['Wro'] @ a_wbias
+    predicoes_normalizadas = wro * a_wbias
 
     predicoes = desnormaliza_predicoes(predicoes_normalizadas)
 
@@ -156,36 +177,66 @@ def executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN):
 # não foram fornecidas no código original, então elas precisarão ser implementadas separadamente.
 
 
-
-# Exemplo de uso
-if __name__ == "__main__":
-    df_simulador = pd.read_excel('./Tabelas/DoSimulador.xlsx')  
-    
-    #matriz_LimitesDinamicos_vazao = df_LimitesDinamicos.drop('LIMITES', axis=1).values
+def teste_InicializaSolver_limpo():
+    MODELS_FOLDER = './Modelos/ESN/'
+    df_simulador = pd.read_excel('./Tabelas/DoSimulador.xlsx')      
     matriz_simulador_vazao = df_simulador.iloc[1:,:3].values
 
-    # matriz_teste = np.array([
-    #     [30, 10, 100],
-    #     [30, 20, 150],
-    #     [40, 10, 200],
-    #     [40, 20, 250],
-    #     [50, 10, 300],
-    #     [50, 20, 350],
-    # ])
-   
-    # Criar símbolos CasADi para Freq e Press
-    Freq_sym = cs.MX.sym('Freq')
-    Press_sym = cs.MX.sym('Press')
+    # Defina os parâmetros de entrada
+    Hp = 10  # Horizonte de predição
+    Hc = 5   # Horizonte de controle
+    ny = 2   # Número de variáveis controladas
+    nu = 2   # Número de variáveis manipuladas
+    nx = 10  # Número de variáveis coletadas do processo
 
-    # Criar uma função CasADi
-    interpola_func = cs.Function('interpola', [Freq_sym, Press_sym], 
-                                [interpola_casadi_vazao(Freq_sym, Press_sym, matriz_simulador_vazao)])
+    # Crie matrizes de ponderação
+    Qy = np.eye(ny)
+    Qu = np.eye(nu)
+    R = np.eye(nu * Hc)
 
-    freq = 50
-    press = 35
+    # Crie um modelo preditor fictício (você precisa adaptar isso para o seu caso específico)
+    # class ModeloPreditorFicticio:
+    #     def __init__(self):
+    #         self.data = {
+    #             'Wir': np.random.rand(50, nx + nu),
+    #             'Wrr': np.random.rand(50, 50),
+    #             'Wro': np.random.rand(ny, 51),
+    #             'Wbr': np.random.rand(50, 1),
+    #             'gama': 0.3
+    #         }
 
-    # Avaliar a função
-    resultado = interpola_func(freq, press)
-    print(f"Para Freq = {freq} e Press = {press}")
+    # modelo = ModeloPreditorFicticio()
+    arquivo_modelo = 'weightsESNx_TR400_TVaz0.9_RaioE0.4.mat'
+    caminho_arquivo_modelo = os.path.join(MODELS_FOLDER, arquivo_modelo)
+    modelo = sio.loadmat(caminho_arquivo_modelo)
     
-    print(f"VazaoOleo interpolada: {resultado}")    
+    # Crie uma matriz de vazão fictícia
+    #matriz_simulador_vazao = np.random.rand(100, 3)  # Suponha 100 pontos com [Freq, Press, Vazao]
+
+    # Chame a função InicializaSolver_limpo
+    try:
+        resultado = inicializa_solver(Hp, Hc, Qy, Qu, R, ny, nu, nx, modelo, matriz_simulador_vazao)
+        print("inicializa_solver executou com sucesso!")
+        print("Tipo de retorno:", type(resultado))
+        print("Chaves do dicionário retornado:", resultado.keys())
+        
+        # Verifique se o solucionador foi criado corretamente
+        if 'solucionador' in resultado:
+            print("Solucionador criado com sucesso!")
+            
+            # Teste o solucionador com alguns dados fictícios
+            # Nota: Isso é apenas um exemplo, você precisa adaptar para o seu caso específico
+            x0 = np.random.rand(nx)
+            p = np.random.rand(nx + nu + ny + nu + 50)  # 50 é o tamanho do reservatório da ESN no nosso exemplo
+            
+            sol = resultado['solucionador'](x0=x0, p=p)
+            print("Solucionador executado com sucesso!")
+            print("Forma da solução:", sol['x'].shape)
+        else:
+            print("Erro: Solucionador não encontrado no resultado.")
+    
+    except Exception as e:
+        print(f"Erro ao executar inicializa_solver: {str(e)}")
+
+if __name__ == "__main__":
+    teste_InicializaSolver_limpo()
