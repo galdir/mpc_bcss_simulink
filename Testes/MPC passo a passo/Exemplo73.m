@@ -5,13 +5,18 @@
 % de horizonte predito, ou seja, monta as restrições e em sequencia os
 % respectivos limites, favorecendo o entendimento da indexação
 
-% Neste caso, fazemos o limite máximo da velocidade linear variar em função da posição x
-% As restrições dinâmicas da velocidade foram inseridas em lbg/ubg
-% Isso, pois, para os estados do MPC (X e U), só é possivel definir limites
-% e por restrições do SOLVER, não é possível inserir fórmulas nos limites. Os limites sempre devem ser fixos pré estabelecidos.
-% Assim, para inserir restrições em g, geramos uma fórmula (usualmente uma igualdade ou uma diferença) e 
-% fazemos os limites fixos nas chamadas restrições de igualdade ou desigualdade, onde os limites são fixos/conhecidos
-% Assim, para aplicar, a fórmula para o g deve tratar a igualdade/desigualdade desejada e lbg/ubg os respectivos limites
+% Diferente do exemplo anterior, retiramos a restrição de velocidade
+% mudando de forma dinâmica, pois pode criar situações mais complicadas
+% para o robô, fugindo do foco de entendimento
+% 
+% A diferença primirdial para o 72 é que antes, a faixa de velocidade de v_min até v_max assummia que v_min = - v_max
+% Agora teremos uma v_min >0 . Assim as restrições devem assegurar uma velocidade V tal que:
+%   -v_max  <=   V < = -v_min   OU
+%     v_min  <=   V  <=   v_max   OU
+%  V = 0     
+
+% Observar que em diversos casos não passa pelo V=0
+% Entendo que isso ocorrer pois o passo mínimo não é suficiente para que seja alcançado o alvo e al
 
 % Equação dinâmica do sistema a ser controlado
 % x_pto=v.cos(Teta);      ou discretizado    x(k+1) =  x(k) + DeltaT*(v.cos(Teta))
@@ -36,16 +41,19 @@ import casadi.*                              % Importa a biblioteca para defini�
 %% Definições do usuário
 
 % Dados para a simulação
-T=0.2;                         % Período de amostragem
+T=0.2;                           % Período de amostragem
 Obstaculo=1;               % (1/0) Este exemplo usa obstáculo
-x0=[-2;-2;0];                 % Estados iniciais (x, y,Teta)
-xs=[1.8;1.8;-pi];             % Estados finais desejados
-sim_time=30;              % Tempo de simulação em s (Amostras = sim_time/T)
+x0=[-2;-2; 0];                 % Condição inicial dos estados atuais (x, y, Teta)
+xs=[1.8;1.8; pi];             % Estados finais desejados
+sim_time=30;                % Tempo de simulação em s (Amostras = sim_time/T)
 
 % Para a sintonia do MPC
 N=10;                          % Horizonte de predição
-Q=diag([1  5  0.1]);     % Matriz diagonal de pesos dos estados
-R=diag([0.5  0.05]);    % Matriz diagonal de pesos das ações de controle (manipuladas)
+% Q=diag([1  5  0.1]);     % Matriz diagonal de pesos dos estados
+% R=diag([0.5  0.05]);    % Matriz diagonal de pesos das ações de controle (manipuladas)
+Q=diag([1  1  0.1]);     % Matriz diagonal de pesos dos estados
+R=diag([1  1]);    % Matriz diagonal de pesos das ações de controle (manipuladas)
+
 
 % Referências do raio do robô para caracterizar espaço de evitar colisão
 % (se desabilitar a restrição dinâmica [g] que varia em função deste raio, o Solver
@@ -53,21 +61,22 @@ R=diag([0.5  0.05]);    % Matriz diagonal de pesos das ações de controle (mani
 robo_r=0.3;    % Este valor foi usado nos exemplos 4 a 6 mas neste exemplo será alterado em função das restrições dinâmicas
 
 % Referências do obstáculo à ser evitado
-obs_x=0.5;   obs_y=0.5;   obs_r=0.2;
+obs_x=0.5;   obs_y=0.5;   obs_r=0.5;
 Obstacle=[obs_x   obs_y   obs_r];   % Coordenadas (x,y) do obstáculo com tamanho (raio) do obstáculo
 
-% Limites (bounds) fixos para os 3 estados, as quais valerão para todo o horizonte predito
+% Restrições fixas para os 3 estados, as quais valerão para todo o horizonte predito
 FixedStatesLowerBounds= [-3 -3   -inf];       % Xrobo >- 2    Yrobo > -2     Orientação Teta  > -inf
 FixedStatesUpperBounds= [ 3   3   inf];         % Xrobo < 2     Yrobo < 2      Orientação Teta < inf
-ZeroBounds=[ 0  0  0];     % Para quando precisarmos de limite de igualdade para todos os estados
+ZeroBounds=[ 0  0  0];     % Para quando precisarmos de restrições de igualdade para todos os estados
 
-% Limites para as duas ações de controle, as quais valerão para todo o horizonte predito
+% Restrições para as duas ações de controle, as quais valerão para todo o horizonte predito
 v_max=0.6;                            % Valor máximo para a velocidade linear V (manipulada1)
-v_min=-v_max;                      % Valor mínimo para a velocidade linear V (manipulada1)
-omega_max=pi/4;                  % Valor mínimo para a velocidade algular W (manipulada2)
-omega_min=-omega_max;   % Valor mínimo para a velocidade angular W (manipulada2)
-ControlActionLowerBound= [ v_min   omega_min];   % Valores mínimos para compor limites nas ações de controle
-ControlActionUpperBound= [ v_max   omega_max]; % Valores máximos para compor limites nas ações de controle
+v_min=0.1;                             % Valor mínimo para a velocidade linear V (manipulada1)
+
+omega_max=pi/2;                  % Valor máximo para a velocidade algular W em rad/s (manipulada2)
+ControlActionLowerBound= [-v_max   -omega_max];   % Valores mínimos para compor restrições nas ações de controle
+ControlActionUpperBound= [ v_max   omega_max]; % Valores máximos para compor restrições nas ações de controle
+
 
 %% ==============================================
 %% Prepara o ambiente simbólico para o problema não linear (NLP)
@@ -75,6 +84,7 @@ ControlActionUpperBound= [ v_max   omega_max]; % Valores máximos para compor li
 x=SX.sym('x');                                % Cria a variável de decisão (primeiro estado do processo)
 y=SX.sym('y');                                 % Cria a variável de decisão (segundo estado do processo)
 theta=SX.sym('theta');                    % Cria a variável de decisão (terceiro estado do processo)
+fxMinMax=SX.sym('fxMinMax');     % Cria a variável de decisão (usada para faixa de restrição entre -v_min e zero / entre zero e +v_min)
 
 states=[x;y;theta];                           % Variável para guardar estados do processo
 n_states=length(states);                  % Variável para guardar o número de estados
@@ -84,6 +94,7 @@ v=SX.sym('v');                                 % Cria a variável de decisão
 omega=SX.sym('omega');              % Cria a variável de decisão
 vMax=SX.sym('vMax');                   % Cria limite para a variável de decisão (que será dinâmico)
 
+ 
 controls=[v;omega];
 n_controls=length(controls);                  % Variável para guardar o número de variáveis manipuladas
 
@@ -95,14 +106,14 @@ P=SX.sym('P',n_states+n_states);           % Parametros que vão  conter os esta
 X=SX.sym('X',n_states,(1+N));                  % Matriz de estados com n_states colunas e linhas = 1+horizonte de predição
 
 %% ===================================================
-% Montagem dos limites (atuais e futuros) dos estados X
+% Montagem das restrições (atuais e futuras) dos estados X
 args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos
 
-% Inicializa variável para guardar os limites dos estados X e ações de controle U
+% Inicializa variável para guardar as fórmulas das restrições para os estados X e ações de controle U
 % Observe que necessariamente terá a forma de [ n_states  n_control], e o que vai acontecer no loop é empilhar
 % este mesmo formato para os valores futuros preditos para todo o horizonte Hp
-args.lbx=[];       % Inicializa limites inferiores para os estados X do MPC e ações de controle
-args.ubx=[];     % Inicializa limites superiores para os estados X do MPC e ações de controle
+args.lbx=[];       % Inicializa limites inferiores para as restrições dos estados X do MPC e ações de controle
+args.ubx=[];     % Inicializa limites superiores para as restrições dos estados X do MPC e ações de controle
 
 % Inicializa variável para guardar as fórmulas das restrições que vamos criar livremente
 % Neste caso, o formato que for criado também deve ser considerado para os valores em todo o horizonte de predição
@@ -114,7 +125,11 @@ st=X(:,1);                     % Inicializa variável com estados atuais X0 do s
 args.lbx=[args.lbx, FixedStatesLowerBounds];  % Incrementa limites inferiores para as restrições de X na condição atual      
 args.ubx=[args.ubx,FixedStatesUpperBounds]; % Incrementa limites suferiores para as restrições de X na condição atual
 
-g=[g;st-P(1:n_states)];   % Restrição como a diferença entre estados atuais medidos e a condição inicial dos estados enviados por parâmetro    
+Referencia=P(1:n_states);
+% Referencia=P(n_states+1:end);   % Não deveria ser assim??? Já que de 4a 6 estão as referências de posição enviadas por parâmetros !!
+
+g=[g;st-Referencia];   % Restrição como a diferença entre estados atuais medidos e a condição inicial dos estados enviados por parâmetro    
+
 % Sendo uma diferença que idealmente deve ser zero, é uma restrição dita como sendo uma restrição de igualdade
 % pois os limites inferiores e superiores devem ser igual a zero, já que a busca é pela diferença ser nula
 args.lbg=[args.lbg     ZeroBounds];     % Zeros para os limites inferiores  
@@ -137,64 +152,55 @@ for k=1:N                       % Insere restrições para todo o horizonte de p
     args.ubx=[args.ubx, FixedStatesUpperBounds];   % Empilha limites superiores para as restrições do estado
     
     % Criando uma restrição para extra para o erro de predição, forçando com que o robô siga o caminho predito
-    ErroPredicao= st_next_euler- st_next ;   % Define erro como sendo a diferença entre o estado predito e o atual (desejado e estimado?)
+    ErroPredicao= st_next_euler- st_next ;   % Define erro como sendo a diferença entre o estado predito e o atual
     g=[g ; ErroPredicao ];                                % Empilha as  restrições da predicao            
     args.lbg = [args.lbg, ZeroBounds];            % Limites inferiores (lower bounds) para os erros de predição igual a zero
     args.ubg = [args.ubg, ZeroBounds ];        % Limites superiores (upper bounds) para os erros de predição igual a zero
 end
 
-% Insere restrições futuras referentes as ações de controle (completa a
-% forma de LBX e UBX com a parte das ações de controle)
-% Lembrando que:
-% ControlActionLowerBound= [ v_min   omega_min];   % Valores mínimos para compor restrições nas ações de controle
-% ControlActionUpperBound= [ v_max   omega_max]; % Valores máximos para compor restrições nas ações de controle
+% Insere restrições futuras referentes as ações de controle (completa a forma de LBX e UBX com a parte das ações de controle)
+% Lembrando que deixamos a faixa completa considerando -v_max até v_max (inclui o zero mas não exclui v_min)
 
 % Montando as restrições para as velocidades lineares e angulares
 for  k=1:N
-    % Mantém na faixa antes estabelecida, a região de busca nos estados U do MPC  
+    % Até aqui trata a faixa de -v_max a v_max no lbx/ubx, incluindo o zero.
     args.lbx=[args.lbx, ControlActionLowerBound];
     args.ubx=[args.ubx, ControlActionUpperBound];
+end
 
-    % Inserindo restrições que variam no tempo
-    % Como exemplo, faremos v_max mudar em função da posição X, lembrando que v_min = -v_max 
-    % No exemplo, a velocidade pode ser tão maior quanto for o valor da posição x
-    st=X(:,k);                    % Estados atuais do sistema (x, y, Teta)
-    % Uso limites pré-estabelecidos do problema para criar relação
-    % linear que faz a v_max variar do valor original até uma parte dela, inferior ao valor original
-    % Gero uma relação linear em função dos valores pré-estabelecidos
-%     LimMax=v_max;           
-%     LimMin=v_max/5;
-%     XVmax=2;                        
-%     XVmin=-2;
-%     % Faz contas para saber da relação linear proposta para encontrar v_max como função da posição
-%     DeltaLim=LimMax-LimMin;
-%     DeltaX=XVmax-XVmin;
-%     a=DeltaLim/DeltaX;
-%     b=(LimMax-a*XVmax);
-%     vMax=a*st(1)+b;                        % Para ser emplilhada, precisa ser uma variável simbólica (definimos antes)
-% 
-%     con=U(:,k);                              % Ações de controle atuais (v e omega)
-%     LimiteAcao=[vMax ;  omega_max]-abs(con);  % Em toda a faixa de -vMax até vMax  diferença terá de ser sempre positiva
-%     g=[g ; LimiteAcao ];                              % Empilha as restrições para as ações de controle
-%     args.lbg=[args.lbg, [ 0  0] ];                   % A diferença (LimiteAcao tem de ser sempre positiva)
-%     args.ubg=[args.ubg,[ inf    inf ]];
+for  k=1:N
+    % Agora precisamos tratar as faixas de [-v_max até -v_min], de [v_min até v_max], incluindo o zero
+    con=U(:,k);                 % Ações de controle atual (v e omega)
+    v_atual = con(1);        % Verifica a velocidade linear atual
+%     fxMinMax=if_else(v_atual<0,-v_atual-v_min,if_else(v_atual>0,v_atual-v_min,1)); 
+% %     fxMinMax=if_else(v_atual<0,abs(-v_atual-v_min),if_else(v_atual>0,abs(v_atual-v_min),1)); 
+%     g=[g; fxMinMax];      
+%     args.lbg=[args.lbg, 0];             
+%     args.ubg=[args.ubg, inf ];
 
-    robo_r=RaioProtecaoDinamica(X(1,k),X(2,k));      % Apenas inserir a fórmula do cálculo do raio em função da coordenada
-    Posicao=[ X(1,k)   X(2,k)];                                         % Coordenadas da posição do robô
-    Obstacle=[obs_x  obs_y];                                          % Coordenadas do obstáculo
-    DistanciaMinEntreCentros= robo_r+obs_r;             % A soma dos dois raios é a distancia minima necessária entre os centros para não haver colisão
-    DistanciaAtual=sqrt((Posicao(1)-Obstacle(1))^2 + (Posicao(2)-Obstacle(2))^2);   % Distância euclidiana entre os centros
 
-    vMax_atual = v_max*1-(DistanciaMinEntreCentros/DistanciaAtual)+v_max;
-    con=U(:,k);                              % Ações de controle atuais (v e omega)
-    LimiteAcao=[vMax_atual ;  omega_max]-abs(con);  % Em toda a faixa de -vMax até vMax  diferença terá de ser sempre positiva
-    g=[g ; LimiteAcao ];                              % Empilha as restrições para as ações de controle
-    args.lbg=[args.lbg, [ 0  0] ];                   % A diferença (LimiteAcao tem de ser sempre positiva)
-    args.ubg=[args.ubg,[ inf    inf ]];
+%     fxMinMax=if_else(v_atual<0,-v_atual-v_min,1); 
+    
+%     g=[g; fxMinMax];  
+%     fxMinMax=if_else(v_atual>0,v_atual-v_min,1); 
+%     g=[g; fxMinMax];      
+%     args.lbg=[args.lbg, 0];             
+%     args.ubg=[args.ubg, inf ];
+
+% Restrição 1: v_atual >= v_min ou v_atual == 0
+    g = [g; (v_atual - v_min)*(v_atual - 0)]; % Satisfaz v_atual >= v_min ou v_atual == 0
+    args.lbg = [args.lbg, 0];
+    args.ubg = [args.ubg, inf];
+
+    % Restrição 2: v_atual <= -v_min ou v_atual == 0
+    g = [g; (v_atual + v_min)*(v_atual - 0)]; % Satisfaz v_atual <= -v_min ou v_atual == 0
+    args.lbg = [args.lbg, 0];
+    args.ubg = [args.ubg, inf];
+
 end
 
 % Insere restrições atuais e futuras referentes ao obstáculo
-for k=1:N+1     
+for k=1:1+N     
     robo_r=RaioProtecaoDinamica(X(1,k),X(2,k));      % Apenas inserir a fórmula do cálculo do raio em função da coordenada
     Posicao=[ X(1,k)   X(2,k)];                                         % Coordenadas da posição do robô
     Obstacle=[obs_x  obs_y];                                          % Coordenadas do obstáculo
@@ -205,7 +211,6 @@ for k=1:N+1
     % E as respectivas restrições precisam assegurar Distancia >=0
     args.lbg=[args.lbg, 0]; % Limites inferiores (lower bounds) para as restrições de desigualdade em g 
     args.ubg=[args.ubg, inf]; % Limites superiores (upper bounds) para as restrições de desigualdade em g
-
 end
 
 %% ===========================================================
@@ -224,11 +229,13 @@ opts=struct;                                     % Cria estrutura para conter os
 opts.ipopt.max_iter=100;                % Numero máximo de iterações
 opts.ipopt.print_level=0;                   % 
 opts.print_time=0;                   % 
-opts.ipopt.acceptable_tol=1e-8;                   % 
-opts.ipopt.acceptable_obj_change_tol=1e-6;                   % 
+opts.ipopt.acceptable_tol=1e-4;                   % 
+opts.ipopt.acceptable_obj_change_tol=1e-4;                   % 
+% opts.ipopt.acceptable_tol=1e-8;                   % 
+% opts.ipopt.acceptable_obj_change_tol=1e-6;                   % 
 solver=nlpsol('solver','ipopt',nlp_prob,opts);
 
-disp('Montado o solver para o Exemplo 72')
+disp('Montado o solver para o Exemplo 73')
 
 %% Para o loop de simulação com o MPC
 t0=0;                                  % Inicializa Tempo da amostra 
@@ -241,11 +248,11 @@ xx1=[];                                % Variável para guardar estado atual e e
 u_cl=[];                               % Variável para guardar as ações de controle atuais (para plot)
 F=[];                                    % Variável para guardar a Feasability (solução realizável pelo Solver)
 
-while (norm((x0-xs),2) > 1e-2 && mpciter<sim_time/T)
+while (norm((x0-xs),2) > 1e-4 && mpciter<sim_time/T)
     args.p=[x0;xs];                                % Atualiza parâmetros com o estado atual e o estado final desejado
     args.x0=[ reshape(X0',n_states*(N+1),1);   reshape(u0',n_controls*N,1)];          % Formata estados (condição atual e condição desejada) como vetor para passar ao solver
     sol=solver('x0',args.x0,'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
-%     disp(strcat("Feasability: ",num2str(solver.stats.success)));
+    disp(strcat("Feasability: ",num2str(solver.stats.success)));
     Solucao=full(sol.x);    % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo HP  +  Ações de controle em todo Hp ]
     
     % Extraindo dados da resposta do solver (transpostos são importantes - sugiro não alterar a estrutura padrão do reshape)
@@ -269,4 +276,4 @@ while (norm((x0-xs),2) > 1e-2 && mpciter<sim_time/T)
     mpciter=mpciter+1;                       % Incrementa contados de iteração do MPC
 end
 
-PlotaExemplos
+PlotaExemplos7x
