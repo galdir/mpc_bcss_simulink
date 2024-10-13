@@ -188,12 +188,12 @@ for  k=1:N
 %     args.ubg=[args.ubg, inf ];
 
 % Restrição 1: v_atual >= v_min ou v_atual == 0
-    g = [g; (v_atual - v_min)*(v_atual - 0)]; % Satisfaz v_atual >= v_min ou v_atual == 0
+    g = [g; (v_atual - v_min)*(v_atual)]; % Satisfaz v_atual >= v_min ou v_atual == 0
     args.lbg = [args.lbg, 0];
     args.ubg = [args.ubg, inf];
 
     % Restrição 2: v_atual <= -v_min ou v_atual == 0
-    g = [g; (v_atual + v_min)*(v_atual - 0)]; % Satisfaz v_atual <= -v_min ou v_atual == 0
+    g = [g; (v_atual + v_min)*(v_atual)]; % Satisfaz v_atual <= -v_min ou v_atual == 0
     args.lbg = [args.lbg, 0];
     args.ubg = [args.ubg, inf];
 
@@ -272,7 +272,7 @@ while (norm((x0-xs),2) > 1e-4 && mpciter<sim_time/T)
     % Atualiza os dados para do loop de simulação
     t(mpciter+1)=t0;                           % Atualiza o tempo de referência para a próxima iteração do MPC
     [t0, x0, u0]=shift(T, t0, x0, u, f);   % Atualiza estados do sistema dinâmico com base no estado atual e no DeltaT
-    X0=[X0(2:end,:); X0(end,:)];        % Atualiza estados e como não conhece além do Horizonte, repete o último conhecido
+    %X0=[X0(2:end,:); X0(end,:)];        % Atualiza estados e como não conhece além do Horizonte, repete o último conhecido
     mpciter=mpciter+1;                       % Incrementa contados de iteração do MPC
 end
 

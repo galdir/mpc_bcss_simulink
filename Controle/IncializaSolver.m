@@ -1,48 +1,49 @@
 function sol_args = IncializaSolver(EstruturaSolver,Hp,Hc,Qy,Qu,R,ny,nu,nx,ModeloPreditor,matrizVazao,matrizLimitesDinamicos, dumax)
-% Parametros desta função:
+% Parametros desta funï¿½ï¿½o:
 % EstruturaSolver =1/2 indica o tipo de modelo usado para o preditor do MPC: ESN/LSTM
-% Hp = Horizonte de predição
+% Hp = Horizonte de prediï¿½ï¿½o
 % Hc= Horizonte de controle
-% Qy = Matriz diagonal para ponderação das variáveis controladas
-% Qu = Matriz diagonal para ponderação dos alvos desejados
-% R =  Matriz diagnal para poneração das variáveis manipuladas ao longo de todo o horizonte de controle
-%  ny= Número de variáveis controladas (no caso, 2: PSuc e PChegada)
-%  nu=Número de variáveis manipuladas (no caso, 2: Freq e PMonAlvo)
-%  nx = Número de variáveis coletadas do processo (no caso, 10)
+% Qy = Matriz diagonal para ponderaï¿½ï¿½o das variï¿½veis controladas
+% Qu = Matriz diagonal para ponderaï¿½ï¿½o dos alvos desejados
+% R =  Matriz diagnal para poneraï¿½ï¿½o das variï¿½veis manipuladas ao longo de todo o horizonte de controle
+%  ny= Nï¿½mero de variï¿½veis controladas (no caso, 2: PSuc e PChegada)
+%  nu=Nï¿½mero de variï¿½veis manipuladas (no caso, 2: Freq e PMonAlvo)
+%  nx = Nï¿½mero de variï¿½veis coletadas do processo (no caso, 10)
 % ModeloPreditor = rede utilizada como preditor interno ao controlador
 
-import casadi.*                              % Importa a biblioteca para definição de expressões matemáticas simbólicas no Casadi
+import casadi.*                              % Importa a biblioteca para definiï¿½ï¿½o de expressï¿½es matemï¿½ticas simbï¿½licas no Casadi
 
-%% ========================Define parâmetros simbolicos (Casadi) gerais para o problema de otimização=====================================
-X =     MX.sym('X',nx,Hp+1);                           % Predição dos estados sobre o horizonte Hp  
-du =    MX.sym('du',Hc*nu,1);                          % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
-Du =    [du;zeros(nu*(Hp-Hc),1)];                    % Sequencia de ação de controle
-ysp =   MX.sym('ysp',ny,1);                              % Set-point otimo calculado pelo otimizador (Variável de decisão)
-VarControladas = MX.sym('X_MPC',nx);       % Cria uma função de saída (h) em função dos estados (Psuc e Pcheg) para controldas    
+%% ========================Define parï¿½metros simbolicos (Casadi) gerais para o problema de otimizaï¿½ï¿½o=====================================
+X =     MX.sym('X',nx,Hp+1);                           % Prediï¿½ï¿½o dos estados sobre o horizonte Hp  
+du =    MX.sym('du',Hc*nu,1);                          % Incrementos do controle sobre o horizonte Hc (Variï¿½vel de decisï¿½o)
+Du =    [du;zeros(nu*(Hp-Hc),1)];                    % Sequencia de aï¿½ï¿½o de controle
+ysp =   MX.sym('ysp',ny,1);                              % Set-point otimo calculado pelo otimizador (Variï¿½vel de decisï¿½o)
+VarControladas = MX.sym('X_MPC',nx);       % Cria uma funï¿½ï¿½o de saï¿½da (h) em funï¿½ï¿½o dos estados (Psuc e Pcheg) para controldas    
 h=Function('h',{VarControladas},{[VarControladas(1);VarControladas(2)]}); % Define os dois primeiros estados como controladas (Psuc e Pcheg) para o solver comparar com setpoint (ysp)
 
-%% ========================Escolha o modeloPreditor que será usando no MPC (1=ESN, 2=LSTM)  =====================================
+%% ========================Escolha o modeloPreditor que serï¿½ usando no MPC (1=ESN, 2=LSTM)  =====================================
 switch EstruturaSolver
     case 1
         disp('Usando uma estrutura ESN como preditor para o MPC');
-        sol_args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos
+        sol_args=struct;     % Inicializa variï¿½vel que vai armazenar a estrutura de argumentos
         
-        %Parâmetros simbólicos específicos da ESN
-        nx_ESN =      length(ModeloPreditor.data.Wir);   % Resgata o tamanho do reservatório da ESN utilizada como modelo preditor
+        %Parï¿½metros simbï¿½licos especï¿½ficos da ESN
+        nx_ESN =      length(ModeloPreditor.data.Wir);   % Resgata o tamanho do reservatï¿½rio da ESN utilizada como modelo preditor
         
-        % P = quantidade de parâmetros para o Solver. Os P parâmetros são:
-        % - DadosProcesso (dimensão=nx)
-        % - uk(entradas) (dimensão=nu)
-        % - Erro, sendo a diferença entre a medição do processo e a última predição das variáveis controladas (dimensão=ny)
-        % - Alvo dado pelo RTO (dimensão=nu)
-        % - Dados do reservatório da ESN utilizada pelo controlador (dimensão=nx_ESN)
-        P =           MX.sym('P',nx+nu+ny+nu+nx_ESN);    % qtd de parâmetros para o Solver
-        uk_1 =        P(nx+1:nx+nu);                                    % define variável simbólica das entradas (Freq. PmonAlvo)
-        erro =        P(nx+nu+1:nx+nu+ny);                         % define variável simbólica para erro (DadosProcesso-PrediçãoMPC) ->(Psuc. Pcheg)
-        uRTO =        P(nx+nu+ny+1:nx+nu+ny+nu);         % define variável simbólica para Alvo (Freq. e PmonAlvo)
-        ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variável simbólica do reservatório da ESN
+        % P = quantidade de parï¿½metros para o Solver. Os P parï¿½metros sï¿½o:
+        % - DadosProcesso (dimensï¿½o=nx)
+        % - uk(entradas) (dimensï¿½o=nu)
+        % - Erro, sendo a diferenï¿½a entre a mediï¿½ï¿½o do processo e a ï¿½ltima prediï¿½ï¿½o das variï¿½veis controladas (dimensï¿½o=ny)
+        % - Alvo dado pelo RTO (dimensï¿½o=nu)
+        % - Dados do reservatï¿½rio da ESN utilizada pelo controlador (dimensï¿½o=nx_ESN)
+        P =           MX.sym('P',nx+nu+ny+nu+nx_ESN);    % qtd de parï¿½metros para o Solver
+        uk_1 =        P(nx+1:nx+nu);                                    % define variï¿½vel simbï¿½lica das entradas (Freq. PmonAlvo)
+        erro =        P(nx+nu+1:nx+nu+ny);                         % define variï¿½vel simbï¿½lica para erro (DadosProcesso-Prediï¿½ï¿½oMPC) ->(Psuc. Pcheg)
+        uRTO =        P(nx+nu+ny+1:nx+nu+ny+nu);         % define variï¿½vel simbï¿½lica para Alvo (Freq. e PmonAlvo)
+        ESNdataa0 =   P(nx+nu+ny+nu+1:end);              % define variï¿½vel simbï¿½lica do reservatï¿½rio da ESN
+        n_ESNdataa0 =size(ESNdataa0, 1);
         u = [uk_1;P(1:nx)];
-        g=[X(:,1)-P(1:nx)];                              % define variavel que vai empilhar as restrições durante o Hp
+        g=[X(:,1)-P(1:nx)];                              % define variavel que vai empilhar as restriï¿½ï¿½es durante o Hp
         
         %montando funcoes com expressoes casadi para acelerar o loop de
         %horizonte de predicao
@@ -58,7 +59,7 @@ switch EstruturaSolver
         Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym, matrizVazao);
         f_Interpola_casadi_vazao_sym = Function('f_vazao', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
         
-        buscaRestricoesLimites_casadi_sym = buscaLimitesTabela_casadi(matrizLimitesDinamicos, Freq_sym);
+        buscaRestricoesLimites_casadi_sym = buscaLimitesMatriz_casadi(matrizLimitesDinamicos, Freq_sym);
         f_buscaRestricoesLimites_casadi_sym = Function('f_lim', {Freq_sym}, {buscaRestricoesLimites_casadi_sym});
         
         %buscando limites dinamicos
@@ -70,31 +71,26 @@ switch EstruturaSolver
         limMax_controladas = [limMax(1); limMax(2)];
         limMin_controladas = [limMin(1); limMin(2)];
 
+        entradas_predicao_sym = MX.sym('entradas_predicao', nu+nx);
+        n_ESNdataa0_sym = MX.sym('n_ESNdataa0', n_ESNdataa0);
+        [predicoes_sym, novo_a0_sym] = executa_predicao_ESN_vazao(entradas_predicao_sym, n_ESNdataa0_sym, ModeloPreditor, f_Interpola_casadi_vazao_sym);
+        f_executa_predicao_ESN_vazao_sym = Function('f_predicao', {entradas_predicao_sym, n_ESNdataa0_sym}, {predicoes_sym, novo_a0_sym});
 
-        %Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
+
+        %Define a funï¿½ï¿½o objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variï¿½veis de controle, considerando as restriï¿½ï¿½es do processo.
         for k=1:Hp
-            uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);           % define variável simbólica para soma dos incrementos de controle
-            ym = h(X(:,k+1));                                           % define variável simbólica que será controlada utilizando a função de saída (h) definida anteriomente 
-            fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
-            u = [uk_1;P(1:nx)];                                        % define uma matriz para armazenar as variáveis de entrada no modeloPreditor
+            uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);           % define variï¿½vel simbï¿½lica para soma dos incrementos de controle
+            ym = h(X(:,k+1));                                           % define variï¿½vel simbï¿½lica que serï¿½ controlada utilizando a funï¿½ï¿½o de saï¿½da (h) definida anteriomente 
+            fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a funï¿½ï¿½o objetivo proposta
+            %u = [uk_1;P(1:nx)];                                        % define uma matriz para armazenar as variï¿½veis de entrada no modeloPreditor
+            u = [uk_1;X(:,k)];                                        % define uma matriz para armazenar as variï¿½veis de entrada no modeloPreditor
             
-            %resultado = full(f_executa_predicao_ESN_vazao_sym(u, ESNdataa0));
-            %y_esn_pred = resultado(1);
-            %ESNdataa0 = resultado(2);
-            %[y_esn_pred, ESNdataa0] = executa_predicao_ESN(u, ESNdataa0, ModeloPreditor);
-            [y_esn_pred, ESNdataa0] = executa_predicao_ESN_vazao(u, ESNdataa0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
-%             ukk = normaliza_entradas(u);                       % normaliza as variáveis para entrada no modeloPreditor            
-%             x_ESN = ModeloPreditor.data.Wrr*ESNdataa0 + ModeloPreditor.data.Wir*ukk + ModeloPreditor.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
-%             
-%             ESNdataa0 = (1-ModeloPreditor.data.gama)*ESNdataa0 + ModeloPreditor.data.gama*tanh(x_ESN);         % Atualisa estado da ESN
-%             a_wbias = [1.0;ESNdataa0];                                                                         % 
-%             yn = ModeloPreditor.data.Wro*a_wbias;                                                   % Variáveis preditas pela rede atualizada
-%             y_esn_pred = desnormaliza_predicoes(yn);                                              % desnormaliza as variáveis de saída no modeloPreditor
-%             
-            %VazaoEstimada=f_Interpola_casadi_vazao_sym(uk_1(1), y_esn_pred(2)*1.019716);   % Com base nas entradas (Freq e PChegada em Kgf/cm2), estima vazão
-            %y_esn_pred=[y_esn_pred; VazaoEstimada];
+
+            %[y_esn_pred, ESNdataa0] = executa_predicao_ESN_vazao(u, ESNdataa0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
+            [y_esn_pred, ESNdataa0] = f_executa_predicao_ESN_vazao_sym(u, ESNdataa0);
+
                        
-            g=[g;X(:,k+1)-y_esn_pred];   % Define variável simbólica para atender as restrições nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
+            g=[g;X(:,k+1)-y_esn_pred];   % Define variï¿½vel simbï¿½lica para atender as restriï¿½ï¿½es nos LimitesInferior e LimiteSuperior(lbg<g(x)<ubg)                                                                     
             
             %buscando limites dinamicos
             uk_11 = uk_1(1); % frequencia atual para buscar limites
@@ -115,29 +111,29 @@ switch EstruturaSolver
         disp('Usando uma estrutura LSTM como preditor para o MPC');
         [ModeloLSTM,Buffer] = CarregaModeloLSTM(ModeloPreditor);
         nx_LSTM = size([Buffer.pressao_succao_BCSS(:);Buffer.pressao_chegada(:);Buffer.pressao_descarga_BCSS(:);Buffer.temperatura_motor_BCSS(:);Buffer.corrente_torque_BCSS(:);Buffer.corrente_total_BCSS(:);Buffer.temperatura_succao_BCSS(:);Buffer.vibracao_BCSS(:);Buffer.temperatura_chegada(:)],1); % define o tamanho do Buffer da LSTM
-        P =      MX.sym('P',nx+nu+ny+nu+nx_LSTM);   % qtd de parâmetros para o Solver(DadosProcesso,uk(entradas),erro(mismach),Alvo,Dados do Buffer LSTM)
-        uk_1 =   P(nx+1:nx+ny);                                      % define variável simbólica das entradas (Freq. PmonAlvo)
-        erro =   P(nx+ny+1:nx+ny+nu);                           % define variável simbólica para erro (DadosProcesso-PrediçãoMPC) ->(Psuc. Pcheg)
-        uRTO =   P(nx+ny+nu+1:nx+ny+nu+nu);            % define variável simbólica para Alvo (Freq. PmonAlvo)
-        AtualizaBuffer = P(nx+ny+nu+nu+1:end);          % define variável simbólica do Buffer da LSTM
+        P =      MX.sym('P',nx+nu+ny+nu+nx_LSTM);   % qtd de parï¿½metros para o Solver(DadosProcesso,uk(entradas),erro(mismach),Alvo,Dados do Buffer LSTM)
+        uk_1 =   P(nx+1:nx+ny);                                      % define variï¿½vel simbï¿½lica das entradas (Freq. PmonAlvo)
+        erro =   P(nx+ny+1:nx+ny+nu);                           % define variï¿½vel simbï¿½lica para erro (DadosProcesso-Prediï¿½ï¿½oMPC) ->(Psuc. Pcheg)
+        uRTO =   P(nx+ny+nu+1:nx+ny+nu+nu);            % define variï¿½vel simbï¿½lica para Alvo (Freq. PmonAlvo)
+        AtualizaBuffer = P(nx+ny+nu+nu+1:end);          % define variï¿½vel simbï¿½lica do Buffer da LSTM
         
-        %Converte o vetor "AtualizaBuffer(nx_LSTM,1) em matrizes para as seguintes variáveis (Varnames)
+        %Converte o vetor "AtualizaBuffer(nx_LSTM,1) em matrizes para as seguintes variï¿½veis (Varnames)
          sizes = [3, 6; 3, 6; 3, 6;...
                  3, 8; 3, 6; 3, 6;...
                  3, 8; 3, 6; 3, 8];
         Varnames = {'pressao_succao_BCSS','pressao_chegada','pressao_descarga_BCSS',...
                     'temperatura_motor_BCSS','corrente_torque_BCSS','corrente_total_BCSS',...
                     'temperatura_succao_BCSS','vibracao_BCSS','temperatura_chegada'};
-        start_idx = 1;                                          % Inicializando o índice para percorrer em AtualizaBuffer
+        start_idx = 1;                                          % Inicializando o ï¿½ndice para percorrer em AtualizaBuffer
         for posicao = 1:length(Varnames)                     % Loop para criar as 9 matrizes referente aos estados do processo
             rows = sizes(posicao, 1);
             cols = sizes(posicao, 2);
             num_elements = rows * cols;
             sub_matrix = reshape(AtualizaBuffer(start_idx:start_idx + num_elements - 1), [rows, cols]); % Extrair a parte correspondente ao vetor AtualizaBuffer
-            eval([Varnames{posicao}, ' = sub_matrix;']);     % Atribuir a sub-matriz a uma variável com o nome correspondente
-            start_idx = start_idx + num_elements;   % Atualizar o índice inicial para o próximo bloco
+            eval([Varnames{posicao}, ' = sub_matrix;']);     % Atribuir a sub-matriz a uma variï¿½vel com o nome correspondente
+            start_idx = start_idx + num_elements;   % Atualizar o ï¿½ndice inicial para o prï¿½ximo bloco
         end
-            g=[X(:,1)-P(1:nx)];                                   % define variavel que vai empilha as restrições durante o Hp
+            g=[X(:,1)-P(1:nx)];                                   % define variavel que vai empilha as restriï¿½ï¿½es durante o Hp
         for k=1:Hp
             uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);
             ym = h(X(:,k+1));
@@ -157,9 +153,9 @@ switch EstruturaSolver
             g=[g;X(:,k+1)-y_lstm_pred];
         end
     otherwise
-        error('EstruturaSolver inválida. Selecione um valor válido.');
+        error('EstruturaSolver invï¿½lida. Selecione um valor vï¿½lido.');
 end
-%% ========================Define as matrizes auxiliares (Mtil, Itil) para o incremento de controle (ação de controle) ao longo de Hc passos, no conjunto de restrições (g)====================================
+%% ========================Define as matrizes auxiliares (Mtil, Itil) para o incremento de controle (aï¿½ï¿½o de controle) ao longo de Hc passos, no conjunto de restriï¿½ï¿½es (g)====================================
 Mtil=[];                         
 Itil=[];
 auxM=zeros(nu,Hc*nu);
@@ -168,21 +164,21 @@ for in=1:Hc
     Mtil=[Mtil;auxM];
     Itil=[Itil;eye(nu)];
 end
-% Conclui a inclusão das restrições nos estados e nas entradas.
+% Conclui a inclusï¿½o das restriï¿½ï¿½es nos estados e nas entradas.
 g = [g;Mtil*du+Itil*P(nx+1:nx+nu)]; 
 
-%% ========================Configuração do otimizador====================================
-opt_variable=[X(:);du;ysp];                   %variáveis calculadas pelo Solver(predição;incrementos de controle;set-point*) 
-nlp = struct('f',fob,'x',opt_variable,'g', g, 'p', P); %define a estrutura para problema de otimização não linear (NLP, Nonlinear Programming), sendo: 1-fob, definida acima; 2-opt_variable: variáveis de decisão; 3-g, as restrições do processo e 4-P, parâmetros de entrada para Solver   
+%% ========================Configuraï¿½ï¿½o do otimizador====================================
+opt_variable=[X(:);du;ysp];                   %variï¿½veis calculadas pelo Solver(prediï¿½ï¿½o;incrementos de controle;set-point*) 
+nlp = struct('f',fob,'x',opt_variable,'g', g, 'p', P); %define a estrutura para problema de otimizaï¿½ï¿½o nï¿½o linear (NLP, Nonlinear Programming), sendo: 1-fob, definida acima; 2-opt_variable: variï¿½veis de decisï¿½o; 3-g, as restriï¿½ï¿½es do processo e 4-P, parï¿½metros de entrada para Solver   
 
-%Configuração específica do otimizador
+%Configuraï¿½ï¿½o especï¿½fica do otimizador
 options=struct;
-options.print_time=0;                         % Habilita tempo total de execução do solver deve ser impresso ou não.
-options.ipopt.print_level=1;                  % Nível de detalhamento das mensagens de saída do IPOPT. Valores mais baixos resultam em menos mensagens (0 significa sem mensagens).
-options.ipopt.max_iter=100;                   % Especifica o número máximo de iterações que o solver deve executar antes de parar.
-options.ipopt.acceptable_tol=1e-4;            % Define a tolerância de convergência do solver. Um valor menor indica uma solução mais precisa.
-options.ipopt.acceptable_obj_change_tol=1e-4; % Define uma tolerância aceitável para uma solução "boa o suficiente", útil para problemas onde a solução perfeita pode ser muito difícil de alcançar.
-SolucaoOtimizador = nlpsol('SolucaoOtimizador','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
+options.print_time=0;                         % Habilita tempo total de execuï¿½ï¿½o do solver deve ser impresso ou nï¿½o.
+options.ipopt.print_level=1;                  % Nï¿½vel de detalhamento das mensagens de saï¿½da do IPOPT. Valores mais baixos resultam em menos mensagens (0 significa sem mensagens).
+options.ipopt.max_iter=100;                   % Especifica o nï¿½mero mï¿½ximo de iteraï¿½ï¿½es que o solver deve executar antes de parar.
+options.ipopt.acceptable_tol=1e-4;            % Define a tolerï¿½ncia de convergï¿½ncia do solver. Um valor menor indica uma soluï¿½ï¿½o mais precisa.
+options.ipopt.acceptable_obj_change_tol=1e-4; % Define uma tolerï¿½ncia aceitï¿½vel para uma soluï¿½ï¿½o "boa o suficiente", ï¿½til para problemas onde a soluï¿½ï¿½o perfeita pode ser muito difï¿½cil de alcanï¿½ar.
+SolucaoOtimizador = nlpsol('SolucaoOtimizador','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimizaï¿½ï¿½o nï¿½o linear (nlp)
 sol_args.solucionador = SolucaoOtimizador;
 end
 
@@ -190,19 +186,19 @@ end
 
 function [predicoes, novo_a0] = executa_predicao_ESN_vazao(entradas, ESNdataa0, modelo_ESN, f_matrizVazao_sym)
 %%
-% entradas é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
+% entradas ï¿½ uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
 %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
 %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
 %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
 %   
 % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
 %
-% ESNdataa0 é o estado do reservatorio da esn após a ultima predicao
+% ESNdataa0 ï¿½ o estado do reservatorio da esn apï¿½s a ultima predicao
 %
-% matrizVazao é a matriz com vazoes estimadas por frequencia e pressao de
+% matrizVazao ï¿½ a matriz com vazoes estimadas por frequencia e pressao de
 % chegada
 %
-% saidas é um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
+% saidas ï¿½ um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
 %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
 %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
 %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada,
@@ -220,22 +216,22 @@ end
 
 function [predicoes, novo_a0] = executa_predicao_ESN(entradas, ESNdataa0, modelo_ESN)
 %%
-% entradas é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
+% entradas ï¿½ uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
 %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
 %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
 %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
 %   
 % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
 %
-% ESNdataa0 é o estado do reservatorio da esn após a ultima predicao
+% ESNdataa0 ï¿½ o estado do reservatorio da esn apï¿½s a ultima predicao
 %
-% saidas é um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
+% saidas ï¿½ um vetor coluna com o instante seguinte para frequencia_BCSS, pressao_montante_alvo:
 %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
 %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
 %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
  
 entradas_normalizadas = normaliza_entradas(entradas); 
-x_ESN = modelo_ESN.data.Wrr*ESNdataa0 + modelo_ESN.data.Wir*entradas_normalizadas + modelo_ESN.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
+x_ESN = modelo_ESN.data.Wrr*ESNdataa0 + modelo_ESN.data.Wir*entradas_normalizadas + modelo_ESN.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a prediï¿½ï¿½o
 novo_a0 = (1-modelo_ESN.data.gama)*ESNdataa0 + modelo_ESN.data.gama*tanh(x_ESN);         % Atualisa estado da ESN
 a_wbias = [1.0; novo_a0];                                                                         % 
 predicoes_normalizadas = modelo_ESN.data.Wro*a_wbias;  

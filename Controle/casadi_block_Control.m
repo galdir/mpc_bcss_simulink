@@ -211,6 +211,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', LimitesMin,'ubx', LimitesMax,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
                 %solver_MPC=obj.casadi_solver('x0',obj.x0,'lbx', obj.limMin_casadi,'ubx', obj.limMax_casadi,'lbg', ManipuladasLowLimit, 'ubg', ManipuladasHighLimit, 'p', par_solver);
                 Feasible=obj.casadi_solver.stats.success;             % Atualizar status do Feasible
+                disp(Feasible)
                 % Usa resposta do solver para atualizar variáveis
                 obj.x0 = full(solver_MPC.x);                                       % Atualiza objeto com solução ótima no instante k (PredicaoHorizonteHp; Deltau_k, Ysp)
                 ResultadoMPC=obj.x0;                                              % Vetor com resultados proveniente da otimização feita pelo MPC
