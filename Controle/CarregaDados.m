@@ -13,12 +13,25 @@ CarregaTabelas;
 %% =============================================================================
 % Carregar funções simbólicas que serão consumidas pelos códigos Matlab e CaSAdi
 CarregaFuncoesSym;    
+% f_buscaLimites_sym = Function('BuscaLimites', {Freq_sym}, {buscaLimitesMatriz_casadi_sym});
+% f_Interpola_casadi_vazao_sym = Function('f_vazao', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
 
 %% =============================================================================
 % Definição da base de tempo para simulação. 
+
 % OBS: Simulação funciona com Ts diferente de 10s, mas isso faz sair da escala de tempo real e também faz errar o cálculo
 % do volume produzido, já que a vazão estimada é em m3/dia. Assim, é importante manter Ts = 10
 Ts =10;                                            % Passo de simulação (1 passo = 10s do processo) 
+
+%% =============================================================================
+% Limite para proporção na análise de tempo entre o tempo do Solver e a estimativa da ESN
+TempoESN=0.0156;                % Tempo medido para a predição pela ESN na máquina Petrobras
+
+% No ambiente simulado medimos a proporção entre o tempo do Solver e o tempo para a ESN que representa o modelo
+% Assim , tendo esta proporção como referência e sabendo o TempoESN na máquina Petrobras, 
+% sabemos um limite desta proporção para não violar Ts=10s
+
+LimiteProporcao=Ts/TempoESN;    
 
 %% =============================================================================
 % Define condição inicial para a simulação de acordo com um instante com valores reais das variáveis do processo 
@@ -34,17 +47,13 @@ Ts =10;                                            % Passo de simulação (1 pas
 
 % Inicio de rampas de aceleração para comparação
 % [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',MatrizSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
-% [XIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',MatrizSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-[XIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',MatrizSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
-
-% A condição inicial da vazão precisamos apenas para inicializar a visualização dos mapas  
-% VazaoIni=Interpola(UIni(1),XIni(2)*1.019716,MatrizSimulador,3);  % Entra Freq [Hz] e Presão [Kgf/cm2] para retornar a vazão estimada em m3/dia
-VazaoIni=XIni(11);   % Avaliar se vale a pena atualizar nos blocos do Simulink
+[XIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',MatrizSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
+% [XIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',MatrizSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
 
  % Usa uma matriz h para seleção dos estados que vão compor a saida. Representa a função y=h(x) 
-matriz_h=zeros(2,height(XIni)); % Tamanho da matriz que vai oferecer a saida do sistema    
-matriz_h(1,1)=1;            % Coluna na linha 1 que indica a primeira variável controlada
-matriz_h(2,2)=1;            % Coluna na linha 2  que indica a segunda variável controlada 
+matriz_h=zeros(2,height(XIni)); % Tamanho da matriz que vai indicar as variáveis controladas por setpoint    
+matriz_h(1,2)=1;            % PChegada - Coluna na linha 1 que indica a primeira variável controlada
+matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda variável controlada 
 
 % Só para lembrar do nome das variáveis e a ordem (coluna) delas nos estados X
 % 1 = PSuc
@@ -59,44 +68,24 @@ matriz_h(2,2)=1;            % Coluna na linha 2  que indica a segunda variável 
 % 10 = TChegada
 % 11 = Vazao
 
-% AVALIAR SE VALE A PENA MUDAR A ORDEM DE TODA A CALC_LIMITES
-% Talvez possamos usar a matriz_h para facilitar a extração dos limites (alarmes),
-% Só para lembrar a ordem (coluna) que das variáveis que retornam da CalcLimites atual
-% 1 = TMotor
-% 2 = TSuc
-% 3 = Vibracao
-% 4 = ITotal
-% 5 = ITorque
-% 6 = PSuc
-% 7 = PDescarga
-% 8 = PDiff
-% 9 = P.Chegada
-% 10 = TChegada
-% 11 = Vazao
-
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
-
 FreqMaxMin=[60; 40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
-% PMonAlvoMaxMin=[40; 25];                                     % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
-PMonAlvoMaxMin=[50; 10];                                         % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
+PMonAlvoMaxMin=[40; 20];                                         % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
 umax  = [FreqMaxMin(1); PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
 umin  =  [FreqMaxMin(2); PMonAlvoMaxMin(2)] ;      % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
-% Delta U - variação máxima permitida nas variáveis manipuladas
+% Delta U - variação máxima permitida nas ações de controle (Freq e PMonAlvo)
 dumax = [0.1; 1];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
-dumin = [0.1; 0];                                                        %Variação mínima nas manipuladas [ Hz    bar ]
-% dumin = [0; 0];       
 
 %% =============================================================================
 % Carrega tabela com plano de experimentos programados para mudanças automáticas de Freq. e PMonAlvo para simulação
 % Observar que nos demais casos há proteção para que não se coloque alvo ENG em regiões proibidas. No caso do PLANO, isso não é testado e
 % o plano será executado tal qual definido em tabela, mesmo com alvo em região proibida
 
-% Plano=readtable('PlanoTesteCampoDia12.07.2024.xlsx');    % Plano que reproduz testes de campo no dia 12/07/2024, neste caso, usamos a inicialização do dia 12/07 às 10h
-Plano=readtable('PlanoVerIsovazao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
+% Plano=readtable('PlanoVerIsovazao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 % Plano=readtable('PlanoAceleracao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
-%  Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
+ Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 
 % Define se vai usar plano (tabela excel) para alterar alvos da engenharia ao longo da simulação
 UsaPlano=0;
@@ -105,6 +94,7 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
     PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a PMonAlvo [bar]
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
+%     StopTime=2000; 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
     AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
@@ -117,7 +107,7 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=32;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
+        PMonAlvoIni=20;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         FaixaPChegada=Limites(:,2);      % Extrai faixa [ Max  Min] da PChegada (coliuna 2) em bar
         PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos. Se for dentro da faixa, não muda em nada o que foi definido pela ENG
@@ -147,11 +137,13 @@ SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplic
 % alarme L e H. Há variáveis, porém, cujos alarmes H ou L, por sí só, podem gerar TRIP da planta.
 % Neste caso, definimos uma margem percentual como sendo uma região em que
 % o controlador deve considerar como limite, antes de chegar no limite propriamente dito.
-% O valor da margem é dado em % e pode ser ZERO
-MargemPercentual=0.5;
+% O valor da margem é dado em % e pode ser ZERO.
+% OBS: aplicamos estas margens percentuais apenas nas variáveis medidas do processo (estados X), 
+
+MargemPercentual=0;     
 
 %% =============================================================================
-disp('Configurações gerais carregadas para a área de trabalho')
+disp('Configurações para a simulação foram carregadas para a área de trabalho')
 disp('Funções simbólicas carregadas para a área de trabalho')
 
 
