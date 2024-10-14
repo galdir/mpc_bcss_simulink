@@ -194,16 +194,16 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             xm=X(1,:);                                              % Medições atuais dos estados X
             x0=P(1:nx)';                                            % Estados estimados no instante anterior
             Ex= (xm-x0);                                          % Erro entre medições atuais dos estados X e valores estimados no instante anterior
-            g=[g;  Ex'];                                            % Empilha restrição de igualdade
-            args.lbg=[args.lbg     zeros(1,nx)];    % Zeros para os limites inferiores  
-            args.ubg=[args.ubg  zeros(1,nx)];    % Zeros para os limites superiores, caracterizando a restrição de igualdade (igual a zero)
+%             g=[g;  Ex'];                                            % Empilha restrição de igualdade
+%             args.lbg=[args.lbg     zeros(1,nx)];    % Zeros para os limites inferiores  
+%             args.ubg=[args.ubg  zeros(1,nx)];    % Zeros para os limites superiores, caracterizando a restrição de igualdade (igual a zero)
 
             y0 = h(x0')';                                             % Valor das variáveis de saida (controladas por setpoint) estimadas no instante anterior
             ym = h(xm')';                                       % Medições das saidas controladas por setpoint 
             Ey= (ym-y0);                                         % Diferença entre as mediçoes e valores estimados no instante anterior
-            g=[g;  Ey'];                                                 % Empilha restrição de igualdade
-            args.lbg=[args.lbg     zeros(1,ny)];        % Zeros para os limites inferiores  
-            args.ubg=[args.ubg  zeros(1,ny)];         % Zeros para os limites superiores, caracterizando a restrição de igualdade (igual a zero)
+%             g=[g;  Ey'];                                                 % Empilha restrição de igualdade
+%             args.lbg=[args.lbg     zeros(1,ny)];        % Zeros para os limites inferiores  
+%             args.ubg=[args.ubg  zeros(1,ny)];         % Zeros para os limites superiores, caracterizando a restrição de igualdade (igual a zero)
 
             %% Restrições para todo o loop de predição
             fob=0;                                                            % Inicializa custo da função objetivo
@@ -239,35 +239,40 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 
                 % RESTRIÇÕES PARA AS VARIÁVEIS DE SAIDA (CONTROLADAS POR SETPOINT)
                 % Insere restrições para os valores máximos das saidas preditas
-                LimMaxY=LimitesY(1,:)-y_predito;        % Para não ser violado o limite, a diferença deve ser >= 0
+                LimMaxY=LimitesY(1,:)-y_predito;    % Para não ser violado o limite, a diferença deve ser >= 0
                 g=[g; LimMaxY']; 
-                args.lbg=[args.lbg,  zeros(1,ny) ];          % Limite mínimo para restrição de desigualdade      
-                args.ubg=[args.ubg, inf(1,ny) ];       % Limite máximo para restrição de desigualdade
+                args.lbg=[args.lbg,  zeros(1,ny) ];      % Limite mínimo para restrição de desigualdade      
+                args.ubg=[args.ubg, inf(1,ny) ];          % Limite máximo para restrição de desigualdade
                 % Insere restrições para os valores máximos das saidas preditas
-                LimMinY=y_predito-LimitesY(2,:);         % Para não ser violado o limite, a diferença deve ser >= 0
+                LimMinY=y_predito-LimitesY(2,:);      % Para não ser violado o limite, a diferença deve ser >= 0
                 g=[g; LimMinY']; 
-                args.lbg=[args.lbg, zeros(1,ny) ];           % Limite mínimo para restrição de desigualdade      
-                args.ubg=[args.ubg,inf(1,ny) ];       % Limite máximo para restrição de desigualdade
+                args.lbg=[args.lbg, zeros(1,ny) ];        % Limite mínimo para restrição de desigualdade      
+                args.ubg=[args.ubg,inf(1,ny) ];             % Limite máximo para restrição de desigualdade
 
                 ErroEstimativaX=x_predito-EstadoAtual;  % Erro da predição dos estados
                 
-                fob=fob+(y_predito-Ysp+Ey)*Qy*(y_predito-Ysp+Ey)' + (ErroEstimativaX+Ex)*Qx*(ErroEstimativaX+Ex)';
+               fob=fob+(y_predito-Ysp+Ey)*Qy*(y_predito-Ysp+Ey)' + (ErroEstimativaX+Ex)*Qx*(ErroEstimativaX+Ex)';
             end
              
-            % Insere custos das ações de controle U na fob
             for k=1:Hc
-                fob=fob+U(k,:)*Qu*U(k,:)';
-            end
-            % Insere custo de DeltaU na fob
-            for k=1:Hc-1
-                DeltaU=U(k+1,:)-U(k,:);
-                fob=fob+DeltaU*R*DeltaU';
+                fob=fob+U(k,:)*Qu*U(k,:)';        % Insere custos das ações de controle U (atuais e futuras) na fob
+                g=[g; U(k,:)'];                              % Insere restrição de desigualdade
+                args.lbg=[args.lbg,    umin' ];     % Limite mínimo para a restrição de desigualdade associada a ação de controle U      
+                args.ubg=[args.ubg,  umax' ];   % Limite máximo para restrição de desigualdade associada a ação de controle U
             end
             
-            obj.lbx=args.lbx;                                             % Lower Bounds para os Estados X e U do MPC
-            obj.ubx=args.ubx;                                          % Upper Bounds para os Estados X e U do MPC
-            obj.lbg=args.lbg;                                             % Lower Bounds para as restrições [g] que foram criadas
-            obj.ubg=args.ubg;                                          % Upper Bounds para as restrições [g] que foram criadas
+            for k=1:Hc-1
+                DeltaU=U(k+1,:)-U(k,:);            % Calcula DeltaU
+                fob=fob+DeltaU*R*DeltaU';     % Insere custo de DeltaU (atuais e futuros) na fob
+                g=[g; DeltaU'];                            % Insere restrição de desigualdade
+                args.lbg=[args.lbg,   -dumax' ];  % Limite mínimo para a restrição de desigualdade associada ao DeltaU      
+                args.ubg=[args.ubg,  dumax' ];  % Limite máximo para restrição de desigualdade associada ao DeltaU
+            end
+            
+            obj.lbx=args.lbx;                                % Lower Bounds para os Estados X e U do MPC
+            obj.ubx=args.ubx;                             % Upper Bounds para os Estados X e U do MPC
+            obj.lbg=args.lbg;                                % Lower Bounds para as restrições [g] que foram criadas
+            obj.ubg=args.ubg;                             % Upper Bounds para as restrições [g] que foram criadas
 
             %% ========================Configuração do otimizador====================================
             % Monta as variáveis de decisão em um vetor coluna - esta dimensão é fundamental para entender as contas e  indexações
