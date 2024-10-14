@@ -33,7 +33,6 @@ Qy=  diag([1  1]);        % Qy - Peso das saidas controladas por setpoint = PSuc
 Qx= 1;                         % Peso para os erros de estimação das  variáveis do processo
 Qu = diag([1  1]);        % Qu - Peso das ações de controle nas entradas (Alvos Desejados = Freq. e PMonAlvo)
 R=    [1  1];                  % R - Peso na variação das ações de controle - Delta U em (Freq. e PMonAlvo) 
-% R =  diag(repmat(R,1,Hc));   % Para ponderar o custo de variação nas manipuladas (Freq. e PmonAlvo) em todo o Hc
 
 % Ver como levar esta expansão de R em todo Hc para dentro da inicialização
 

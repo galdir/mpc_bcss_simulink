@@ -151,6 +151,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% Variáveis simbolicas para o problema de otimização
             X =MX.sym('X',1+Hp,nx);                      % Estado atual + estados futuros até Hp 
             U=MX.sym('U',Hp,nu);                          % Ações de controle até o horizonte Hp
+
+            du =    MX.sym('du',Hc*nu,1);                          % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
+            Du =    [du;zeros(nu*(Hp-Hc),1)];                    % Sequencia de ação de controle
+            ysp =   MX.sym('ysp',ny,1);                              % Set-point otimo calculado pelo otimizador (Variável de decisão)
+%             opt_variable=[X(:);du;ysp];                   %variáveis calculadas pelo Solver(predição;incrementos de controle;set-point*) 
             
             % Parâmetros que devem ser oferecidos ao  Solver
             % Estados estimados no instante anterior + Saidas desejadas (variáveis controladas por setpoint) +  Reservatório da ESN
@@ -278,7 +283,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % Monta as variáveis de decisão em um vetor coluna - esta dimensão é fundamental para entender as contas e  indexações
             % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo Hp  +  Ações de controle em todo Hc ]
             %                             Dimensão = [                              nx*(1+Hp)                    ;        nu*Hc ]
-            opt_variables=[reshape(X,nx*(Hp+1),1)  ;   reshape(U,nu*Hc,1)];
+%             opt_variables=[reshape(X,nx*(Hp+1),1)  ;   reshape(U,nu*Hc,1)];
+           opt_variables=[X(:) ; U(:) ];
 
             nlp = struct('f',fob,'x',opt_variables,'g', g, 'p', P); % Define a estrutura para problema de otimização não linear (NLP, Nonlinear Programming)
             

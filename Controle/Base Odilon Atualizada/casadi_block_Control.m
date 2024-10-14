@@ -83,7 +83,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         %===============        
  %% ================     Inicialização dos parâmetros - só passa aqui uma única vez (equivale a Flag=0 na SFunction)
        function setupImpl(obj,~)
-            import casadi.*                                    % Importação da biblioteca Casadi (tem de estar no path)
+           tInicializa=tic;                                        % Marcador para o tempo gasto para a inicialização
+
+           import casadi.*                                    % Importação da biblioteca Casadi (tem de estar no path)
             
             %% Carrega tabelas Petrobras
             % Tabelas para cálculos das proteções dinâmicas
@@ -134,8 +136,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             x0=[XIni;UIni;YIni];    % Monta vetor de estados iniciais X0 para operação do MPC (é para eles que teremos de criar os limites lbx e ubx)
 
             obj.x0 = x0;                                             % Condição inicial para operação do MPC  
-%            obj.contador = -1;                               % Contador para indicar passos/momentos de atuação do controle MPC (-1 para contagem de tempo sincronizar com passos de 30)
-            obj.contador = 0;                                    % Contador para indicar passos/momentos de atuação do controle MPC (-1 para contagem de tempo sincronizar com passos de 30)
+            obj.contador = -1;                               % Contador para indicar passos/momentos de atuação do controle MPC (-1 para contagem de tempo sincronizar com passos de 30)
           
             %% Carrega modelo preditor e esquenta a ESN
 %             ModeloPreditor = evalin('base', 'ModeloPreditor');   % Modelos do preditor que será usada pelo MPC
@@ -153,16 +154,13 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             end
             
             obj.ModeloPreditor = ModeloPreditor;   % ESN precisará ter seus estados internos atualizados a cada amostragem
-
             
              %% Funções simbólicas que serão necessárias ao Solver
             f_Interpola_casadi_vazao_sym = evalin('base', 'f_Interpola_casadi_vazao_sym'); 
             f_buscaLimites_sym=evalin('base', 'f_buscaLimites_sym'); 
-            
-           
+                       
             %% Inicialização do SOLVER (antigo InicializaSolver)
             % Cria o Solver em formato simbólico em formato para o CaSAdi
-            tInicializa=tic;                                        % Marcador para o tempo gasto no Solver
 
             %% ==============    Montar restrições   ================= 
 
@@ -190,12 +188,15 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
 
             % Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
+            fob=0;
             for k=1:Hp
                 uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);           % define variável simbólica para soma dos incrementos de controle
-%                 LL= f_buscaLimites_sym(uk_1(1));             % rascunho !!!
+%                 LL= f_buscaLimites_sym(uk_1(1));             % Rascunho  - preparando para os limites dinâmicos!!!
 
                 ym = h(X(:,k+1));                                           % define variável simbólica que será controlada utilizando a função de saída (h) definida anteriomente 
-                fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
+               % Observar que a FOB não estava acumulando (fazendo o somatório)!!!
+%                 fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
+                fob=fob+(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
 
 %                 EstadosMedidos=P(1:nx);
                 EstadosMedidos=X(:,k);   % Why not X??? E precisa de k para ver o futuro !!!
@@ -235,7 +236,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             obj.casadi_solver = nlpsol('MontagemSolver','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)            
   
             t_inicializacao = toc(tInicializa);           % Tempo gasto para a inicialização do Solver
-%             disp(strcat("Tempo para inicialização do Solver = ",num2str(t_inicializacao)))
+            disp(strcat("Tempo para inicialização = ",num2str(t_inicializacao)))
 
 % IMPORTANTE:
 % Como está:
@@ -243,8 +244,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 %                             Dimensão = [        nx                      nx*Hp                                                 nu*Hc                                        ny   ]
 
 % Possivelmente as saidas ny foram colocadas aqui para que pudessem ser geradas as restrições.
-% Se assim o for, não precisaria pois as restrições da saida podem ser tratadas em g
-% Talvez devesse ser algo como:
+% Se assim o for, talvez não precisasse pois as restrições da saida podem ser tratadas em g
+% Talvez devesse ser algo no padrão usual, na forma:
 % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo HP  +  Ações de controle em todo Hc ]
 %                             Dimensão = [        nx                      nx*Hp                                                 nu*Hc ]
 
@@ -349,7 +350,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
            % PredicaoHorizonteHp (Dim=10+1), são as Pedições do Processo feitas pelo MPC
            
         end
+%% ================ Fechamento dos métodos
     end
+%% ================ Fechamento da classe
 end
 %===============================================================================
 % ==================  FIM DO PROGRAMA PRINCIPAL  ================================

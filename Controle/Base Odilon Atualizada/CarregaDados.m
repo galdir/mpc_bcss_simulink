@@ -106,7 +106,7 @@ dumin = [0 ; 0];                                                          %Varia
  Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 
 % Define se vai usar plano (tabela excel) para alterar alvos da engenharia ao longo da simulação
-UsaPlano=0;
+UsaPlano=1;
 if UsaPlano    % Sequencia para usar plano definido em planilha
     %     Inicializa o alvo da ENG como sendo o primeiro registro do plano proposto
     FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
