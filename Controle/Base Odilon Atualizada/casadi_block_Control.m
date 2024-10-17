@@ -188,7 +188,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             g=[X(:,1)-P(1:nx)];                                                  % define variavel que vai empilhar as restrições durante o Hp
 
             % Define a função objetivo (fob) de forma recursiva ao longo de Hp passos, utilizando o modelo preditor para otimizar as variáveis de controle, considerando as restrições do processo.
-            fob=0;
+            fob=0;   % Inicializei com zero para poder acumular (não estava acumulando o somatório)
             for k=1:Hp
                 uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);           % define variável simbólica para soma dos incrementos de controle
 %                 LL= f_buscaLimites_sym(uk_1(1));             % Rascunho  - preparando para os limites dinâmicos!!!
@@ -197,6 +197,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                % Observar que a FOB não estava acumulando (fazendo o somatório)!!!
 %                 fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
                 fob=fob+(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
+%             O custo do controle deveria somar até Hc e não até Hp
 
 %                 EstadosMedidos=P(1:nx);
                 EstadosMedidos=X(:,k);   % Why not X??? E precisa de k para ver o futuro !!!

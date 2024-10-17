@@ -30,7 +30,6 @@ f_buscaLimites_sym = Function('BuscaLimites', {Freq_sym}, {buscaLimitesMatriz_ca
 % Para favorecer o desempenho computacional, note que carregou apenas as
 % 3 primeiras colunas, com a informação de Freq, PChegada e Vazão, já que o
 % objetivo é apenas estimar a vazão e não as demais variáveis
-% AVALIAR SE NÃO VALE A PENA FAZER A INTERPOLAÇÃO DE TODA A LINHA E NÃO SÓ DA VAZÃO
 
 Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym, MatrizSimulador(:,1:3));
 f_Interpola_casadi_vazao_sym = Function('f_vazao', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});

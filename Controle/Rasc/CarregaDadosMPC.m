@@ -1,7 +1,7 @@
 % Carrega para a área de trabalho dados e parâmetros gerais para atuação do controlador MPC
 
 % Começa carregando dados de uso geral e comum a qualquer ambiente (MPC ou CBR)
-CarregaDados;                % Função para carregar tabelas Petrobras e dados gerais
+CarregaDados;                % Função para carregar tabelas Petrobras e dados gerais necessários para a simulação
 
 %% =============================================================================
 % Escolha o modelo Preditor no MPC
@@ -14,29 +14,20 @@ ESN_MPC = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 ESN_MPC.data.tipo = TipoRede;     % Insere o tipo de rede na estrutura do modelo
 ModeloPreditor = ESN_MPC;
 
-% ==================
-% Carrega o modelo LSTM
-% pasta_modelos = '.\modelos_lstm2_casadi\';
-% LSTM_MPC = carregaModelosCasadi(pasta_modelos);
-% % Falta inserir o TIPO = 2
-% ModeloPreditor = LSTM_MPC;
-
 %% =============================================================================
 % Define configurações do MPC
 PassoMPC =3;                              % Proporção de amostras para atuação do Controlador (3 passos = 30s do processo)
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
-Hp = 4;                       % Horizonte de predição
-Hc = Hp ;                      % Horizonte de controle
-Qy=  diag([1  1]);        % Qy - Peso das saidas controladas por setpoint = PSuc e PChegada)
-Qx= 1;                         % Peso para os erros de estimação das  variáveis do processo
-Qu = diag([1  1]);        % Qu - Peso das ações de controle nas entradas (Alvos Desejados = Freq. e PMonAlvo)
-R=    [1  1];                  % R - Peso na variação das ações de controle - Delta U em (Freq. e PMonAlvo) 
-R =  diag(repmat(R,1,Hc));   % Para ponderar o custo de variação nas manipuladas (Freq. e PmonAlvo) em todo o Hc
-% Ver como levar esta expansão de R em todo Hc para dentro da inicialização
+Hp = 4;                            % Horizonte de predição
+Hc = Hp ;                         % Horizonte de controle
+Qy=  diag([1  1]);             % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+Qx= 0.0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
+Qu = diag([10  1]);             % Qu - Peso das ações de controle nas entradas (Alvos Desejados = Freq. e PMonAlvo)
+R=    0.0*diag([1  1]);              % R - Peso na variação das ações de controle - Delta U em (Freq. e PMonAlvo) 
 
 %% =============================================================================
-disp('Configurações e parâmetros do controlador foram carregados para a área de trabalho')
+disp('Configurações e parâmetros do controlador MPC foram carregados para a área de trabalho')
 %% =============================================================================
 % Fim da rotina principal

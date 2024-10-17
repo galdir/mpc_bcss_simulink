@@ -62,8 +62,7 @@ function valor = verificarLimites(valor, grid)
     minGrid = grid(1);
     maxGrid = grid(end);
     
-    valor = if_else(valor < minGrid, minGrid, ...
-             if_else(valor > maxGrid, maxGrid, valor));
+    valor = if_else(valor < minGrid, minGrid, if_else(valor > maxGrid, maxGrid, valor));
 end
 
 function [inferior, superior] = encontrarPontosInterpolacao(valor, grid)

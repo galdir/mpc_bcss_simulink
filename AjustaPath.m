@@ -7,4 +7,4 @@ addpath('..\Dados');               % Arquivos parquet
 
 % Já desloca para a pasta em uso corrente
 cd .\Controle
-% cd ..\Mapas
+

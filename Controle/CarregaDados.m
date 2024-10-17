@@ -70,13 +70,13 @@ matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda var
 
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
-FreqMaxMin=[60; 40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
-PMonAlvoMaxMin=[45; 25];                                         % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
-umax  = [FreqMaxMin(1); PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
-umin  =  [FreqMaxMin(2); PMonAlvoMaxMin(2)] ;      % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
+FreqMaxMin=[60 ,  40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
+PMonAlvoMaxMin=[50 , 20];                                         % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
+umax  = [FreqMaxMin(1) ,  PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
+umin  =  [FreqMaxMin(2), PMonAlvoMaxMin(2)] ;      % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
 % Delta U - variação máxima permitida nas ações de controle (Freq e PMonAlvo)
-dumax = [0.1; 1];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
+dumax = [0.1 , 1];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
 
 %% =============================================================================
 % Carrega tabela com plano de experimentos programados para mudanças automáticas de Freq. e PMonAlvo para simulação
