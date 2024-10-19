@@ -155,14 +155,18 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             du =    MX.sym('du',Hc*nu,1);                          % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
             Du =    [du;zeros(nu*(Hp-Hc),1)];                    % Sequencia de ação de controle
             ysp =   MX.sym('ysp',ny,1);                              % Set-point otimo calculado pelo otimizador (Variável de decisão)
-%             opt_variable=[X(:);du;ysp];                   %variáveis calculadas pelo Solver(predição;incrementos de controle;set-point*) 
             
             % Parâmetros que devem ser oferecidos ao  Solver
             % Estados estimados no instante anterior + Saidas desejadas (variáveis controladas por setpoint) +  Reservatório da ESN
             Indice=[nx ny nx_ESN];
+            
 %            P =MX.sym('P',nx+ny+nx_ESN);                      
             P =MX.sym('P',sum(Indice));                      
- 
+             [ x0, Ysp, Reservatorio_ESN]=ExtraiParametros(P,Indice);
+             x0=x0';
+             Ysp=Ysp';
+             ModeloPreditor.data.a0=Reservatorio_ESN;
+
             %% ===================================================
             % Montagem das restrições (atuais e futuras) dos estados X (lbx/ubx) e
             % restrições "livres" que podem ser de igualdade ou desigualdade (lbg/ubg)
@@ -199,7 +203,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% Referentes aos erros de predição
             % ERRO ZERO ESTÁ CORRETO??? DEVERÍAMOS CRIAR UMA TOLERÂNCIA PARA OS ERROS DE ESTIMAÇÃO ???
             xm=X(1,:);                                              % Medições atuais dos estados X
-            x0=P(1:nx)';                                            % Estados estimados no instante anterior
+%             x0=P(1:nx)';                                            % Estados estimados no instante anterior
             Ex= (xm-x0);                                          % Erro entre medições atuais dos estados X e valores estimados no instante anterior
 %             g=[g;  Ex'];                                            % Empilha restrição de igualdade
 %             args.lbg=[args.lbg     zeros(1,nx)];    % Zeros para os limites inferiores  
@@ -214,8 +218,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 
             %% Restrições para todo o loop de predição
             fob=0;                                                            % Inicializa custo da função objetivo
-            Ysp=P(nx+1:nx+ny)';                                     % Extrai os setpoints recebidos via parâmetros
-            ModeloPreditor.data.a0=P(nx+ny+1:end);  % Extrai reservatório da ESN enviados para o Solver via parâmetros  
+%             Ysp=P(nx+1:nx+ny)';                                     % Extrai os setpoints recebidos via parâmetros
+%             ModeloPreditor.data.a0=P(nx+ny+1:end);  % Extrai reservatório da ESN enviados para o Solver via parâmetros  
             for k=1:Hp
                 EstadoAtual=X(k,:);                                   % Medições (estados) no instante k atual até horizonte Hp
 %                 EstadoAtual=X(k+1,:);                                   % Medições (estados) no instante k atual até horizonte Hp
@@ -372,6 +376,14 @@ end
 %===============================================================================
 % ==================  FIM DO PROGRAMA PRINCIPAL  ================================
 %===============================================================================
+%% Função para extrair partes que compõe os parâmetros
+function [ x0, Ysp, Reservatorio_ESN]=ExtraiParametros(P,Indice);
+    Ate=[Indice(1)   sum(Indice(1:2))  sum(Indice(1:3))];
+    De=[1  Ate(1)+1   Ate(2)+1 ];
+    x0=P(De(1):Ate(1));
+    Ysp=P(De(2):Ate(2));
+    Reservatorio_ESN=P(De(3):Ate(3));
+end
 
 %% ==================        Outras funções adicionais   ================================
 %% ==============================================================================

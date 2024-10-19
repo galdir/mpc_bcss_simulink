@@ -23,7 +23,7 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 Hp = 5;                            % Horizonte de predição
 Hc = 3;                            % Horizonte de controle
 Qy=  diag([1  1]);             % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
-Qx= 0.0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
+Qx= diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
 Qu = diag([10  1]);             % Qu - Peso das ações de controle nas entradas (Alvos Desejados = Freq. e PMonAlvo)
 R=    0.0*diag([1  1]);              % R - Peso na variação das ações de controle - Delta U em (Freq. e PMonAlvo) 
 
