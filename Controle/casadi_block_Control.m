@@ -13,9 +13,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         nu                                                                 % Numero de variáveis manipuladas (ações de controle possíves) - no caso, Freq e PMonAlvo
         PassoMPC                                                  % Numero de amostragens até a atuação do MPC
 
-        x0                                                                % Para guardar as variáveis medidas (estados X) atuais e em todo horizonte (1+Hp) 
-        du0                                                              % Para guardar as ações de controle (DeltaU) em todo o horizonte (Hc)
-        ysp0                                                            % Para guardar os setpoints ótimos calculados para as variáveis controladas por setpoint
+        x0                                                                % Para guardar condições iniciais dos estados (X) atuais e em todo horizonte (1+Hp) 
+        u0                                                                 % Para guardar condições iniciais das ações de controle (U) em todo o horizonte (Hc)
         BuffDeltaFreq                                             % Para proporcionar soma de 15 variações na ação de controle
 
         Predicao                                                     % Para guardar a predição no instante anterior
@@ -127,7 +126,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 % %            Peso=[ Peso(3:end); 1/500];                           % Cria fator de correção para a ponderação das variáveis
 %             % Pesos para ponderação
 %             %             PSuc  PChegada    PDiff    PDescarga   Tmotor  ITorque    ITotal     TSuc  Vibração   TChegada  Vazao
-%             Peso = [  1/100      1/50         1/100       1/100          1/150    1/150       1/180     1/100       1/3         1/100        1/500];     
+%             Peso = [  1/100      1/50         1/100       1/100          1/150    1/150       1/180     1/100       1/2         1/100        1/500];     
 %             Peso=diag(Peso);
 %             Qx=Qx*Peso;                                            % Ajusta matriz de pesos em função das grandezas
            
@@ -179,52 +178,71 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 ModeloPreditor.data.a0 = (1-ModeloPreditor.data.gama)*ModeloPreditor.data.a0 + ModeloPreditor.data.gama*tanh(Predicao);
             end
             obj.ModeloPreditor = ModeloPreditor;           % Guarda como OBJ pois a ESN precisará ter seus estados internos atualizados a cada amostragem
-            nx_ESN = length(ModeloPreditor.data.a0);  % Tamanho do reservatório da ESN para poder enviar o ModeloPreditor como parâmetro para o Solver
+            nx_ESN = length(ModeloPreditor.data.a0);   % Tamanho do reservatório da ESN para poder enviar o ModeloPreditor como parâmetro para o Solver
             [x_predito, ESNdataa0] = executa_predicao(UIni,XIni, ModeloPreditor.data.a0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
            obj.Predicao=full(x_predito);                            % Guarda predição atual
            
-           % Condições inciais para as variáveis de decisão do MPC [  x0   du0    Ysp]
-           obj.x0 = repmat(XIni,1+Hp,1);               % Condição das variáveis medidas (estados X) atuais e futuras
-           obj.ysp0=YIni;                                          % Inicializa Ysp com os valores atuais na saida da planta
-           du0=zeros(Hc,nu);                                 % Estrutura para armazenar DeltaU atuais e futuros, até o horizonte Hc 
-           obj.du0=du0(:);                                       % Condição inicial = zero para os DeltaU em todo o horizonte Hc futuro
-           obj.BuffDeltaFreq=zeros(15,1);            % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
+           % Condições inciais para as variáveis de decisão do MPC [  x0    u0 ]. Precisam estar em vetores coluna
+           obj.x0=repmat(XIni,1+Hp,1);                % Condição incial das variáveis medidas (estados X) atuais e futuras
+           obj.u0=repmat(UIni,Hp,1)                     % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
+           
+           % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
+           obj.BuffDeltaFreq=zeros(15,1);            
             
+           %% =============================================================================================
            %% =============================================================================================
            %  Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl 
            % Doravante precisamos tratar tudo de forma simbólica para o Solver
            %% =============================================================================================
+           %% =============================================================================================
             %% Variáveis simbolicas para o problema de otimização
-            % Para melhor entendimento, as linhas representarão a evolução do instantes k
+            % Para melhor entendimento, as linhas representarão a evolução do instantes k das variáveis de decisão
             X =MX.sym('X',1+Hp,nx);                      % Estado atual + Estados futuros até Hp 
-            du = MX.sym('du',Hc,nu);                      % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
-            DU = [du;zeros((Hp-Hc),nu)];                % Sequencia de ação de controle com peso zero para horizonte maior que Hc
-%             DU = MX.sym('DU',Hc,nu);                % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
-            U = MX.sym('DU',Hc,nu);                      % Ações de controle sobre o horizonte Hc (temporário pois não é a variável de decisão)
-
-            Ysp = MX.sym('Ysp',1,ny);                     % Set-point otimo calculado pelo otimizador (Variável de decisão)
+            U = MX.sym('U',Hp,nu);                         % Ações de controle sobre o horizonte Hp, mas para função custo usaremos até Hc 
             
-            % Parâmetros que devem ser oferecidos para o Solver
-            %         EntradaAtual   Ação atual   DeltaU    AlvoENG    ErroX     ErroY   Buffer   Reservatório da ESN
-            Indice=[  nx                        nu            nu*Hc          nu            nx             ny         15       nx_ESN];
+            %% ===================================================
+            % Parâmetros que foram oferecidos para o Solver
+            %         [  Medições  AlvoEng;    Ysp     ErroX        ErroY    BuffDeltaFreq      Reservatório do ModeloPreditor]
+            Indice=[        nx             nu            ny            nx             ny            15                       nx_ESN                  ];
             % Cria vetor de parâmetros na dimensão especificada
             P =MX.sym('P',sum(Indice));
             % Associa variáveis simbólicas as respectivas partes no vetor de parâmetros
-            [ Xk0,Uk0, DU0,AlvoEng,ErroX, ErroY, BuffDeltaFreq, Reservatorio_ESN]=ExtraiParametros(P,Indice);
+            [ Xk0,AlvoEng,Ysp,ErroX, ErroY, BuffDeltaFreq, Reservatorio_ESN]=ExtraiParametros(P,Indice);
             % Coloca em formato de linha para padronizar as contas que virão
-            Xk0=Xk0';   Uk0=Uk0';  DU0=reshape(DU0,Hc,nu);   AlvoEng=AlvoEng';  ErroX=ErroX';  ErroY=ErroY';        
-            % NÃO USEI DU0 - LIMPAR ISSO ??? !!!!   Pensei em usar para favorecer a condição inicial dos DeltaU em todo o horizonte
-           
+            Xk0=Xk0';   AlvoEng=AlvoEng';  Ysp=Ysp';   ErroX=ErroX';  ErroY=ErroY';        
+            
             ModeloPreditor.data.a0=Reservatorio_ESN;      % Resgata estado atual do reservatório da ESN
-            %% ===================================================
-            % Montagem das restrições (atuais e futuras) dos estados X (lbx/ubx) e
-            % restrições "livres" que podem ser de igualdade ou desigualdade (lbg/ubg)
-            args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos do NLP
-            args.lbx=[];       % Inicializa limites inferiores para as restrições dos estados do MPC (x0 até Hp+1, du0 até Hc  Ysp0)
-            args.ubx=[];     % Inicializa limites superiores para as restrições dos estados do MPC
-            args=Monta_lbx_ubx(args,Hp,Hc,nx,ny,dumax);
 
-           %% Montar agora as restrições de igualdade/desigualdade em g
+            %% Inicializando o custo da função objetivo
+            fob=0;                                                           % Inicializa custo da função objetivo
+            fob=fob+ErroX*Qx*ErroX';                         % Incrementa custo do erro de predição dos estados X
+
+            %% ===================================================
+            % MONTAGEM DAS RESTRIÇÕES (atuais e futuras) DAS VARIÁVEIS DE DECISÃO (lbx/ubx) 
+            args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos do NLP
+            args.lbx=[];       % Inicializa limites inferiores para as restrições dos estados do MPC (x0 até Hp+1, u0 até Hp)
+            args.ubx=[];     % Inicializa limites superiores para as restrições dos estados do MPC
+   
+            % Observe que os estados X (medições) tem restrições dinâmicas, mas sabemos que lbx/ubx não podem conter fórmulas
+             % Assim, deixaremos as restrições lbx/ubx "livres" para os estados X . As restrições serão efetivamente tratadas em g
+
+            % Para os estados atuais e para todo o horizonte Hp
+            for i=1:1+Hp                     
+                args.lbx=[args.lbx, -inf(1,nx) ];          % Limites inferiores para as restrições de X      
+                args.ubx=[args.ubx, inf(1,nx)];          % Limites superiores para as restrições de X
+            end
+            
+            % Para as variações nas ações de controle em todo o horizonte futuro, fazemos até Hp pois o U precisará ser calculado até
+            % o horizonte final. Na ponderação da função custo, porém, entra apenas até Hc
+            
+            % Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas (em função da frequência, atual e futura)
+            % da PChegada (estados X). Mas isso será devidamente tratado nas restrições em [g]
+            for i=1:Hp                                           
+                args.lbx=[args.lbx,    umin  ];             % Limites inferiores para a ação de controle U      
+                args.ubx=[args.ubx, umax ];              % Limites superiores para a ação de controle U
+            end
+
+           %% Montando as restrições de igualdade/desigualdade em g
             % Inicializa variável para guardar as fórmulas das restrições que vamos criar livremente
             % OBSERVAR QUE AS RESTRIÇÕES SÃO EMPILHADAS EM COLUNAS ENQUANTO SEUS
             % ARGUMENTOS (lbx/ubx, lbg/ubg) SÃO MONTADOS EM LINHA
@@ -232,99 +250,111 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             args.lbg=[];       % Inicializa limites inferiores para as restrições que vamos criar "livremente"
             args.ubg=[];     % Inicializa limites superiores para as restrições que vamos criar "livremente"
 
-            
-            %% Montando o custo da função objetivo e restrições
-            fob=0;                                                           % Inicializa custo da função objetivo
-            fob=fob+ErroX*Qx*ErroX';                         % Incrementa custo do erro de predição dos estados X
-
-            % Multiple-shooting = restrições de igualdade para seguir dinâmica do sistema
-            g=[g; X(1,:)'-Xk0'];                                 % Diferença entre os estados X e as medições do sistema
+            % Multipleshooting = restrições de igualdade para seguir dinâmica do sistema
+            g=[g; X(1,:)' - Xk0' ];                              % Diferença entre os estados X e as medições do sistema
             args.lbg=[args.lbg,   zeros(1,nx)  ];     % Restrições de igualdade para impor a dinâmica do sistema      
             args.ubg=[args.ubg, zeros(1,nx) ];   
             
-%             X(1,:)=Xk0;                                           % Assume entradas atuais do processo
             % Para todo o horizonte de predição futuro
             for k=1:Hp
-                [x_predito, ESNdataa0] = executa_predicao(Uk0',X(k,:)', ModeloPreditor.data.a0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
+                % Estima passo futuro com base nos estados atuais e ações de controle atuais
+                [x_predito, ESNdataa0] = executa_predicao(U(k,:)',X(k,:)', ModeloPreditor.data.a0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
                 ModeloPreditor.data.a0=ESNdataa0;     % Mantem a ESN com reservatório atualizado durante o loop de predição
                 y_predito= h(x_predito);                           % Saida (variáveis controladas por setpoint)
-                fob=fob+(y_predito'-Ysp+ErroY)*Qy*(y_predito'-Ysp+ErroY)';   % Incrementa função objetivo com erro entre as predições (atuais e futuras) 
-               % O Ysp é uma variável de decisão e o erro de estimador da saida (ErroY) é único em todo
-               % o horizonte de predição. Tudo isso ponderado pela matriz Qy
-               
-                % Restrições de igualdade para impor a dinâmica
-                g=[g;X(k+1,:)'-x_predito];                          % Diferença entre os estados X e as medições do sistema
+      
+                % Restrições de igualdade para impor a dinâmica (técnica multishooting)
+                g=[g;X(k+1,:)'-x_predito];                          % Diferença entre os estado X futuro e o estado estimado pelo preditor
                 args.lbg=[args.lbg,   zeros(1,nx)  ];          % Restrições de igualdade para forçar a dinâmica do sistema      
                 args.ubg=[args.ubg, zeros(1,nx) ];   
 
-                % Atualiza ação de controle com DeltaU 
-                Uk0=Uk0+ DU(k,:);
-                BuffDeltaFreq=ShiftDown(BuffDeltaFreq,DU(k,1));    % Atualiza buffer com valor de DeltaFreq proposto
-                g=[g; sum(BuffDeltaFreq)];         % Insere restrição de desigualdade para o somatório do BuffDeltaFreq
-                args.lbg=[args.lbg,   -1 ];  % Limite mínimo para o somatório da variação      
-                args.ubg=[args.ubg,  1 ];  % Limite máximo para o somatório da variação
-
-               % Para o somatório até Hc
-                S=if_else(k>Hc,0,(Uk0-AlvoEng)*Qu*(Uk0-AlvoEng)');
+                % Incrementa custo da função objetivo com erro entre as  predições da saida (atuais e futuras)
+                % e o valor ótimo das saidas controladas por setpoint 
+                fob=fob+(y_predito'-Ysp+ErroY)*Qy*(y_predito'-Ysp+ErroY)';    
+                
+                % Incrementa custo da função objetivo com a diferença entre a ação de controle e o AlvoEng, apenas até o horizonte Hc
+                S=if_else(k>Hc,0,(U(k,:)-AlvoEng)*Qu*(U(k,:)-AlvoEng)');
                 fob=fob+S;
-
-                % Para o somatório até Hc-1
-                S=if_else(k>Hc-1,0,DU(k,:)*R*DU(k,:)');
-                fob=fob+S;
-
-                % APROVEITA O LOOP PARA CRIAR DEMAIS RESTRIÇÕES [g] PARA TODO O HORIZONTE Hp
-
-                % Restrições e custo da função objetivo na ação de controle (Freq e PMonAlvo)
-                g=[g; DU(k,:)'];                            % Insere restrição de desigualdade para o DeltaU
-                args.lbg=[args.lbg,   -dumax ];  % Limite mínimo para a restrição de desigualdade associada ao DeltaU      
-                args.ubg=[args.ubg,  dumax ];  % Limite máximo para restrição de desigualdade associada ao DeltaU
-
-                % Restrições para a Frequencia
-                g=[g; Uk0(1)];                                 % Insere restrição de desigualdade especificamente para a Frequencia
-                args.lbg=[args.lbg,    umin(1) ];    % Limite mínimo para a frequência      
-                args.ubg=[args.ubg,  umax(1) ];   % Limite máximo para a frequência
-
+   
                 % CALCULA RESTRIÇÕES DINÂMICAS PARA SEREM TRATADAS NO LOOP
-                LimitesX= f_buscaLimites_sym(Uk0(1));  % Resgata limites de alarmes para as variáveis do processo em função da frequência
-                LimitesY=h(LimitesX');                     % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
+                LimitesX= f_buscaLimites_sym(U(k,1));  % Resgata limites de alarmes para as variáveis do processo em função da frequência
+                LimitesY=h(LimitesX');                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
 
                 LimitesX(1,:)=LimitesX(1,:)*(1-MargemPercentual/100);   % Implementa margem de folga em relação ao máximo
                 LimitesX(2,:)=LimitesX(2,:)*(1+MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo
                 
                 % RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
                 % Insere restrições para os valores máximos das variáveis (estados X) preditos
-                LimMaxX=LimitesX(1,:)'-x_predito;        % Para não ser violado o limite, a diferença deve ser >= 0
-                g=[g; LimMaxX]; 
-                args.lbg=[args.lbg,  zeros(1,nx) ];     % Limite mínimo para restrição de desigualdade      
-                args.ubg=[args.ubg, inf(1,nx)];          % Limite máximo para restrição de desigualdade
+                LimMaxX=LimitesX(1,:)-X(k+1,:);    % Para não ser violado o limite, a diferença deve ser >= 0
+                g=[g; LimMaxX']; 
+                args.lbg=[args.lbg,   zeros(1,nx) ];   % Limite mínimo para restrição de desigualdade      
+                args.ubg=[args.ubg,      inf(1,nx) ];   % Limite máximo para restrição de desigualdade
+                
                 % Insere restrições para os valores mínimos das variáveis (estados X) preditos
-                LimMinX=x_predito-LimitesX(2,:)';    % Para não ser violado o limite, a diferença deve ser >= 0
-                g=[g; LimMinX]; 
+                LimMinX=X(k+1,:)-LimitesX(2,:);      % Para não ser violado o limite, a diferença deve ser >= 0
+                g=[g; LimMinX']; 
                 args.lbg=[args.lbg,   zeros(1,nx) ];    % Limite mínimo para restrição de desigualdade      
-                args.ubg=[args.ubg,  inf(1,nx) ];       % Limite máximo para restrição de desigualdade
+                args.ubg=[args.ubg,      inf(1,nx) ];    % Limite máximo para restrição de desigualdade
                 
                 % RESTRIÇÕES PARA AS VARIÁVEIS DE SAIDA (CONTROLADAS POR SETPOINT)
                 % Insere restrições para os valores máximos das saidas controladas por setpoint que são preditas
-                LimMaxY=LimitesY(1,:)'-y_predito;    % Para não ser violado o limite, a diferença deve ser >= 0
-                g=[g; LimMaxY]; 
-                args.lbg=[args.lbg,  zeros(1,ny) ];      % Limite mínimo para restrição de desigualdade      
-                args.ubg=[args.ubg, inf(1,ny) ];          % Limite máximo para restrição de desigualdade
+                LimMaxY=LimitesY(1,:)-y_predito';   % Para não ser violado o limite, a diferença deve ser >= 0
+                g=[g; LimMaxY']; 
+                args.lbg=[args.lbg,    zeros(1,ny) ];   % Limite mínimo para restrição de desigualdade      
+                args.ubg=[args.ubg,       inf(1,ny) ];   % Limite máximo para restrição de desigualdade
                 
                 % Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
-                LimMinY=y_predito-LimitesY(2,:)';      % Para não ser violado o limite, a diferença deve ser >= 0
-                g=[g; LimMinY]; 
-                args.lbg=[args.lbg, zeros(1,ny) ];         % Limite mínimo para restrição de desigualdade      
-                args.ubg=[args.ubg,inf(1,ny) ];             % Limite máximo para restrição de desigualdade
+                LimMinY=y_predito'-LimitesY(2,:);    % Para não ser violado o limite, a diferença deve ser >= 0
+                g=[g; LimMinY']; 
+                args.lbg=[args.lbg,  zeros(1,ny) ];    % Limite mínimo para restrição de desigualdade      
+                args.ubg=[args.ubg,     inf(1,ny) ];    % Limite máximo para restrição de desigualdade
                 
                % Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas da PChegada (estados X)
-                LimiteMinPmonAlvo=max(LimitesX(2,2),umin(2));   % Assume a condição do limite minimo mais restritivo
-                LimiteMaxPmonAlvo=min(LimitesX(1,2),umax(2));  % Assume a condição do limite máximo mais restritivo
-                g=[g; Uk0(2)];                                                   % Insere restrição de desigualdade especificamente na PMonAlvo
-                args.lbg=[args.lbg,    LimiteMinPmonAlvo ];    % Limite mínimo para PMonAlvo considerados os limites dinâmicos da PChegada      
-                args.ubg=[args.ubg, LimiteMaxPmonAlvo ];   % Limite máximo para PMonAlvo considerados os limites dinâmicos da PChegada
-                
+               % LIMITES MINIMOS
+                Diferenca=U(k,2)-LimitesX(2,2);     % Ação precisa ser maior do que o limite dinâmico PChegada mínimo calculado (Diferença >=0)
+                g=[g; Diferenca];                               % Insere restrição de desigualdade, a qual precisa ser  >=0
+                args.lbg=[args.lbg,    0 ];                   % Limite mínimo      
+                args.ubg=[args.ubg, inf];                   % Limite máximo 
+                Diferenca=U(k,2)-umin(2);               % Ação precisa ser maior do que o limite mínimo definido pelo usuário(Diferença >=0)
+                g=[g; Diferenca];                               % Insere restrição de desigualdade, a qual precisa ser  >=0
+                args.lbg=[args.lbg,    0 ];                   % Limite mínimo      
+                args.ubg=[args.ubg, inf];                   % Limite máximo 
+
+               % LIMITES MÁXIMOS
+                Diferenca=LimitesX(1,2)-U(k,2);    % Ação precisa ser menor do que o limite dinâmico PChegada máximo calculado (Diferença >=0)
+                g=[g; Diferenca];                               % Insere restrição de desigualdade, a qual precisa ser  >=0
+                args.lbg=[args.lbg,    0 ];                   % Limite mínimo      
+                args.ubg=[args.ubg, inf];                   % Limite máximo
+
+                Diferenca=umax(2)-U(k,2);             % Ação precisa ser menor do que o limite mínimo definido pelo usuário(Diferença >=0)
+                g=[g; Diferenca];                               % Insere restrição de desigualdade, a qual precisa ser  >=0
+                args.lbg=[args.lbg,    0 ];                   % Limite mínimo      
+                args.ubg=[args.ubg, inf];                   % Limite máximo
+
             end
-   
+            
+            % Para tratar as restrições de desigualdade referentes ao limite da variação de frequência e valores limites para DeltaU
+            for k=1:Hc-1
+                DeltaU=U(k+1,:)-U(k,:);   
+                fob=fob+DeltaU*R*DeltaU';   % Incrementa custo na função objetivo
+                
+                % Avalia variações na frequencia
+                BuffDeltaFreq=[ DeltaU(1); BuffDeltaFreq(1:end-1)];    % Atualiza buffer com valor de DeltaFreq proposto
+                % Avalia limites das variações 
+                g=[g; sum(BuffDeltaFreq)];         % Insere restrição de desigualdade para o somatório do BuffDeltaFreq
+                args.lbg=[args.lbg,   -1 ];  % Limite mínimo para o somatório da variação      
+                args.ubg=[args.ubg,  1 ];  % Limite máximo para o somatório da variação
+                
+                % Avalia variação máxima permitida
+                % LEMBRAR que fizemos experimentos na tentativa de tratar o ∆u por faixas, ou seja, ∆umax>∆umin>0, 
+                % o que corresponderia a busca do solver as faixas [-∆umax   até - ∆umin], [zero], [∆umin  até  ∆umax]. 
+                % Não vale a pena pois esta descontinuidade viola condições do solver, o qual assume a premissa de que as restrições são 
+                % diferenciáveis, portanto, não devem existir descontinuidades no espaço de busca da solução. 
+                g=[g; DeltaU'];                           % Insere restrição de desigualdade para o DeltaU
+                args.lbg=[args.lbg,   -dumax ];  % Limite mínimo para a restrição de desigualdade associada ao DeltaU      
+                args.ubg=[args.ubg,  dumax ];  % Limite máximo para restrição de desigualdade associada ao DeltaU
+            end
+
+            %% Atualizando o objeto que vai guardar as restrições para oferecer na fase de implementação
             obj.lbx=args.lbx;                                % Lower Bounds para os Estados X e U do MPC
             obj.ubx=args.ubx;                             % Upper Bounds para os Estados X e U do MPC
             obj.lbg=args.lbg;                                % Lower Bounds para as restrições [g] que foram criadas
@@ -332,10 +362,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 
             %% ========================Configuração do otimizador====================================
             % Monta as variáveis de decisão em um vetor coluna - esta dimensão é fundamental para entender as contas e  indexações
-            % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo HP  +     DeltaU       +              Ysp          ]
-            %                             Dimensão = [                  nx*(1+Hp)                                                     nu*Hc                    ny*(1+Hp)  ]
-%             du=DU(1:Hc,:);
-            opt_variables=[X(:); du(:) ; Ysp(:) ];
+            % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo HP  +        U      ]
+            %                             Dimensão = [                  nx*(1+Hp)                                                    nu*Hp ]
+            opt_variables=[X(:); U(:)];
 
             nlp = struct('f',fob,'x',opt_variables,'g', g, 'p', P); % Define a estrutura para problema de otimização não linear (NLP, Nonlinear Programming)
             
@@ -357,7 +386,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
        end
         
 %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
-        function  SaidaMPC= stepImpl(obj,DadosProcesso,U0,AlvoEng)
+        function  SaidaMPC= stepImpl(obj,X0,U0,AlvoEng)
 %             disp(strcat("Simulação MPC em ",num2str(t)," s"))
             import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
 
@@ -371,16 +400,20 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Hc=obj.Hc;                % Tamanho do horizonte de controle
             PassoMPC=obj.PassoMPC;
             
-            XPredito=obj.Predicao;                         % Predição dos estados feita no instante anterior
-            ErroX=DadosProcesso-XPredito;       % Erro entre as medições atuais e a predição feita no instante anterior
+            XPredito=obj.Predicao;                       % Predição dos estados feita no instante anterior
+            ErroX=X0-XPredito;                            % Erro entre as medições atuais e a predição feita no instante anterior
 
-            SaidasProcesso=full(h(DadosProcesso)); % Saidas controladas por setpoint        
-            YPredito=full(h(XPredito));       % Predição das saidas controladas por setpoint no instante anterior
-            ErroY=SaidasProcesso-YPredito;       % Erro entre as medições atuais e a predição feita no instante anterior
+            Y0=full(h(X0));                                      % Saidas controladas por setpoint        
+            YPredito=full(h(XPredito));                  % Predição das saidas controladas por setpoint no instante anterior
+            ErroY=Y0-YPredito;                             % Erro entre as medições atuais e a predição feita no instante anterior
          
+            % Atualiza setpoint das variáveis de saida em função dos novos Alvos da Engenharia
+            % Setpoint para PChegada é a PMonAlvoENG e para Vazao é estimada em função da FreqAlvo e PMonAlvo
+            Ysp = [ AlvoEng(2) ;   full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2))) ];
+            
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
-            obj.x0=ShiftDown(obj.x0,DadosProcesso);  % Atualiza condição inicial dos estados com a medição atual e valores passados
+            obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
                      
             %% ===================== %Parâmetros e atuação do solver ========================================
             obj.contador = obj.contador+1;     % Contador ajudará a saber se é momento para atuar o controlador 
@@ -394,54 +427,44 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos para o solver
 
                 %% Atualiza parâmetros que precisam ser enviados ao Solver
-               %           [        Medidas       U0;       du0         AlvoEng;   Err_Xpredito;   Err_YPredito;      BuffDeltaFreq        Reservatório do ModeloPreditor]
-                args.p=[DadosProcesso;  U0;    obj.du0;     AlvoEng;      ErroX;               ErroY;           obj.BuffDeltaFreq;     obj.ModeloPreditor.data.a0];     
+               %         [   Medições   AlvoEng;    Ysp     Err_Xpredito;   Err_YPredito;      BuffDeltaFreq        Reservatório do ModeloPreditor]
+                args.p=[    X0;           AlvoEng;    Ysp;        ErroX;               ErroY;          obj.BuffDeltaFreq;     obj.ModeloPreditor.data.a0];     
 
                 %% Condição inicial para passar ao solver (inclui variáveis de decisão)
-                % Atualiza setpoint das variáveis de saida em função dos novos Alvos da Engenharia
-                ysp0 = [ AlvoEng(2) ;   full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2))) ];      % Setpoint para PChegada é a PMonAlvoENG e para Vazao é estimada em função da FreqAlvo e PMonAlvo
-                
-                % Atualiza condição inicial dos deltaU atual (zeros) e valores antes aplicados
-%                du0=ShiftDown(obj.du0,zeros(1,nu));  
-                du0=obj.du0;       % Inicializa delta U com o hostórico do DeltaU aplicado  
-
-                % Saida do Solver. Dimensão = [ EstadosAtuais e preditos até Hp  +  DeltaU até Hc     +            Ysp       ]
-                %                             Dimensão = [               x0 = nx*(1+Hp)                       du0=nu*Hc                 ysp0=ny    ]
-                args.x0=[ obj.x0;  du0;  ysp0];               % Atualizada condição incial das variáveis de decisão com base nos valores antes praticados
+                % Trata-se de atualização das condições inciais associadas as variáveis de decisão
+                u0=repmat(U0,Hp,1);
+                args.x0=[ obj.x0;  u0];                        
 
                %% Resgata estruturas de restrições guardadas pelo objeto
-                args.lbx=obj.lbx;                                             % Lower Bounds para os Estados X e U do MPC
-                args.ubx=obj.ubx;                                          % Upper Bounds para os Estados X e U do MPC
-                args.lbg=obj.lbg;                                             % Lower Bounds para as restrições [g] que foram criadas
-                args.ubg=obj.ubg;                                          % Upper Bounds para as restrições [g] que foram criadas
+                args.lbx=obj.lbx;                                 % Lower Bounds para os Estados X e U do MPC
+                args.ubx=obj.ubx;                              % Upper Bounds para os Estados X e U do MPC
+                args.lbg=obj.lbg;                                 % Lower Bounds para as restrições [g] que foram criadas
+                args.ubg=obj.ubg;                               % Upper Bounds para as restrições [g] que foram criadas
 
                 %% Nova chamada do Solver
                 solver=obj.casadi_solver('x0',args.x0,'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
                 Feasible=obj.casadi_solver.stats.success;
                 Iteracoes=obj.casadi_solver.stats.iter_count;
                 
-                % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo Hp  +   Delta U até Hc   +      Ysp  ]
-                %                                   Dimensão = [            nx                      nx*(Hp)                                   nu*(Hc)                ny   ]
+                % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo Hp  +   U até Hp   ]
+                %                              Dimensão = [            nx                      nx*(Hp)                                  nu*Hp       ]
  
                 Solucao_MPC=full(solver.x);                          % Solução ótima encontrada pelo otimizador
-                % Atualiza objetos da função para o próximo ciclo (x0 deve ser atualizado fora do loop pois nem sempre passará pelo Solver)
+                % Atualiza objetos da função para o próximo ciclo (x0 foi atualizado fora do loop pois nem sempre passará pelo Solver)
                 obj.x0=Solucao_MPC(1:nx*(1+Hp));             % Assume nova condição inicial x0 para os estados atuais e preditos 
-                obj.du0=Solucao_MPC(nx*(1+Hp)+1:nx*(1+Hp)+nu*Hc); % Resgata novas ações de controle (Delta U) ótimos calculadas em todo o horizonte Hc
-                DeltaU=obj.du0(nu,1);                                     % Extrai DeltaU ótimo à ser aplicado (primeiro da fila)
-                obj.ysp0=Solucao_MPC(end-ny+1:end);       % Extrai Ysp ótimos calculados (últimas ny colunas do vetor)
-                obj.BuffDeltaFreq=ShiftDown(obj.BuffDeltaFreq,DeltaU);
+                obj.u0=Solucao_MPC(nx*(1+Hp)+1:end);     % Resgata novas ações de controle (U ótimos) calculadas em todo o horizonte Hc
+                DeltaU=obj.u0(nu,1)-U0;                                 % DeltaU = Ação ótima calculada menos a ação antes aplicada
+                obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];
 
                 obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
                 TempoSolver = toc(TempoIni);                     % Tempo gasto pelo Solver
             end
             U0=U0+DeltaU;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
-%             Ysp0=obj.ysp0;
-            SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; obj.ysp0];
+            SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; Ysp];
             
            % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado 
-            ModeloPreditor=obj.ModeloPreditor;   % Resgata modelo preditor
-            entradas_normalizadas = normaliza_entradas([U0;DadosProcesso]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)
-            [x_predito, ESNdataa0] = executa_predicao(U0,DadosProcesso, ModeloPreditor.data.a0, ModeloPreditor, obj.EstimaVazao);
+            ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor
+            [x_predito, ESNdataa0] = executa_predicao(U0,X0, ModeloPreditor.data.a0, ModeloPreditor, obj.EstimaVazao);
             ModeloPreditor.data.a0=ESNdataa0;      % Mantem a ESN com reservatório atualizado
             obj.ModeloPreditor = ModeloPreditor;      % Guarda modelo preditor atualizado
             obj.Predicao=full(x_predito);                     % Guarda predição para que possamos avaliar o erro de predição no próximo ciclo
@@ -453,76 +476,23 @@ end
 %===============================================================================
 % ==================  FIM DO PROGRAMA PRINCIPAL  ================================
 %===============================================================================
-%% Funções para montagem das restrições
-function args=Monta_lbx_ubx(args,Hp,Hc,nx,ny,dumax);
 
-    % OBSERVAR QUE AS RESTRIÇÕES SÃO EMPILHADAS EM COLUNAS ENQUANTO SEUS
-    % ARGUMENTOS (lbx/ubx, lbg/ubg) SÃO MONTADOS EM LINHA
-
-    %% Restrições em X e U para o MPC (lbx e ubx) para o estado atual e estados futuros
-    % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo Hp  +  DeltaU até Hc      +      Ysp    ]
-    %                             Dimensão =  [        nx                      nx*Hp                                            nu*Hc                        ny    ]
-
-    % Observe que os estados X (medições) e Ysp tem restrições dinâmicas, mas sabemos que lbx/ubx não podem conter fórmulas
-    % Assim, deixaremos as restrições lbx/ubx "livres" para os estados X e Ysp. As restrições serão efetivamente tratadas em g
-
-    % Para os estados atuais e para todo o horizonte Hp
-    for i=1:1+Hp                     
-        args.lbx=[args.lbx, -inf(1,nx) ];          % Limites inferiores para as restrições de X      
-        args.ubx=[args.ubx, inf(1,nx)];          % Limites superiores para as restrições de X
-    end
-
-    % Para as variações nas ações de controle em todo o horizonte Hc que usualmente é < Hp.
-    % LEMBRAR:
-    % Pelos testes que fizemos, não vale a pena usar dumin>0 e criar faixas.  Deixemos o otimizador calcular e ações pequenas
-    % (mesmo que não sejam compatíveis com a resolução dos equipamentos), podem ser tratadas fora do Solver
-    for i=1:Hc                                           
-        args.lbx=[args.lbx, -dumax ];               % Limites inferiores para os DeltaU      
-        args.ubx=[args.ubx, dumax ];              % Limites superiores para os DeltaU
-    end
-
-    % Para a Ysp
-    args.lbx=[args.lbx,  -inf(1,ny) ];          % Limites inferiores para os valores de Ysp      
-    args.ubx=[args.ubx, inf(1,ny) ];         % Limites superiores para os valores de Ysp
-end
 %% ==============================================================================
-%% Função para extrair partes que compõe os parâmetros
-function   [ Xk0,Uk0, DU0,AlvoEng,ErroX, ErroY, BuffDeltaFreq, Reservatorio_ESN]=ExtraiParametros(P,Indice);
-    Ate=[Indice(1)   sum(Indice(1:2))  sum(Indice(1:3))  sum(Indice(1:4))  sum(Indice(1:5))  sum(Indice(1:6))  sum(Indice(1:7))  sum(Indice(1:8))  ];
-    De=[1  Ate(1)+1   Ate(2)+1   Ate(3)+1   Ate(4)+1   Ate(5)+1   Ate(6)+1    Ate(7)+1];
+%% Função para extrair partes que compõe os parâmetros do Solver
+function   [ Xk0,AlvoEng,Ysp,ErroX, ErroY, BuffDeltaFreq, Reservatorio_ESN]=ExtraiParametros(P,Indice);
+    Ate=[Indice(1)   sum(Indice(1:2))  sum(Indice(1:3))  sum(Indice(1:4))  sum(Indice(1:5))  sum(Indice(1:6))  sum(Indice(1:7))  ];
+    De=[1  Ate(1)+1   Ate(2)+1   Ate(3)+1   Ate(4)+1   Ate(5)+1   Ate(6)+1 ];
     Xk0=P(De(1):Ate(1));
-    Uk0=P(De(2):Ate(2));
-    DU0=P(De(3):Ate(3));
-    AlvoEng=P(De(4): Ate(4));
-    ErroX=P(De(5):Ate(5));
-    ErroY=P(De(6):Ate(6));
-    BuffDeltaFreq=P(De(7):Ate(7));
-    Reservatorio_ESN=P(De(8):Ate(8));
+    AlvoEng=P(De(2): Ate(2));
+    Ysp=P(De(3):Ate(3));
+    ErroX=P(De(4):Ate(4));
+    ErroY=P(De(5):Ate(5));
+    BuffDeltaFreq=P(De(6):Ate(6));
+    Reservatorio_ESN=P(De(7):Ate(7));
 end
 %% ==============================================================================
 
 %% ==================        Outras funções adicionais   ================================
-%% ==============================================================================
-%% Função para ajustar o DeltaU mínimo - ao menos enquanto não for tratada na formulação do solver
-function RetornoDeltaU=AvaliaDeltaU(DeltaU,dumin);
-    RetornoDeltaU=DeltaU;                                     % Retorna valor valor padrão calculado, sem correção pelo mínimo
-    %     RetornoDeltaU=max([DeltaU,dumin]);       % Retorna valor limitado pelo deltaU minimo. Mas se deixar só assim, a ação de controle vai oscilar
-    if dumin>0                                                             % Se foi especificado um deltaU minimo > 0  (se for=0, passa qq valor)
-       CasasDecimais=countDecimals(dumin);        % Quantidade de casas decimais definidas para o limite minimo
-       RetornoDeltaU=round(DeltaU,CasasDecimais);   % Retorna o DeltaU arredondado pelo numero de casas decimais com a resolução definida pelo valor minimo
-    end
-end
-%% ==============================================================================
-%% Função para contar numero de casas decimais
-function num_decimals = countDecimals(number)
-    str = num2str(number);                                  % Converte o número para string
-    decimalPos = find(str == '.', 1);                      % Encontra a posição do ponto decimal
-    if isempty(decimalPos)                                  % Se não houver ponto decimal, o número é inteiro
-        num_decimals = 0;
-    else                                                                % Caso contrário, conta os dígitos após o ponto decimal
-        num_decimals = length(str) - decimalPos;
-    end
-end
 %% ==============================================================================
 %% Função para execução a função de predição x(k+1)=f(xk,uk)
 function [predicoes, novo_a0] = executa_predicao(EntradaU,EstadosX, ESNdataa0, modelo_ESN, f_matrizVazao_sym)
@@ -585,11 +555,5 @@ function [predicoes, novo_a0] = executa_predicao_ESN(EntradaU,EstadosX, ESNdataa
 
     % Retorna os valores dos novos estados preditos pela ESN com 1 passo a frente
     predicoes = desnormaliza_predicoes(predicoes_normalizadas);  
-end
-%% ==============================================================================
-%% Função para atualizar estados iniciais com dados recebidos do processo (vetores coluna)
-function S=ShiftDown(DadosOriginais,NovosDados);
-    Tam=height(NovosDados);                                    % Tamanho do vetor com novos dados à serem inseridos
-    S=[NovosDados;DadosOriginais(1:end-Tam)];    % Insere novos dados no inicio e desloca os DadosOriginais para baixo
 end
 %% ==============================================================================
