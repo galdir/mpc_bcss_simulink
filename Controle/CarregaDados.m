@@ -97,7 +97,7 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
 %     StopTime=2000; 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
         FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
@@ -107,7 +107,7 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=20;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
+        PMonAlvoIni=34;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         FaixaPChegada=Limites(:,2);      % Extrai faixa [ Max  Min] da PChegada (coliuna 2) em bar
         PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos. Se for dentro da faixa, não muda em nada o que foi definido pela ENG

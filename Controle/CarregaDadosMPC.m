@@ -25,7 +25,7 @@ Hc = 2;                            % Horizonte de controle
 Qy=  diag([1  1]);             % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qx= 0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
 Qu = diag([1  1]);             % Qu - Peso das ações de controle nas entradas (Alvos Desejados = Freq. e PMonAlvo)
-R=    0*diag([1  1]);              % R - Peso na variação das ações de controle - Delta U em (Freq. e PMonAlvo) 
+R=    diag([1  1]);              % R - Peso na variação das ações de controle - Delta U em (Freq. e PMonAlvo) 
 
 %% =============================================================================
 disp('Configurações e parâmetros do controlador MPC foram carregados para a área de trabalho')
@@ -38,8 +38,11 @@ disp('Configurações e parâmetros do controlador MPC foram carregados para a �
 % nx=length(Qx);
 %  nx_ESN = length(ModeloPreditor.data.a0);
  
-% DimensaoX = length(Qx)*(1+Hp) + length(Qu)*Hc + length(Qy)*(1+Hp);
-% DimensaoP= =sum([nu               nu            nx             ny                nx_ESN]);
+% DimensaoX = length(Qx)*(1+Hp) + length(Qu)*Hp);
+
+%                                 [  Medições  AlvoEng;    Ysp     ErroX        ErroY    BuffDeltaFreq      Reservatório do ModeloPreditor]
+% DimensaoP=sum([        nx             nu            ny            nx             ny            15                       nx_ESN                  ]);
+
 
 
 
