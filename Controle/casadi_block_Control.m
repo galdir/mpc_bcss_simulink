@@ -199,7 +199,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             X =MX.sym('X',1+Hp,nx);                      % Estado atual + Estados futuros até Hp 
             du = MX.sym('du',Hc,nu);                      % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
             DU = [du;zeros((Hp-Hc),nu)];                % Sequencia de ação de controle com peso zero para horizonte maior que Hc
-%             DU = MX.sym('DU',Hc,nu);                      % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
+%             DU = MX.sym('DU',Hc,nu);                % Incrementos do controle sobre o horizonte Hc (Variável de decisão)
             U = MX.sym('DU',Hc,nu);                      % Ações de controle sobre o horizonte Hc (temporário pois não é a variável de decisão)
 
             Ysp = MX.sym('Ysp',1,ny);                     % Set-point otimo calculado pelo otimizador (Variável de decisão)
@@ -286,7 +286,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 
                 % CALCULA RESTRIÇÕES DINÂMICAS PARA SEREM TRATADAS NO LOOP
                 LimitesX= f_buscaLimites_sym(Uk0(1));  % Resgata limites de alarmes para as variáveis do processo em função da frequência
-                LimitesY=matriz_h*LimitesX';                     % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
+                LimitesY=h(LimitesX');                     % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
 
                 LimitesX(1,:)=LimitesX(1,:)*(1-MargemPercentual/100);   % Implementa margem de folga em relação ao máximo
                 LimitesX(2,:)=LimitesX(2,:)*(1+MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo
