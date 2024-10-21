@@ -135,23 +135,23 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Qx= evalin('base','Qx');                       % Ponderação para os erros de estimação das variáveis do processo
 %             % Pesos para ponderação
 %             %             PSuc  PChegada    PDiff    PDescarga   Tmotor  ITorque    ITotal     TSuc  Vibração   TChegada  Vazao
-            Peso =1./LimitesMax;    
-            Peso=diag(Peso);
-            Qx=Qx*Peso;                                            % Ajusta matriz de pesos em função das grandezas
+%             Peso =1./LimitesMax;    
+%             Peso=diag(Peso);
+%             Qx=Qx*Peso;                                            % Ajusta matriz de pesos em função das grandezas
            
             Qu = evalin('base','Qu');                      % Ponderação das ações de controle nas entradas Alvos Desejados
             R = evalin('base','R');                          % Ponderação das variações das ações de controle (Delta Freq. e Delta PMonAlvo)
-            %             Freq.     PMonAlvo   (usa como referência o limite da PChegada)
-            Peso = [  1/60          1/LimitesMax(2)  ];     
-            Peso=diag(Peso);
-            Qu=Qu*Peso;                                            % Ajusta matriz de pesos em função das grandezas
-            R=R*Peso;                                                 % Ajusta matriz de pesos em função das grandezas
+%             %             Freq.     PMonAlvo   (usa como referência o limite da PChegada)
+%             Peso = [  1/60          1/LimitesMax(2)  ];     
+%             Peso=diag(Peso);
+%             Qu=Qu*Peso;                                            % Ajusta matriz de pesos em função das grandezas
+%             R=R*Peso;                                                 % Ajusta matriz de pesos em função das grandezas
             
             Qy=  evalin('base','Qy');                      % Ponderação das saidas controladas por setpoint
             %             PChegada                                   Vazao
-            Peso = [  1/LimitesMax(2)          1/LimitesMax(11)  ];     
-            Peso=diag(Peso);
-            Qy=Qy*Peso;                                            % Ajusta matriz de pesos em função das grandezas
+%             Peso = [  1/LimitesMax(2)          1/LimitesMax(11)  ];     
+%             Peso=diag(Peso);
+%             Qy=Qy*Peso;                                            % Ajusta matriz de pesos em função das grandezas
          
             nx=height(Qx);   % Número de variáveis (X estados) do processo (11 = 10+ vazão)
             obj.nx=nx;
@@ -281,8 +281,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 g=[g;X(k+1,:)'-x_predito];                          % Diferença entre os estado X futuro e o estado estimado pelo preditor
                 args.lbg=[args.lbg,   zeros(1,nx)  ];          % Restrições de igualdade para forçar a dinâmica do sistema      
                 args.ubg=[args.ubg, zeros(1,nx) ];   
-
             end
+            
             for k=1:Hp-1
 
                % Cálculo da variação na ação de controle = DeltaU
@@ -308,61 +308,61 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% Uma vez definidos no loop anterior os valores atuais e futuros dos estados e ações de controle,
             % vamos agora tratar das restrições
             for k=1:Hp
-                % BUSCA RESTRIÇÕES DINÂMICAS PARA SEREM TRATADAS NO LOOP
-                % Lembrar que a linha 1 traz os limites máximos de todas as 11 variáveis do processo (10 + Vazão)
-                % Lembrar que a linha 2 traz os limites mínimos  de todas as 11 variáveis do processo (10 + Vazão)
+% %             BUSCA RESTRIÇÕES DINÂMICAS PARA SEREM TRATADAS NO LOOP
+% %             Lembrar que a linha 1 traz os limites máximos de todas as 11 variáveis do processo (10 + Vazão)
+% %             Lembrar que a linha 2 traz os limites mínimos  de todas as 11 variáveis do processo (10 + Vazão)
 %                 LimitesX= f_buscaLimites_sym(U(k,1));  % Resgata limites (Max/Min) de alarmes para as variáveis do processo em função da frequência
 %                 LimitesY=h(LimitesX');                               % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
 % 
 %                 LimitesX(1,:)=LimitesX(1,:)*(1-MargemPercentual/100);   % Implementa margem de folga em relação ao máximo
 %                 LimitesX(2,:)=LimitesX(2,:)*(1+MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo
 %                 
-                % RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
-                % Insere restrições para os valores máximos das variáveis (estados X) preditos
+% %                 RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
+% %                 Insere restrições para os valores máximos das variáveis (estados X) preditos
 %                 LimMaxX=LimitesX(1,:)-X(k+1,:);    % Para não ser violado o limite, a diferença deve ser >= 0
 %                 g=[g; LimMaxX']; 
 %                 args.lbg=[args.lbg,   zeros(1,nx) ];   % Limite mínimo para restrição de desigualdade      
 %                 args.ubg=[args.ubg,      inf(1,nx) ];   % Limite máximo para restrição de desigualdade
-                
-                % Insere restrições para os valores mínimos das variáveis (estados X) preditos
+%                 
+% %                 Insere restrições para os valores mínimos das variáveis (estados X) preditos
 %                 LimMinX=X(k+1,:)-LimitesX(2,:);      % Para não ser violado o limite, a diferença deve ser >= 0
 %                 g=[g; LimMinX']; 
 %                 args.lbg=[args.lbg,   zeros(1,nx) ];    % Limite mínimo para restrição de desigualdade      
 %                 args.ubg=[args.ubg,      inf(1,nx) ];    % Limite máximo para restrição de desigualdade
-                
-                % RESTRIÇÕES PARA AS VARIÁVEIS DE SAIDA (CONTROLADAS POR SETPOINT)
-                % Insere restrições para os valores máximos das saidas controladas por setpoint que são preditas
+%                 
+% %                 RESTRIÇÕES PARA AS VARIÁVEIS DE SAIDA (CONTROLADAS POR SETPOINT)
+% %                 Insere restrições para os valores máximos das saidas controladas por setpoint que são preditas
 %                 y_saida= h(X(k+1,:)');                           % Saidas preditas (variáveis controladas por setpoint)
-
+% 
 %                 LimMaxY=LimitesY(1,:)-y_saida';   % Para não ser violado o limite, a diferença deve ser >= 0
 %                 g=[g; LimMaxY']; 
 %                 args.lbg=[args.lbg,    zeros(1,ny) ];   % Limite mínimo para restrição de desigualdade      
 %                 args.ubg=[args.ubg,       inf(1,ny) ];   % Limite máximo para restrição de desigualdade
-                
-                % Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
+%                 
+% %                 Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
 %                 LimMinY=y_saida'-LimitesY(2,:);    % Para não ser violado o limite, a diferença deve ser >= 0
 %                 g=[g; LimMinY']; 
 %                 args.lbg=[args.lbg,  zeros(1,ny) ];    % Limite mínimo para restrição de desigualdade      
 %                 args.ubg=[args.ubg,     inf(1,ny) ];    % Limite máximo para restrição de desigualdade
-                
-               % Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas da PChegada (estados X)
-               % Lembrar que a ação de controle é na Freq e PMonAlvo, portanto, umin(2) e umax(2) 
-               % associam limites pré-estabelecidos para a PChegada
-               % Já em relação aos estados X, a PChegada é a variável na coluna 2
-               % LIMITES MINIMOS
+%                 
+% %                Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas da PChegada (estados X)
+% %                Lembrar que a ação de controle é na Freq e PMonAlvo, portanto, umin(2) e umax(2) 
+% %                associam limites pré-estabelecidos para a PChegada
+% %                Já em relação aos estados X, a PChegada é a variável na coluna 2
+% %                LIMITES MINIMOS
 %                ValMin=max(LimitesX(2,2),umin(2));   % Assume o valor mais restritivo
 %                DiferencaMin=U(k,2)-ValMin;              % Ação precisa ser maior do que o minimo
 %                g=[g; DiferencaMin];                              % Insere restrição de desigualdade, a qual precisa ser  >=0
 %                args.lbg=[args.lbg,    0 ];                        % Limite mínimo      
 %                args.ubg=[args.ubg, inf];                        % Limite máximo 
-
-             % LIMITES MÁXIMOS
+% 
+% %              LIMITES MÁXIMOS
 %                ValMax=min(LimitesX(1,2),umax(2));   % Assume o valor mais restritivo
 %                DiferencaMax=ValMax-U(k,2);              % Ação precisa ser menor que o máximo
 %                g=[g; DiferencaMax];                              % Insere restrição de desigualdade, a qual precisa ser  >=0
 %                args.lbg=[args.lbg,    0 ];                        % Limite mínimo      
 %                args.ubg=[args.ubg, inf];                        % Limite máximo 
-               
+%                
             end
 
             %% Atualizando o objeto que vai guardar as restrições para oferecer na fase de implementação
@@ -464,7 +464,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 obj.u0=Solucao_MPC(nx*(1+Hp)+1:end);     % Resgata novas ações de controle (U ótimos) calculadas em todo o horizonte Hc
                 % Aplica ação de controle se for Feasible, caso contrário, mantem ação atual (DeltaU=0)
                 if Feasible
-                    DeltaU=obj.u0(nu,1)-U0;                                 % DeltaU = Ação ótima calculada menos a ação antes aplicada
+                    DeltaU=obj.u0(1:nu,1)-U0;                                 % DeltaU = Ação ótima calculada menos a ação antes aplicada
                 end
                 obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];
 

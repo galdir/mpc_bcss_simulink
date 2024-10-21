@@ -191,13 +191,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             fob=0;   % Inicializei com zero para poder acumular (não estava acumulando o somatório)
             for k=1:Hp
                 uk_1 = uk_1 + Du((k-1)*nu+1:k*nu);           % define variável simbólica para soma dos incrementos de controle
-%                 LL= f_buscaLimites_sym(uk_1(1));             % Rascunho  - preparando para os limites dinâmicos!!!
+                LL= f_buscaLimites_sym(uk_1(1));             % Rascunho  - preparando para os limites dinâmicos!!!
 
                 ym = h(X(:,k+1));                                           % define variável simbólica que será controlada utilizando a função de saída (h) definida anteriomente 
                % Observar que a FOB não estava acumulando (fazendo o somatório)!!!
-%                 fob=(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
                 fob=fob+(ym-ysp+erro)'*Qy*(ym-ysp+erro)+du'*R*du+(uk_1-uRTO)'*Qu*(uk_1-uRTO);            % define a função objetivo proposta
-%             O custo do controle deveria somar até Hc e não até Hp
 
 %                 EstadosMedidos=P(1:nx);
                 EstadosMedidos=X(:,k);   % Why not X??? E precisa de k para ver o futuro !!!
