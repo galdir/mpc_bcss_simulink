@@ -23,11 +23,21 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 Hp = 3;                            % Horizonte de predição
 Hc = 2;                            % Horizonte de controle
 Qy=  diag([1  1]);             % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
-Qx= 0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
+Qx= diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
 Qu = diag([1  1]);             % Qu - Peso das ações de controle nas entradas (Alvos Desejados = Freq. e PMonAlvo)
 R=    diag([1  1]);              % R - Peso na variação das ações de controle - Delta U em (Freq. e PMonAlvo) 
 
 %% =============================================================================
+% Para favorecer a inicialização e o tempo na busca da solução pelo Solver, vamos estabelecer limites minimos a máximos fixos
+% para serem tratados em lbx/ubx.  As demais restrições serão tratadas em g
+
+% Limites mín/max para as medições do processo (extraímos das tabelas Petrobras)
+%                   PSuc  PChegada    PDiff    PDescarga   Tmotor    ITorque    ITotal     TSuc   Vibração   TChegada    Vazao
+LimitesMin= [  55          10               50           120              20            40           40           20          0                 40            100    ];    
+LimitesMax=[ 110          65            150          215              141          140        183         141         3                150           800    ];
+
+%% =============================================================================
+    
 disp('Configurações e parâmetros do controlador MPC foram carregados para a área de trabalho')
 %% =============================================================================
 % Fim da rotina principal
