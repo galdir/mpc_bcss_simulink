@@ -15,12 +15,14 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 
         x0                                                                % Para guardar condições iniciais dos estados (X) atuais e em todo horizonte (1+Hp) 
         u0                                                                 % Para guardar condições iniciais das ações de controle (U) em todo o horizonte (Hc)
+        ysp0                                                             % Para guardar os valores de setpoint das variáveis controladas por setpoint
         BuffDeltaFreq                                             % Para proporcionar soma de 15 variações na ação de controle
 
         Predicao                                                     % Para guardar a predição no instante anterior
         ModeloPreditor                                           % Para guardar modelo de preditor e que será utilizada pelo solver para a predição
         EstimaVazao                                               % Para carregar uma única vez a 'f_Interpola_casadi_vazao_sym' 
         Funcao_h                                                    % Para proceder a conta y=h(x) e obter as saidas em função da matriz h definida
+        MatrizSimulador                                          % Para permitir interpolação - USADA APENAS NO IMPLEM PARA ESTIMATIVA DA PSUC*
         
         lbx                                                                % Lower Bounds para os Estados do MPC
         ubx                                                               % Upper Bounds para os Estados do MPC
@@ -65,16 +67,16 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % Feasible (Dim=1)
             % Iteracoes (Dim=1)
             % TempoSolver (Dim=1)
-            % Ação de controle (Dim=nu)               % Ação na Freq e PMonAlvo
-            % DeltaU (Dim=nu)                                % DeltaU na Freq e PMonAlvo
-            % AlvoOtimoCalculado (Dim=nu)                           % Alvos Ótimos  calculados pelo Solver para Freq e PMonAlvo
+            % Ação de controle (Dim=nu)                     % Ação na Freq e PMonAlvo
+            % DeltaU (Dim=nu)                                     % DeltaU na Freq e PMonAlvo
+            % AlvoOtimoCalculado (Dim=nu + PSuc)  % Alvos Ótimos para Freq, PMonAlvo e PSuc
 
             % Carrega matrizes apenas para extrair a dimensão das variáveis
             Qx= evalin('base','Qx');    nx=height(Qx);  % Número de variáveis (estados) do processo
             Qu = evalin('base','Qu');  nu=height(Qu);  % Número de variáveis de entrada no processo (manipuladas)
             Qy=  evalin('base','Qy');   ny=height(Qy);  % % Número de variáveis de saida controladas por SetPoint
 
-            sz1 = 1+1+1+nu+nu+nu;
+            sz1 = 1+1+1+nu+nu+(nu+1);
         end
         %===============        
         function dt1 = getOutputDataTypeImpl(~)   % Tipo das variáveis de saída - usamos todas "double"
@@ -112,6 +114,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 
             % Tabela do Simulador para cálculos da vazão por interpolação
             TabelaSimulador=evalin('base', 'TabSimulador');                               % Tabela do Simulador para cálculos da vazão
+            obj.MatrizSimulador=table2array(TabelaSimulador);
             MatrizSimuladorVazao = table2array(TabelaSimulador(:,1:3));        % Especificamente as colunas Freq, PChegada e Vazao para diminuir o esforço computacional
             
             %% Carrega parâmetros definidos pelo usuário
@@ -185,7 +188,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
            % Condições inciais para as variáveis de decisão do MPC [  x0    u0 ]. Precisam estar em vetores coluna
            obj.x0=repmat(XIni,1+Hp,1);                % Condição incial das variáveis medidas (estados X) atuais e futuras
            obj.u0=repmat(UIni,Hp,1)                     % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
-           
+           obj.ysp0=YIni;                                         % Condição inicial para os setpoints das variáveis controladas por setpoint
            % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
            obj.BuffDeltaFreq=zeros(15,1);            
             
@@ -374,12 +377,12 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %Configuração específica do IPOPT
             options=struct;
             options.print_time=0;                           % 
-            options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+            options.ipopt.print_level=3;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
             options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
             
             options.ipopt.max_iter=1000;                   % Especifica o número máximo de iterações que o solver deve executar antes de parar.
-%             options.ipopt.max_wall_time=0.4;           % Tempo (em segundos) máximo para solver encontrar solução
-            options.ipopt.max_wall_time=8;           % Tempo (em segundos) máximo para solver encontrar solução
+            options.ipopt.max_wall_time=8;           % Tempo (em segundos) máximo para o solver encontrar solução
+            options.ipopt.max_wall_time=20;           % Tempo (em segundos) máximo para o solver encontrar solução
          
             solver = nlpsol('solver','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)            
             obj.casadi_solver=solver;
@@ -410,9 +413,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             YPredito=full(h(XPredito));                  % Predição das saidas controladas por setpoint no instante anterior
             ErroY=Y0-YPredito;                             % Erro entre as medições atuais e a predição feita no instante anterior
          
-            % Atualiza setpoint das variáveis de saida em função dos novos Alvos da Engenharia
-            % Setpoint para PChegada é a PMonAlvoENG e para Vazao é estimada em função da FreqAlvo e PMonAlvo
-            Ysp = [ AlvoEng(2) ;   full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2))) ];
+            Ysp=obj.ysp0;                                        % Resgata valores de setpoints das variáveis controladas por setpoint
             
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
@@ -457,16 +458,25 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 obj.x0=Solucao_MPC(1:nx*(1+Hp));             % Assume nova condição inicial x0 para os estados atuais e preditos 
                 obj.u0=Solucao_MPC(nx*(1+Hp)+1:end);     % Resgata novas ações de controle (U ótimos) calculadas em todo o horizonte Hc
                 % Aplica ação de controle se for Feasible, caso contrário, mantem ação atual (DeltaU=0)
-                if Feasible
+%                 if Feasible
                     DeltaU=obj.u0(nu,1)-U0;                                 % DeltaU = Ação ótima calculada menos a ação antes aplicada
-                end
+%                 end
                 obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];
 
                 obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
                 TempoSolver = toc(TempoIni);                     % Tempo gasto pelo Solver
             end
             U0=U0+DeltaU;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
-            SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; Ysp];
+
+            % Atualiza setpoint das variáveis de saida
+%             obj.ysp0 = [ AlvoEng(2) ;   full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2)*1.019716)) ];
+            obj.ysp0 = [ U0(2) ;   full(obj.EstimaVazao(U0(1),U0(2)*1.019716)) ];
+            % Setpoint para a PSuc não existe. Usamos a interpolação para oferecer número coerente com a Freq. e PChegada ditas ótimas
+%             PSucOtima=Interpola(AlvoEng(1),AlvoEng(2)*1.019716,obj.MatrizSimulador,8);
+            PSucOtima=Interpola(U0(1),U0(2)*1.019716,obj.MatrizSimulador,8);
+            YspOut=[obj.ysp0; PSucOtima];
+            
+            SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; YspOut];
             
            % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado 
             ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor

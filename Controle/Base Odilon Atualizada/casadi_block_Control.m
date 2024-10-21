@@ -230,7 +230,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
             
             options.ipopt.max_iter=100;                   % Especifica o número máximo de iterações que o solver deve executar antes de parar.
-            options.ipopt.max_wall_time=0.4;           % Tempo (em segundos) máximo para solver encontrar solução
+%             options.ipopt.max_wall_time=0.4;           % Tempo (em segundos) máximo para solver encontrar solução
             % Este tempo de 0.4 eu usei para estimar o tempo para não violar a proporção de tempo com a ESN. 
             % Vale na minha máquina, mas não é genérico
          
@@ -317,10 +317,12 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 % Usa resposta do solver para atualizar variáveis
                 obj.x0 = full(solver_MPC.x);                                       % Atualiza objeto com solução ótima no instante k (PredicaoHorizonteHp; Deltau_k, Ysp)
                 ResultadoMPC=obj.x0;                                              % Vetor com resultados proveniente da otimização feita pelo MPC
-                DeltaU=ResultadoMPC(nx*(Hp+1)+1:nx*(Hp+1)+nu);  % Extrai a ação de controle ótima (apenas para o instante k+1)
-                for i=1:nu                                                                    % Para cada uma das variáveis manipuladas
-                    DeltaU(i)=AvaliaDeltaU(DeltaU(i),dumin(i));        % Avalia se pode dar o passo e observa limites minimos (o máximo não precisa testar aqui pois o limite da ação vai ser tratado)
-                end
+%                 if Feasible                                 % Não estava sendo tratado, mas se tratar, engasga !!
+                    DeltaU=ResultadoMPC(nx*(Hp+1)+1:nx*(Hp+1)+nu);  % Extrai a ação de controle ótima (apenas para o instante k+1)
+                    for i=1:nu                                                                    % Para cada uma das variáveis manipuladas
+                        DeltaU(i)=AvaliaDeltaU(DeltaU(i),dumin(i));        % Avalia se pode dar o passo e observa limites minimos (o máximo não precisa testar aqui pois o limite da ação vai ser tratado)
+                    end
+%                 end
                 % Atualiza ação de controle com DeltaU resultante
                 UProcesso = UProcesso + DeltaU;          % Aplica na saida a solução ótima (Uk + Delta Uk calculado pelo solver)
                 
