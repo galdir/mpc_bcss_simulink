@@ -187,7 +187,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
            
            % Condições inciais para as variáveis de decisão do MPC [  x0    u0 ]. Precisam estar em vetores coluna
            obj.x0=repmat(XIni,1+Hp,1);                % Condição incial das variáveis medidas (estados X) atuais e futuras
-           obj.u0=repmat(UIni,Hp,1)                     % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
+%            obj.u0=repmat(UIni,Hp,1);                     % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
+           obj.u0=zeros(nu*Hp,1);
            obj.ysp0=YIni;                                         % Condição inicial para os setpoints das variáveis controladas por setpoint
            % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
            obj.BuffDeltaFreq=zeros(15,1);            
@@ -263,6 +264,15 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% Para todo o horizonte de predição futuro - faz logo as restrições de igualdade em g 
             % Isso é para assegurar que os estados futuros vão seguir as predições
             for k=1:Hp
+               % Incrementa custo da função objetivo com erro entre as  predições da saida (atuais e futuras)
+                % e o valor ótimo das saidas controladas por setpoint 
+                y_saida= h(X(k,:)');                           % Saida estimada (variáveis controladas por setpoint)
+                fob=fob+(y_saida'-Ysp+ErroY)*Qy*(y_saida'-Ysp+ErroY)';    
+
+                % Incrementa custo da função objetivo com a diferença entre a ação de controle e o AlvoEng, apenas até o horizonte Hc
+                S=if_else(k>Hc,0,(U(k,:)-AlvoEng)*Qu*(U(k,:)-AlvoEng)');
+                fob=fob+S;
+                
                 % Estima passo futuro com base nos estados atuais e ações de controle atuais
                 [x_predito, ESNdataa0] = executa_predicao(U(k,:)',X(k,:)', ModeloPreditor.data.a0, ModeloPreditor, f_Interpola_casadi_vazao_sym);
                 ModeloPreditor.data.a0=ESNdataa0;     % Mantem a ESN com reservatório atualizado durante o loop de predição
@@ -272,17 +282,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 args.lbg=[args.lbg,   zeros(1,nx)  ];          % Restrições de igualdade para forçar a dinâmica do sistema      
                 args.ubg=[args.ubg, zeros(1,nx) ];   
 
-                % Incrementa custo da função objetivo com erro entre as  predições da saida (atuais e futuras)
-                % e o valor ótimo das saidas controladas por setpoint 
-                y_predito= h(X(k+1,:)');                           % Saida estimada (variáveis controladas por setpoint)
-                fob=fob+(y_predito'-Ysp+ErroY)*Qy*(y_predito'-Ysp+ErroY)';    
-
-                % Incrementa custo da função objetivo com a diferença entre a ação de controle e o AlvoEng, apenas até o horizonte Hc
-                S=if_else(k>Hc,0,(U(k,:)-AlvoEng)*Qu*(U(k,:)-AlvoEng)');
-                fob=fob+S;
+            end
+            for k=1:Hp-1
 
                % Cálculo da variação na ação de controle = DeltaU
-                DeltaU=U(k,:)-U(k-1,:);
+                DeltaU=U(k+1,:)-U(k,:);
 %                 g=[g; DeltaU'];                            % Insere restrição de desigualdade para o DeltaU
 %                 args.lbg=[args.lbg,   -dumax ];  % Limite mínimo para a restrição de desigualdade associada ao DeltaU      
 %                 args.ubg=[args.ubg,  dumax ];  % Limite máximo para restrição de desigualdade associada ao DeltaU

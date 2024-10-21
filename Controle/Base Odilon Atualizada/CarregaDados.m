@@ -2,6 +2,9 @@ clc
 clear all
 close all
 
+rand('seed',1);
+randn('seed',1);
+
 % =============================================================================
 % Necessário ajustar o Path do Matlab para apontar onde estão as tabelas e dados Petrobras e arquivos de uso geral
 % Na pasta Uteis, há uma rotina AjustaPath.m
@@ -112,7 +115,6 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
     PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a PMonAlvo [bar]
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
-%     StopTime=2000; 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
     AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
@@ -143,8 +145,8 @@ Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 NumCasasDecimais=1;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-% SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
-SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+% SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
 % Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 
 % Uma relação sinal-ruído (SNR) de 20 dB significa que o sinal é 100 vezes mais potente que o ruído. 

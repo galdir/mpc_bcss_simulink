@@ -94,7 +94,6 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
     PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a PMonAlvo [bar]
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
-%     StopTime=2000; 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
     AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
