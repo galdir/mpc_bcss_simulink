@@ -158,7 +158,7 @@ SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplic
 % Neste caso, definimos uma margem percentual como sendo uma região em que
 % o controlador deve considerar como limite, antes de chegar no limite propriamente dito.
 % O valor da margem é dado em % e pode ser ZERO
-MargemPercentual=0.5;
+MargemPercentual=2;
 
 %% =============================================================================
 disp('Configurações gerais carregadas para a área de trabalho')
