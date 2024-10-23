@@ -1,6 +1,6 @@
-function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimuladorContas,BTP,FreqIni,PMonIni,PSucIni,VazaoIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro,TabelaIsometricas)
+function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimuladorContas,BTP,FreqIni,PMonIni,PSucIni,VazaoIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro,TabelaIsometricas,MargemPercentual)
 % Animação para atualização do ponto de operação nos mapas em tempo de simulação 
-    
+
     global TituloMapa1                  % Título no mapa de Frequência x PChegada
     global SubTituloMapa1            % SubTítulo no mapa de Frequência x PChegada
     global TituloMapa2                   % Título no mapa de Frequência x PSuc
@@ -34,7 +34,6 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimulado
         x0=[];                                        % Não armazena estados internos
         % Prepara plotagem dos mapas
         if PlotaMapas                                                    % Se for para plotar os mapas
-            MargemPercentual=2;
             monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas,MargemPercentual);     % Apenas na inicialização, monta mapas como pano de fundo
             % Corrige unidades de pressão da operação [bar]  para unidades de pressão nos  mapas [Kgf/cm2]
             PMonIni=PMonIni*1.019716;

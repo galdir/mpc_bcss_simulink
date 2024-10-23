@@ -168,5 +168,7 @@ cython_debug/
 .\Controle\slprj\
 .\Uteis\OLD\
 .\Uteis\Rasc\
+.\Uteis\slprj\
+.\Uteis\Exemplos\slprj\
 .\Tabelas\Rasc\
 
