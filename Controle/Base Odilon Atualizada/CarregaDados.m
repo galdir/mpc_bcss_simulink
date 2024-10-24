@@ -41,17 +41,30 @@ LimiteProporcao=Ts/TempoESN;
 % do processo no instante selecionado e possivelmente serão diferentes dos alvos estabelecidos pelo usuário. 
 % Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
 
+% Inicializações mais próximas da operação real
+% Condição inicial  das variáveis do processo e das entradas                       % PSuc [bar]     PChegada [bar]       Freq [Hz]     PMonAlvo [bar]
+% [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',MatrizSimulador);    % PSuc=77.4    PChegada=31.4   Freq = 54.9  Ponto de operação usual
+% [XIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',MatrizSimulador);    % PSuc=78.9    PChegada=34.2   Freq = 53.9  Ponto intermediário
+
+% Inicializa logo no inicio de rampas de aceleração
+% Condição inicial  das variáveis do processo e das entradas                       % PSuc [bar]     PChegada [bar]         Freq [Hz]     PMonAlvo [bar]
+% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:35:00',MatrizSimulador);    % PSuc=94.3   PChegada=37.97    Freq = 44,4   PMonAlvo = 35.5 
+% [XIni,UIni]=SelCondicaoInicial('2024-07-15 14:20:00',MatrizSimulador);    %  PSuc=94.3   PChegada=37.05   Freq = 44,3   PMonAlvo = 35
+[XIni,UIni]=SelCondicaoInicial('2024-07-17 00:30:00',MatrizSimulador);         % PSuc=93.6    PChegada=40.0    Freq = 43.5    PMonAlvo = 32 
+
+%% Inicializações antes usadas, mas que iniciam UNFEASIBLE - NÃO USAREMOS MAIS
+% Inicio de rampas de aceleração para comparação
+% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',MatrizSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
+% [XIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',MatrizSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
+% [XIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',MatrizSimulador);        % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
+
 % Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
-%  [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',MatrizSimulador);     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
+% [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',MatrizSimulador);       % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
 % [XIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',MatrizSimulador);       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
 % [XIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00',MatrizSimulador);       % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
 
-% Inicio de rampas de aceleração para comparação
-% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',MatrizSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
-[XIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',MatrizSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-% [XIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',MatrizSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
 
- % Usa uma matriz h para seleção dos estados que vão compor a saida. Representa a função y=h(x) 
+%% Usa uma matriz h para seleção dos estados que vão compor a saida. Representa a função y=h(x) 
 matriz_h=zeros(2,height(XIni)); % Tamanho da matriz que vai oferecer a saida do sistema    
 matriz_h(1,1)=1;            % Coluna na linha 1 que indica a primeira variável controlada
 matriz_h(2,2)=1;            % Coluna na linha 2  que indica a segunda variável controlada 
@@ -109,7 +122,7 @@ dumin = [0 ; 0];                                                          %Varia
  Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 
 % Define se vai usar plano (tabela excel) para alterar alvos da engenharia ao longo da simulação
-UsaPlano=1;
+UsaPlano=0;
 if UsaPlano    % Sequencia para usar plano definido em planilha
     %     Inicializa o alvo da ENG como sendo o primeiro registro do plano proposto
     FreqAlvoIni=Plano.Frequencia(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a Frequencia [Hz]
