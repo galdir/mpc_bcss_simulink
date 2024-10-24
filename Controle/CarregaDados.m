@@ -2,6 +2,10 @@ clc
 clear all
 close all
 
+% Define sementes de números aleatórios para garantir repetibilidade
+rand('seed',1) 
+randn('seed',1)
+
 % =============================================================================
 % Necessário ajustar o Path do Matlab para apontar onde estão as tabelas e dados Petrobras e arquivos de uso geral
 % Na pasta Uteis, há uma rotina AjustaPath.m
@@ -52,7 +56,7 @@ LimiteProporcao=Ts/TempoESN;
 [XIni,UIni]=SelCondicaoInicial('2024-07-17 00:30:00',MatrizSimulador);         % PSuc=93.6    PChegada=40.0    Freq = 43.5    PMonAlvo = 32 
 
 
-%% Inicializações antes usadas, mas que iniciam UNFEASIBLE
+%% Inicializações antes usadas, mas que podiam inicializar UNFEASIBLE
 % Inicio de rampas de aceleração para comparação
 % [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',MatrizSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
 % [XIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',MatrizSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
@@ -110,7 +114,7 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
         FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
@@ -138,8 +142,8 @@ Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 NumCasasDecimais=1;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-% SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
-SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+% SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
 % Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 
 % Uma relação sinal-ruído (SNR) de 20 dB significa que o sinal é 100 vezes mais potente que o ruído. 
@@ -153,7 +157,7 @@ SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplic
 % O valor da margem é dado em % e pode ser ZERO.
 % OBS: aplicamos estas margens percentuais apenas nas variáveis medidas do processo (estados X), 
 
-MargemPercentual=0;     
+MargemPercentual=2;     
 
 %% =============================================================================
 disp('Configurações para a simulação foram carregadas para a área de trabalho')

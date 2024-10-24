@@ -387,7 +387,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
             options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
             
-            options.ipopt.max_iter=1000;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
+            options.ipopt.max_iter=500;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
             options.ipopt.max_wall_time=9;           % Tempo (em segundos) máximo para o solver encontrar solução
          
             solver = nlpsol('solver','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)            
@@ -477,10 +477,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                     DeltaU=DeltaUk(1:nu);                     % Delta U como variável indicada pelo solver
                     DeltaU2=obj.u0(1:nu)-U0;                 % DeltaU = Ação ótima calculada agora, menos a ação antes aplicada
                     if norm(DeltaU-DeltaU2,2)>1e-10
-                        disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais???')
+                        disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
                     obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas ações de frequencias aplicadas
-                    obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
+%                if Feasible
+                   obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
                end
                 TempoSolver = toc(TempoIni);                          % Tempo gasto pelo Solver
             end
