@@ -20,12 +20,12 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
-Hp = 3;                            % Horizonte de predição
-Hc = 2;                            % Horizonte de controle
-Qy=  diag([1  1]);             % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+Hp = 10;                              % Horizonte de predição
+Hc = 8;                                 % Horizonte de controle
+Qy=  0*diag([1  1]);             % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qx= 0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
-Qu = diag([1  1]);             % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
-R=    diag([1  1]);              % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 
+Qu = diag([1  1]);                 % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
+R=    0*diag([1  1]);             % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 
 
 %% =============================================================================
 % Para favorecer a inicialização e o tempo na busca da solução pelo Solver, vamos estabelecer limites minimos a máximos fixos

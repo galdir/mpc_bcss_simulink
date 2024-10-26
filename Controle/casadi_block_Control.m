@@ -16,7 +16,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         x0                                                                % Para guardar condições iniciais dos estados (X) atuais e em todo horizonte (1+Hp) 
         u0                                                                 % Para guardar condições iniciais das ações de controle (U) em todo o horizonte (Hc)
 %         ysp0                                                             % Para guardar os valores de setpoint das variáveis controladas por setpoint
-        BuffDeltaFreq                                             % Para proporcionar soma de 15 variações na ação de controle
+        BuffDeltaFreq                                             % Para proporcionar soma de 45 últimas variações na ação de controle
 
         Predicao                                                     % Para guardar a predição no instante anterior
         ModeloPreditor                                           % Para guardar modelo de preditor e que será utilizada pelo solver para a predição
@@ -30,6 +30,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         ubg                                                               % Upper Bounds para as restrições [g] que forem criadas
         
         contador                                                     % Variável para guardar o contador de passos de amostragem - usado para definir momentos de atuação do MPC
+        NumCasasDecimais                                  % NUmero de casas decimais para limite minimo de ação do DeltaU
     end
 %%======================================================
     methods (Access = protected)
@@ -70,6 +71,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % TempoSolver (Dim=1)
             % Ação de controle (Dim=nu)               % Ação na Freq e PMonAlvo
             % DeltaU (Dim=nu)                                % DeltaU na Freq e PMonAlvo
+            % SomaDeltaFreq (Dim=1)                   % Somatório da variação de fraquencia para limitar 1Hz em 7,5min
             % AlvoOtimoCalculado (Dim=ny+1)      % Alvos Ótimos para PChegada, Vazão (saidas Y) + PSuc (apenas para compor os 3 mapas)
             % Xk = Estados atuais e futuros           % Dim = nx*(1+Hp)
             % Uk = Ações de controle para aplicar - atual e futuras (Dim = nu*Hp)
@@ -80,8 +82,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Qy=  evalin('base','Qy');   ny=height(Qy);  % % Número de variáveis de saida controladas por SetPoint
             Hp =  evalin('base','Hp');  obj.Hp=Hp;  % Horizonte de predição
 
-%        SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; YspOut;        Xk;               Uk  ];
-            Dim =          [     1             1                    1               nu     nu         ny+1       nx*(1+Hp)      nu*Hp ];
+%        SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; SomaDeltaFreq;   YspOut;        Xk;               Uk  ];
+            Dim =          [     1             1                    1              nu     nu                   1                    ny+1    nx*(1+Hp)      nu*Hp ]
             sz1 =  sum(Dim);
         end
         %===============        
@@ -106,6 +108,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             tInicializa=tic;                                         % Marcador para o tempo gasto na Inicialização
             import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
             obj.contador = 0;                                   % Contador para indicar passos/momentos de atuação do controle MPC
+            obj.NumCasasDecimais=evalin('base', 'NumCasasDecimais');   % Numero de casas decimais para ações de DeltaU 
                   
             %% Funções simbólicas que serão necessárias ao Solver
             f_Interpola_casadi_vazao_sym = evalin('base', 'f_Interpola_casadi_vazao_sym'); 
@@ -180,7 +183,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
            obj.u0=repmat(UIni,Hp,1);                % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
 %           obj.ysp0=YIni;                                         % Condição inicial para os setpoints das variáveis controladas por setpoint
            % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
-           obj.BuffDeltaFreq=zeros(15,1);            
+            obj.BuffDeltaFreq=zeros(45,1);      
+     
             
            %% =============================================================================================
            %% =============================================================================================
@@ -197,7 +201,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% ===================================================
             % Parâmetros que foram oferecidos para o Solver
             %         [  Medições  Ações   AlvoEng;    Ysp     ErroX        ErroY    BuffDeltaFreq      Reservatório do ModeloPreditor]
-            Indice=[        nx            nu           nu            ny         nx             ny            15                       nx_ESN                  ];
+            Indice=[        nx            nu           nu            ny         nx             ny              45                       nx_ESN                  ];
             % Cria vetor de parâmetros na dimensão especificada
             P=MX.sym('P',sum(Indice));
             % Associa variáveis simbólicas as respectivas partes no vetor de parâmetros
@@ -388,7 +392,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
             
             options.ipopt.max_iter=500;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
-            options.ipopt.max_wall_time=9;           % Tempo (em segundos) máximo para o solver encontrar solução
+            options.ipopt.max_wall_time=5;           % Tempo (em segundos) máximo para o solver encontrar solução
          
             solver = nlpsol('solver','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)            
             obj.casadi_solver=solver;
@@ -419,12 +423,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             YPredito=full(h(XPredito));                  % Predição das saidas controladas por setpoint no instante anterior
             ErroY=Y0-YPredito;                             % Erro entre as medições atuais e a predição feita no instante anterior
 
-            % ???????????????????????????????????????????????????????
-            % Variáveis controladas por setpoint deveriam ser variáveis de decisão ?
-            % ???????????????????????????????????????????????????????
             % Atualiza setpoint das variáveis de saida controladas por setpoint (PChegada e Vazao)
             % Assumimos que o setpoint ótimo para a PChegada é a PMonAlvo dado pelo solver (ação de controle)
-            % Por tabela, a vazão ótima é a vazão estimada para a Freq. e PMonAlvo dadas como alvo pelo solver 
+            % Por tabela, a vazão ótima é a vazão estimada para a Freq. e PMonAlvo antes dadas como alvo pelo solver 
             Ysp= [ U0(2) ;   full(obj.EstimaVazao(U0(1),U0(2)*1.019716)) ];
 
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
@@ -479,13 +480,13 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                     if norm(DeltaU-DeltaU2,2)>1e-10
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
-                    obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas ações de frequencias aplicadas
-%                if Feasible
-                   obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
+                    DeltaU=round(DeltaU,obj.NumCasasDecimais); %  Assume que na prática, não haverá mudança menor do que o numero de casas decimais definido
+                    obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
                end
-                TempoSolver = toc(TempoIni);                          % Tempo gasto pelo Solver
+                TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
             %% Independentemente do Solver ter encontrado uma solução ótima
+            obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
             U0=U0+DeltaU;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
 
             % Com base nos resultados do solver, atualiza setpoint das variáveis de saida controladas por setpoint (PChegada e Vazao)
@@ -495,8 +496,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             YspOut=[Ysp; PSucOtima];
             Xk=obj.x0;
             Uk=obj.u0;
-%         Dimensão = [     1             1                    1              nu     nu           ny+1    nx*(1+Hp)      nu*Hp ]
-            SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; YspOut;        Xk;               Uk   ];
+            SomaDeltaFreq=sum(obj.BuffDeltaFreq);
+%         Dimensão = [     1             1                    1              nu     nu                   1                    ny+1    nx*(1+Hp)      nu*Hp ]
+            SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU;  SomaDeltaFreq;    YspOut;        Xk;               Uk   ];
             
            % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado 
             ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor
@@ -507,16 +509,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             
             %% Para acompanhar caso de UNFEASIBLE 
             if  obj.contador > PassoMPC   % (Passou por uma condição unfeasible, por isso não ressetou o contador
-                disp("Ao menos uma restrição foi violada. Nova tentativa do MPC será feita já na próxima amostragem.") 
-                disp("Este momento merece um bom ALARME, pois, ser persistir, o TRIP invitavelmente vai acontecer")
-                disp("Se a folga dada em MargePercentual for ZERO,  o TRIP está muito próximo e não sei se há tempo para outras ações") 
-                disp("A MargemPercentual refletirá no tempo de folga para alguma ação antes do TRIP")
-                disp("Desabilitar o MPC? Mas quem assume?")
-            end
-            if  obj.contador >9   % (9 passos de 10s = 1,5min)
-                disp("Não conseguimos evitar restrições fossem violadas ... o TRIP pode acontecer!!") 
-                disp("Se a folga dada em MargePercentual for ZERO, o TRIP vai acontecer, se já não aconteceu") 
-                disp("Se há folga dada em MargemPercentual o TRIP pode acontecer a qualquer momento e o MPC está inerte")
+                disp(strcat(num2str(obj.contador-PassoMPC)," - Controlaldor não achou solução ótima - mantida a ação anterior !!")) 
             end
         end
     end

@@ -157,7 +157,7 @@ SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplic
 % O valor da margem é dado em % e pode ser ZERO.
 % OBS: aplicamos estas margens percentuais apenas nas variáveis medidas do processo (estados X), 
 
-MargemPercentual=2;     
+MargemPercentual=1;     
 
 %% =============================================================================
 disp('Configurações para a simulação foram carregadas para a área de trabalho')
