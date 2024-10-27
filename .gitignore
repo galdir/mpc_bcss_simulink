@@ -163,6 +163,9 @@ cython_debug/
 .\AjustaPath.m
 *.asv
 *.slxc
+*.mat
+*.xml
+
 .\Controle\OLD\
 .\Controle\Rasc\
 .\Controle\slprj\

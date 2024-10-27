@@ -45,15 +45,15 @@ LimiteProporcao=Ts/TempoESN;
 % Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
 
 % Inicializações mais próximas da operação real
-% Condição inicial  das variáveis do processo e das entradas                       % PSuc [bar]     PChegada [bar]       Freq [Hz]     PMonAlvo [bar]
-% [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',MatrizSimulador);    % PSuc=77.4    PChegada=31.4   Freq = 54.9  Ponto de operação usual
-% [XIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',MatrizSimulador);    % PSuc=78.9    PChegada=34.2   Freq = 53.9  Ponto intermediário
+% Condição inicial  das variáveis do processo e das entradas                       
+% [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:20:00',MatrizSimulador);    
+% [XIni,UIni]=SelCondicaoInicial('2024-07-12 16:05:00',MatrizSimulador);    
 
 % Inicializa logo no inicio de rampas de aceleração
-% Condição inicial  das variáveis do processo e das entradas                       % PSuc [bar]     PChegada [bar]         Freq [Hz]     PMonAlvo [bar]
-% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:35:00',MatrizSimulador);    % PSuc=94.3   PChegada=37.97    Freq = 44,4   PMonAlvo = 35.5 
-% [XIni,UIni]=SelCondicaoInicial('2024-07-15 14:20:00',MatrizSimulador);    %  PSuc=94.3   PChegada=37.05   Freq = 44,3   PMonAlvo = 35
-[XIni,UIni]=SelCondicaoInicial('2024-07-17 00:30:00',MatrizSimulador);         % PSuc=93.6    PChegada=40.0    Freq = 43.5    PMonAlvo = 32 
+% Condição inicial  das variáveis do processo e das entradas                       
+% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:55:00',MatrizSimulador);    
+% [XIni,UIni]=SelCondicaoInicial('2024-07-15 14:40:00',MatrizSimulador);    
+[XIni,UIni]=SelCondicaoInicial('2024-07-17 01:00:00',MatrizSimulador);         
 
 
 %% Inicializações antes usadas, mas que podiam inicializar UNFEASIBLE
@@ -114,11 +114,11 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
         FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
-        PMonAlvoIni=Limites(2,2);     % Extrai ponto limite minimo (linha 2) da PChegada (coluna 2)
+        PMonAlvoIni=max([ Limites(2,2), PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     else                                  % Os alvos serão dados manualmente pela engenharia
         %    Inicializa alvo da ENG manualmente
         FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
@@ -126,8 +126,10 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
         PMonAlvoIni=34;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
-        FaixaPChegada=Limites(:,2);      % Extrai faixa [ Max  Min] da PChegada (coliuna 2) em bar
-        PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos. Se for dentro da faixa, não muda em nada o que foi definido pela ENG
+        PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
+        
+%         FaixaPChegada=Limites(:,2);      % Extrai faixa [ Max  Min] da PChegada (coluna 2) em bar
+%         PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos. Se for dentro da faixa, não muda em nada o que foi definido pela ENG
     end
 end
 
