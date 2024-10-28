@@ -31,10 +31,14 @@ R=    0*diag([1  1]);             % R - Peso na variação das ações de contro
 % Para favorecer a inicialização e o tempo na busca da solução pelo Solver, vamos estabelecer limites minimos a máximos fixos
 % para serem tratados em lbx/ubx.  As demais restrições serão tratadas em g
 
+%                     PSuc   PChegada    PDiff    PDescarga   Tmotor      ITorque    ITotal     TSuc     Vibração   TChegada    Vazao
+LimitesMin=   [  0             10               0               0                 0               0              0            0              0                 0                 0    ];    
+LimitesMax=  [ 250          65            250            250             200          200         250         200           4               200           1000    ];
+
 % Limites mín/max para as medições do processo (extraímos das tabelas Petrobras)
-%                         PSuc  PChegada    PDiff    PDescarga   Tmotor    ITorque    ITotal     TSuc   Vibração   TChegada    Vazao
-LimitesMin= 0.9*[  55          10               50           120              20            40           40           20          0                 40            100    ];    
-LimitesMax=1.1*[ 110          65            150          215              141          140        183         141         3                150           800    ];
+% LimitesMin= 0.9*[  55          10               50           120              20            40           40           20          0                 40            100    ];    
+% LimitesMax=1.1*[ 110          65            150          215              141          140        183         141         3                150           800    ];
+
 
 %% =============================================================================
 % Considerando a diferença entre as grandezas, ajustamos os pesos para ter ua relação mais equilibrada

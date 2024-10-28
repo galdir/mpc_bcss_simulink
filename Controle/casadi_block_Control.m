@@ -289,22 +289,22 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% Restrições de igualdade para definir DeltaU em função de U e tornar U como variável de decisão base  
             for k=1:Hp-1
                % Cálculo da variação na ação de controle = DeltaU
-                Soma=abs(U(:,k+1)-U(:,k)-DU(:,k));
+                Soma=U(:,k+1)-U(:,k)-DU(:,k);
                 g=[g;Soma];                                        % Restrição de igualdade = 0 assegura DeltaU como função de U
                 args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade associada ao DeltaU      
                 args.ubg=[args.ubg, zeros(1,nu)];    % Limite máximo para restrição de igualdade associada ao DeltaU
 
-                DeltaMax=dumax'-abs(DU(:,k));      % Para respeitar os limites, tem de ser sempre >=0      
-                g=[g; DeltaMax];                                 % Assegura limites definidos para DeltaU, independentemente do sinal
-                args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade associada ao DeltaU      
-                args.ubg=[args.ubg, dumax];          % Limite máximo para restrição de igualdade associada ao DeltaU
+%                 DeltaMax=dumax'-abs(DU(:,k));      % Para respeitar os limites, tem de ser sempre >=0      
+%                 g=[g; DeltaMax];                                 % Assegura limites definidos para DeltaU, independentemente do sinal
+%                 args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade associada ao DeltaU      
+%                 args.ubg=[args.ubg, dumax];          % Limite máximo para restrição de igualdade associada ao DeltaU
                 
                 % Aproveita o loop para criar restrição avaliando as variações acumuladas na frequencia
                 BuffDeltaFreq=[ DU(1,k); BuffDeltaFreq(1:end-1)];    % Atualiza buffer com valor de DeltaFreq proposto
-                Soma=abs(sum(BuffDeltaFreq));
+                Soma=sum(BuffDeltaFreq);
                 % Avalia limites das variações 
                 g=[g; Soma];                      % Insere restrição de desigualdade para o somatório do BuffDeltaFreq
-                args.lbg=[args.lbg,   0 ];    % Limite mínimo para o somatório da variação      
+                args.lbg=[args.lbg,   -1 ];    % Limite mínimo para o somatório da variação      
                 args.ubg=[args.ubg,  1 ];  % Limite máximo para o somatório da variação
             end
             
@@ -315,11 +315,11 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 %             Lembrar que a linha 2 traz os limites mínimos  de todas as 11 variáveis do processo (10 + Vazão)
                 LimitesX= f_buscaLimites_sym(U(1,k));  % Resgata limites (Max/Min) de alarmes para as variáveis do processo em função da frequência
                 LimitesX=LimitesX';                                    % Coloca na forma de coluna
-                LimitesY=h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
 
                 LimitesX(:,1)=LimitesX(:,1)*(1-MargemPercentual/100);   % Implementa margem de folga em relação ao máximo
                 LimitesX(:,2)=LimitesX(:,2)*(1+MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo
-                
+
+                LimitesY=h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
                 
 %             RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
 %             Insere restrições para os valores máximos das variáveis (estados X) preditos
@@ -354,14 +354,14 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 %            associam limites pré-estabelecidos para a PChegada
 %            Já em relação aos estados X, a PChegada é a variável na linha 2
 
-%            LIMITES MINIMOS
+%            LIMITES MINIMOS PMonAlvo
                ValMin=max(LimitesX(2,2),umin(2));   % Assume o valor mais restritivo
                DiferencaMin=U(2,k)-ValMin;              % Ação precisa ser maior do que o minimo
                g=[g; DiferencaMin];                              % Insere restrição de desigualdade, a qual precisa ser  >=0
                args.lbg=[args.lbg,    0 ];                        % Limite mínimo      
                args.ubg=[args.ubg, inf];                        % Limite máximo 
 
-%            LIMITES MÁXIMOS
+%            LIMITES MÁXIMOSPMonAlvo
                ValMax=min(LimitesX(2,1),umax(2));   % Assume o valor mais restritivo
                DiferencaMax=ValMax-U(2,k);            % Ação precisa ser menor que o máximo
                g=[g; DiferencaMax];                              % Insere restrição de desigualdade, a qual precisa ser  >=0
@@ -422,7 +422,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
         
 %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
         function  SaidaMPC= stepImpl(obj,X0,U0,AlvoEng,t)
-            disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
+%             disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
             import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
 
             %% Resgata informações facilitando os cálculos para a implementação da nova ação de controle
@@ -448,8 +448,15 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % Atualiza setpoint das variáveis de saida controladas por setpoint (PChegada e Vazao)
             % Assumimos que o setpoint ótimo para a PChegada é a PMonAlvo dado pelo solver (ação de controle)
             % Por tabela, a vazão ótima é a vazão estimada para a Freq. e PMonAlvo antes dadas como alvo pelo solver 
-           Ysp= [ U0(2) ;   full(obj.EstimaVazao(U0(1),U0(2)*1.019716)) ];
-%             Ysp= [ AlvoEng(1) ;   AlvoEng(2) ];
+%            Ysp= [ U0(2) ;   full(obj.EstimaVazao(U0(1),U0(2)*1.019716)) ];
+
+            % Considerar o AlvoEng como sendo o setpoint ótimo para as variáveis controladas por setpoint (PChegada e vazão)
+            % A PChegada ótima é o próprio PMonAlvoENG
+            % Vazão ótima é estimada com o FreqAlvoENg e PMonAlvoENG
+            Ysp= [ AlvoEng(2) ;    full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2)*1.019716)) ];
+            PSucOtima=Interpola(AlvoEng(1),AlvoEng(2)*1.019716,obj.MatrizSimulador,8);
+            YspOut=[Ysp; PSucOtima];
+
 
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
@@ -514,14 +521,6 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
             U0=U0+DeltaU;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
 
-            % Com base nos resultados do solver, atualiza setpoint das variáveis de saida controladas por setpoint (PChegada e Vazao)
-            % Fazemos a PChegada Ótima = PMOnAlvo definida pelo solver
-            % E a vazão ótima cono sendo a estimada com base na Freq e PMon definidas pelo solver
-            Ysp = [ U0(2) ;   full(obj.EstimaVazao(U0(1),U0(2)*1.019716)) ];
-            % Setpoint para a PSuc não existe. Usamos a interpolação para oferecer número coerente com a Freq. e PChegada ditas ótimas
-            PSucOtima=Interpola(U0(1),U0(2)*1.019716,obj.MatrizSimulador,8);
-%             PSucOtima=Interpola(U0(1),AlvoEng(1)*1.019716,obj.MatrizSimulador,8);
-            YspOut=[Ysp; PSucOtima];
             Xk=obj.x0;
             Uk=obj.u0;
             SomaDeltaFreq=sum(obj.BuffDeltaFreq);
