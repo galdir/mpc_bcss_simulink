@@ -20,9 +20,9 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
-Hp = 3;                              % Horizonte de predição
+Hp = 5;                             % Horizonte de predição
 Hc = Hp-1;                       % Horizonte de controle
-Qy=  diag([1  1]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+Qy=  diag([1  10]);           % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qu = diag([10  1]);            % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
 Qx= 0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
 R=    0*diag([1  1]);             % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 

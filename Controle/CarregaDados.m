@@ -89,7 +89,7 @@ matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda var
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
 FreqMaxMin=[60 ,  40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
-PMonAlvoMaxMin=[50 , 20];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
+PMonAlvoMaxMin=[45 , 25];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
 umax  = [FreqMaxMin(1) ,  PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
 umin  =  [FreqMaxMin(2), PMonAlvoMaxMin(2)] ;        % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
@@ -127,9 +127,6 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         PMonAlvoIni=34;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
-        
-%         FaixaPChegada=Limites(:,2);      % Extrai faixa [ Max  Min] da PChegada (coluna 2) em bar
-%         PMonAlvoIni=LimitaFaixa(PMonAlvoIni,FaixaPChegada);  % Limita a variável nos limites definidos. Se for dentro da faixa, não muda em nada o que foi definido pela ENG
     end
 end
 

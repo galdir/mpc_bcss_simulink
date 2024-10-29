@@ -1,4 +1,4 @@
-function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimuladorContas,BTP,FreqIni,PMonIni,PSucIni,VazaoIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro,TabelaIsometricas,MargemPercentual)
+function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimuladorContas,BTP,FreqIni,PMonIni,PSucIni,VazaoIni,FreqAlvoIni,PMonAlvoIni,HabilitaRastro,TabelaIsometricas,MargemPercentual,PMonAlvoMaxMin)
 % Animação para atualização do ponto de operação nos mapas em tempo de simulação 
 
     global TituloMapa1                  % Título no mapa de Frequência x PChegada
@@ -24,17 +24,16 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimulado
     %% ==================================================================================
     % Inicialização da S-Function
     if flag==0
-        ninput=10;                               % Inicialização da Frequencia passada para o processo
+        ninput=8;                                 % Inicialização da Frequencia passada para o processo
                                                         % Inicialização da PChegada, PSuc, Vazao  (dados de medições do processo)
-                                                        % Inicialização da Frequencia proposta pelo otimizador
-                                                        % Inicialização da PChegada, PSuc, Vazao (propostos pelo otimizador)
-                                                        % Inicialização da FreqAlvo, PMonAlvo  (dados da Engenharia)
+                                                        % Inicialização da Freq. e PMon propostas pelo otimizador
+                                                         % Inicialização da FreqAlvo, PMonAlvo  (dados da Engenharia)
                                                          
         nout=0;                                    % Não tem saida, só o plot
         x0=[];                                        % Não armazena estados internos
         % Prepara plotagem dos mapas
         if PlotaMapas                                                    % Se for para plotar os mapas
-            monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas,MargemPercentual);     % Apenas na inicialização, monta mapas como pano de fundo
+            monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas,MargemPercentual,PMonAlvoMaxMin);     % Apenas na inicialização, monta mapas como pano de fundo
             % Corrige unidades de pressão da operação [bar]  para unidades de pressão nos  mapas [Kgf/cm2]
             PMonIni=PMonIni*1.019716;
             PSucIni=PSucIni*1.019716;
@@ -96,13 +95,13 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimulado
             
             % Dados do otimizador
             FreqOtima=u(5);                                % Frequencia proposta pelo Controlador
-            PChegadaOtima=u(6)*1.019716;    % Pressão de Chegada dada pelo otimizador  convertida de bar para Kgf/cm2
-            PSucOtima=u(7)*1.019716;             % Pressão de Sucção dada pelo otimizador convertida de bar para Kgf/cm2
-            VazaoOleoOtima=u(8);                     % Vazão dada pelo otimizador
+            PChegadaOtima=u(6)*1.019716;    % Pressão de Chegada (PMonAlvo) dada pelo otimizador  convertida de bar para Kgf/cm2
+            PSucOtima=Interpola(FreqOtima, PChegadaOtima,MatrizSimulador,8);            % Estima em função da Freq e Pressao
+            VazaoOleoOtima=Interpola(FreqOtima, PChegadaOtima,MatrizSimulador,3);   % Estima em função da Freq e Pressao
 
             % Dados desejados pela engenharia (Alvos)
-            FreqAlvoENG=u(9);                                  % Frequência Alvo ENG atual
-            PMonAlvoENG=u(10)*1.019716;              % PMon Alvo ENG atual, convertida de bar para Kgf/cm2
+            FreqAlvoENG=u(7);                                  % Frequência Alvo ENG atual
+            PMonAlvoENG=u(8)*1.019716;              % PMon Alvo ENG atual, convertida de bar para Kgf/cm2
             PSucAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,MatrizSimulador,8);    % Estima em função da Freq e Pressao
             VazaoAlvoENG=Interpola(FreqAlvoENG, PMonAlvoENG,MatrizSimulador,3);  % Estima em função da Freq e Pressao
 
@@ -131,7 +130,6 @@ function [sys,x0]=AnimaMapa(t,x,u,flag,PlotaMapas,MatrizSimulador,MatrizSimulado
             VarX=TabelaIsometricas.FreqBCSS;                           % Variável que vai compor o eixo X do Mapa   
             VarY=TabelaIsometricas.PressChegada;                    % Variável que vai compor o eixo Y do Mapa
             VarProcurada=TabelaIsometricas.VazaoOleo;           % Variável que vai compor a curva isométrica no Mapa
-%            [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,VazaoAlvoENG,VazaoAlvoENG/500,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
             [VarX,VarY]=IsoCurva(VarX,VarY,VarProcurada,VazaoAlvoENG,0.5,1);    % Tabela, Variável X, Variável Y, Variável procurada, Valor procurado, Tolerância, Escala
             set(IsoVazaoENG,'xdata',VarX,'ydata',VarY)                % Atualiza no mapa a curva isométrica da vazão 
             
@@ -172,10 +170,10 @@ function  AtualizaMapa(Mapa,OperacaoMapa,AlvoENGMapa,SetPointMapa,Rastro,Freq,Va
 end
 
 %% ==================================================================================
-function monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas,MargemPercentual)
+function monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas,MargemPercentual,PMonAlvoMaxMin)
     close all
     figure(1)
-    set(gcf,'position',[20   5   570   875]);
+    set(gcf,'position',[10   5   570   875]);
     % set(gcf,'MenuBar','none');
     set(gcf,'name','MAPAS DE OPERAÇÃO');
 
@@ -203,9 +201,14 @@ function monta_mapas(MatrizSimulador,MatrizSimuladorContas,BTP,TabelaIsometricas
     plot(gridFreq,PChegadaMin*(1+MargemPercentual/100),'r--')
     plot(gridFreq,PChegadaMax,'b')
     plot(gridFreq,PChegadaMax*(1-MargemPercentual/100),'b--')
+   % Traça limites PChegada Min e Max definidos pelo usuário
+    plot([40 60],[PMonAlvoMaxMin(1)  PMonAlvoMaxMin(1)],'b--') 
+    plot([40 60],[PMonAlvoMaxMin(2)  PMonAlvoMaxMin(2)],'r--') 
+     
     eixo=axis;
     eixo(1)=39.9;
     axis(eixo);         % Drible para efeito visual na escala do plot 40Hz
+    
     
     % Isocurvas do mapa 1
     %  Completa mapa com curvas de isovazão
