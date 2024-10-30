@@ -1,4 +1,4 @@
-%%  IMPLEMENTAÇÃO MPC USANDO A BIBOIOTECA CASADI
+%%  IMPLEMENTAÇÃO MPC USANDO O CASADI
 classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
     properties (DiscreteState)
     end
@@ -81,6 +81,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % Ju = Custo parcial referente as ações de controle (Dim=1)
             % Jr = Custo parcial referente as variações nas ações de controle (Dim=1)
             % Jx = Custo parcial referente aos erros de predição das 11 variáveis (10 + vazão) (Dim=1)
+            % ErroX = diferença entre as medições atuais e as predições no instante anterior (Dim = nx)
+            % ErroY = diferença entre as saidas atuais e as saidas preditas no instante anterior (Dim = ny)
             % Ysp = Setpoints para as variáveis controladas por setpoint (Dim=ny)  % Setpoint para PChegada e Vazão
             % Xk = Estados atuais e futuros           % Dim = nx*(1+Hp)
             % Uk = Ações de controle para aplicar - atual e futuras (Dim = nu*Hp)
@@ -91,8 +93,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Qy=  evalin('base','Qy');   ny=height(Qy);  % % Número de variáveis de saida controladas por SetPoint
             Hp =  evalin('base','Hp');  obj.Hp=Hp;  % Horizonte de predição
 
-%        SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; SomaDeltaFreq;   Jy  Ju  Jr  Jx    Ysp;         Xk;               Uk      ];
-            Dim =          [     1             1                    1              nu     nu                   1                  1    1    1    1     ny      nx*(1+Hp)      nu*Hp   ];
+%        SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; SomaDeltaFreq;   Jy  Ju  Jr  Jx   ErroX  ErroY    Ysp;         Xk;               Uk      ];
+            Dim =          [     1             1                    1              nu     nu                   1                  1    1    1    1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ]
+
             sz1 =  sum(Dim);
         end
         %===============        
@@ -199,7 +202,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 
            %% =============================================================================================
            %% =============================================================================================
-           %  Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl 
+           % Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl 
            % Doravante precisamos tratar tudo de forma simbólica para o Solver
            %% =============================================================================================
            %% =============================================================================================
@@ -468,6 +471,12 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Iteracoes=0;                                   % Numero de iterações, alterado qdo passa pelo Solver
             %% Passo para atuação do MPC/Solver
             if (obj.contador >= PassoMPC)    % Solver só entra no passo definido pelos parâmetros de Passo do MPC ou se deu Unfeasible na amostra anteriior
+                %% Para acompanhar caso de UNFEASIBLE 
+                if  obj.contador > PassoMPC   % (Passou por uma condição unfeasible, por isso não ressetou o contador
+                    disp(strcat("Simulação MPC anterior em ",num2str(t)," s  deu unfeasible"))   % Só aqui usamos o tempo, útil para debug !!
+                    disp(strcat(num2str(obj.contador-PassoMPC)," - Nova tentativa para achar solução ótima !!")) 
+                end
+
                 TempoIni=tic;   % Inicaliza contagem de tempo para o Solver
                 args=struct;     % Inicializa variável que vai armazenar a estrutura de argumentos para o solver
 
@@ -508,7 +517,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                         disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
-                    DeltaU=round(DeltaU,obj.NumCasasDecimais); %  Assume que na prática, não haverá mudança menor do que o numero de casas decimais definido
+%                    DeltaU=round(DeltaU,obj.NumCasasDecimais); %  Assume que na prática, não haverá mudança menor do que o numero de casas decimais definido
                     obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
                end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
@@ -530,8 +539,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             end
             
             % Prepara saidas do bloco MPC
-            % Dimensão = [     1             1                    1              nu     nu                   1                1    1    1   1    ny    nx*(1+Hp)      nu*Hp  ]
-            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U0; DeltaU;  SomaDeltaFreq; Jy; Ju; Jr; Jx;  Ysp;        Xk;               Uk    ];
+            % Dimensão = [     1             1                    1              nu     nu                   1                1    1    1   1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ]
+            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U0; DeltaU;  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX;  ErroY;  Ysp;        Xk;               Uk    ];
 
             % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado 
             ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor
@@ -540,11 +549,6 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             obj.ModeloPreditor = ModeloPreditor;      % Guarda modelo preditor atualizado
             obj.Predicao=full(x_predito);                     % Guarda predição para que possamos avaliar o erro de predição no próximo ciclo
             
-            %% Para acompanhar caso de UNFEASIBLE 
-            if  obj.contador > PassoMPC   % (Passou por uma condição unfeasible, por isso não ressetou o contador
-                disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
-                disp(strcat(num2str(obj.contador-PassoMPC)," - Controlador não achou solução ótima - mantida a ação anterior !!")) 
-            end
         end
     end
 end
