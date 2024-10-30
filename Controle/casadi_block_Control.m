@@ -361,6 +361,17 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                args.ubg=[args.ubg, inf];                        % Limite máximo 
             end
             
+            % Depois do instante Hc, seguir a teoria e manter a mesma ação de controle futura.
+            % No caso específico, julgamos ser importante termos a ação de  controle calculada até o último horizonte,
+            % uma vez que cada uma delas implica em diferentes restrições dinâmicas futuras. Assim, na sintonia do 
+            % controlador, faremos Hc=Hp-1. Mas para atender a teoria, podemos implementar as restrições de igualdade
+            % para os casos em que o Hc seja menor
+%             for k=Hc+1:Hp
+%                 g=[g;U(:,k)-U(:,k-1)];                         % Restrição de igualdade, assegura ação U igual a anterior
+%                 args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade      
+%                 args.ubg=[args.ubg, zeros(1,nu)];    % Limite máximo para restrição de igualdade
+%             end
+%             
             %% Preparando o custo da função objetivo
             % Lembrar que X(:,1) são as medidas atuais. Da coluna 2 em diante teremos os estados futuros estimados de 1 até Hp
             fob=0;                                                           % Inicializa custo da função objetivo
