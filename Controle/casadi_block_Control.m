@@ -94,7 +94,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Hp =  evalin('base','Hp');  obj.Hp=Hp;  % Horizonte de predição
 
 %        SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; SomaDeltaFreq;   Jy  Ju  Jr  Jx   ErroX  ErroY    Ysp;         Xk;               Uk      ];
-            Dim =          [     1             1                    1              nu     nu                   1                  1    1    1    1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ]
+            Dim =          [     1             1                    1              nu     nu                   1                  1    1    1    1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ];
 
             sz1 =  sum(Dim);
         end
@@ -210,7 +210,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % Para melhor entendimento, as COLUNAS representarão a evolução do instantes k das variáveis de decisão
             X =MX.sym('X',nx,1+Hp);                      % Estado atual + Estados futuros até Hp 
             U = MX.sym('U',nu,Hp);                         % Ações de controle até o horizonte Hp, mas para função custo usaremos até Hc 
-            DU = MX.sym('DU',nu,Hp-1);                % Variações nas ações de controle sobre o horizonte Hp, mas para função custo usaremos até Hc-1 
+            DU = MX.sym('DU',nu,Hp);                   % Variações nas ações de controle sobre o horizonte Hp, mas para função custo usaremos até Hc-1 
             
             %% ===================================================
             % Parâmetros que foram oferecidos para o Solver
@@ -234,22 +234,26 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
              % As restrições, de fato, serão efetivamente tratadas em g
 
             % Para os estados atuais e para todo o horizonte Hp
-            for i=1:1+Hp                     
-                args.lbx=[args.lbx, LimitesMin ];      % Limites inferiores para as restrições de X   
-                args.ubx=[args.ubx, LimitesMax];   % Limites superiores para as restrições de X
+            % Observar que X(1) são as medições atuais e impor restrições aqui poderia inicializar em unfeasible.
+            % É necessário criar restrições apenas para cumprir a estrutura do modelo CaSAdi
+            % Para os indices X(2) até X(Hp+1) que represetam os estados preditos nos horizontes 1:Hp,
+            % as restriçoes serão tratadas de forma dinâmica em g
+            for k=1:1+Hp                     
+                args.lbx=[args.lbx, zeros(1,nx) ];      % Limites inferiores para as restrições de X (serão tratada em g)   
+                args.ubx=[args.ubx, inf(1,nx)];         % Limites superiores para as restrições de X (serão tratada em g)
            end
             
             % Para as ações de controle em todo o horizonte futuro, fazemos até Hp pois o U precisará ser calculado até
             % o horizonte final. Na ponderação da função custo, porém, entra apenas até Hc
             % Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas (em função da frequência, atual e futura)
             % da PChegada (estados X). Mas isso será devidamente tratado nas restrições em [g]
-            for i=1:Hp                                           
+            for k=1:Hp                                           
                 args.lbx=[args.lbx,    umin  ];             % Limites inferiores para a ação de controle U      
                 args.ubx=[args.ubx, umax ];             % Limites superiores para a ação de controle U
             end
             
             % Restrições para os limites na variação das ações de controle (especificidades serão tratadas em lbg/ubg)
-            for i=1:Hp-1                                           
+            for k=1:Hp                                           
                 args.lbx=[args.lbx,  -dumax ];           % Limites inferiores para as variações na ação de controle U      
                 args.ubx=[args.ubx, dumax ];           % Limites superiores para as variações na ação de controle U
             end
@@ -289,7 +293,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% Restrições de igualdade para definir DeltaU em função de U e tornar U como variável de decisão base  
             for k=1:Hp-1
                % Cálculo da variação na ação de controle = DeltaU
-                Soma=U(:,k+1)-U(:,k)-DU(:,k);
+                Soma=U(:,k+1)-U(:,k)-DU(:,k+1);
                 g=[g;Soma];                                        % Restrição de igualdade = 0 assegura DeltaU como função de U
                 args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade associada ao DeltaU      
                 args.ubg=[args.ubg, zeros(1,nu)];    % Limite máximo para restrição de igualdade associada ao DeltaU
@@ -367,14 +371,14 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             % Depois do instante Hc, seguir a teoria e manter a mesma ação de controle futura.
             % No caso específico, julgamos ser importante termos a ação de  controle calculada até o último horizonte,
             % uma vez que cada uma delas implica em diferentes restrições dinâmicas futuras. Assim, na sintonia do 
-            % controlador, faremos Hc=Hp-1. Mas para atender a teoria, podemos implementar as restrições de igualdade
+            % controlador, usualmente faremos Hc=Hp. Mas para atender a teoria, podemos implementar as restrições de igualdade
             % para os casos em que o Hc seja menor
-%             for k=Hc+1:Hp
-%                 g=[g;U(:,k)-U(:,k-1)];                         % Restrição de igualdade, assegura ação U igual a anterior
-%                 args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade      
-%                 args.ubg=[args.ubg, zeros(1,nu)];    % Limite máximo para restrição de igualdade
-%             end
-%             
+            for k=Hc+1:Hp
+                g=[g;U(:,k)-U(:,k-1)];                         % Restrição de igualdade, assegura ação U igual a anterior
+                args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade      
+                args.ubg=[args.ubg, zeros(1,nu)];    % Limite máximo para restrição de igualdade
+            end
+            
             %% Preparando o custo da função objetivo
             % Lembrar que X(:,1) são as medidas atuais. Da coluna 2 em diante teremos os estados futuros estimados de 1 até Hp
             fob=0;                                                           % Inicializa custo da função objetivo
@@ -384,15 +388,12 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 % Observar que o ErroY entra para zerar offset provocado pelo erro do estimador
                 y_saida= h(X(:,k+1));                             % Saida estimada (variáveis controladas por setpoint - retorna coluna)
                 fob=fob+(y_saida-Ysp+ErroY)'*Qy*(y_saida-Ysp+ErroY);    
-
-                % Incrementa custo com a diferença entre a ação de controle e o AlvoEng, apenas até o horizonte Hc
-                S=if_else(k>Hc,0,(U(:,k)-AlvoEng)'*Qu*(U(:,k)-AlvoEng));
-                fob=fob+S;
             end
             
-            for k=1:Hc-1          % Para o horizonte de controle
-                % Incrementa custo da função objetivo com o valor de DeltaU, apenas até o horizonte Hc-1
-                S=DU(:,k)'*R*DU(:,k);
+            for k=1:Hc             % Para o horizonte de controle Hc
+                % Incrementa custo com a diferença entre a ação de controle e o AlvoEng
+                % Incrementa custo da função objetivo com o valor de DeltaU
+                S=(U(:,k)-AlvoEng)'*Qu*(U(:,k)-AlvoEng) + DU(:,k)'*R*DU(:,k);
                 fob=fob+S;
             end
 
@@ -405,7 +406,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% ========================Configuração do otimizador====================================
             % Monta as variáveis de decisão em um vetor coluna - esta dimensão é fundamental para entender as contas e indexações
             % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo HP  +        U             +     DeltaU      ]
-            %                             Dimensão = [                  nx*(1+Hp)                                                    nu*Hp              nu*(Hp-1)  ]
+            %                             Dimensão = [                  nx*(1+Hp)                                                    nu*Hp                 nu*Hp     ]
             opt_variables=[X(:); U(:);  DU(:)];
 
             nlp = struct('f',fob,'x',opt_variables,'g', g, 'p', P); % Define a estrutura para problema de otimização não linear (NLP, Nonlinear Programming)
@@ -486,7 +487,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
 
                 %% Condição inicial para passar ao solver (inclui variáveis de decisão)
                 % Trata-se de atualização das condições inciais associadas as variáveis de decisão
-                du0=zeros((Hp-1)*nu,1);           % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
+                du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
                 args.x0=[ obj.x0;  obj.u0; du0];                        
 
                %% Resgata estruturas de restrições guardadas pelo objeto
@@ -503,8 +504,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 % Caso não seja feasible, não resseta o contador, de modo que o controlador fará nova tentativa na amostragem seguint   e
                 %% Se uma solução foi encontrada
                if Feasible
-                    % Saida do Solver. Dimensão = [ EstadosAtuais e futuros em todo Hp  +   U até Hp           DeltaU até Hp-1   ]
-                    Indice = [                                                      nx*(1+Hp)                                       nu*Hp                    nu*(Hp-1)        ];
+                    % Saida do Solver. Dimensão = [ EstadosAtuais e futuros em todo Hp  +   U até Hp           DeltaU até Hp   ]
+                    Indice = [                                                      nx*(1+Hp)                                       nu*Hp                    nu*Hp              ];
                     Solucao_MPC=full(solver.x);                          % Solução ótima encontrada pelo otimizador
                     [Xk,Uk,DeltaUk]=ExtraiSolucao(Solucao_MPC,Indice);                    
                     [Jy, Ju, Jr, Jx]=CalcCusto(Xk, Uk, Hp, Hc, obj.Qy, obj.Qu, obj.R, obj.Qx,ErroX,ErroY,Ysp,AlvoEng,h);
@@ -517,7 +518,6 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                         disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
-%                    DeltaU=round(DeltaU,obj.NumCasasDecimais); %  Assume que na prática, não haverá mudança menor do que o numero de casas decimais definido
                     obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
                end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
