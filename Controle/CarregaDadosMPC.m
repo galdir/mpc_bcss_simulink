@@ -20,7 +20,7 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
-Hp = 6;                                % Horizonte de predição
+Hp = 10;                              % Horizonte de predição
 Hc = Hp;                             % Horizonte de controle
 Qy=  diag([1  10]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qu = diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
@@ -28,21 +28,12 @@ Qx= 0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis d
 R=    0*diag([1  1]);             % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 
 
 %% =============================================================================
-% Para favorecer a inicialização e o tempo na busca da solução pelo Solver, vamos estabelecer limites minimos a máximos fixos
-% para serem tratados em lbx/ubx.  As demais restrições serão tratadas em g
+% Considerando a diferença entre as grandezas, ajustamos os pesos para ter ua relação mais equilibrada
+% na definição das matrizes de ponderação
 
 %                     PSuc   PChegada    PDiff    PDescarga   Tmotor      ITorque    ITotal     TSuc     Vibração   TChegada    Vazao
 LimitesMin=   [  0             10               0               0                 0               0              0            0              0                 0                 0    ];    
 LimitesMax=  [ 250          65            250            250             200          200         250         200           4               200           1000    ];
-
-% Limites mín/max para as medições do processo (extraímos das tabelas Petrobras)
-% LimitesMin= 0.9*[  55          10               50           120              20            40           40           20          0                 40            100    ];    
-% LimitesMax=1.1*[ 110          65            150          215              141          140        183         141         3                150           800    ];
-
-
-%% =============================================================================
-% Considerando a diferença entre as grandezas, ajustamos os pesos para ter ua relação mais equilibrada
-% na definição das matrizes de ponderação
 
 % Ajusta matriz de pesos dos estados em função das respectivas grandezas
 Peso =1./LimitesMax;    
