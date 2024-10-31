@@ -418,7 +418,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
             
             options.ipopt.max_iter=500;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
-            options.ipopt.max_wall_time=5;           % Tempo (em segundos) máximo para o solver encontrar solução
+            options.ipopt.max_wall_time=100;           % Tempo (em segundos) máximo para o solver encontrar solução
          
             solver = nlpsol('solver','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)            
             obj.casadi_solver=solver;
@@ -474,8 +474,8 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             if (obj.contador >= PassoMPC)    % Solver só entra no passo definido pelos parâmetros de Passo do MPC ou se deu Unfeasible na amostra anteriior
                 %% Para acompanhar caso de UNFEASIBLE 
                 if  obj.contador > PassoMPC   % (Passou por uma condição unfeasible, por isso não ressetou o contador
-                    disp(strcat("Simulação MPC anterior em ",num2str(t)," s  deu unfeasible"))   % Só aqui usamos o tempo, útil para debug !!
-                    disp(strcat(num2str(obj.contador-PassoMPC)," - Nova tentativa para achar solução ótima !!")) 
+                    disp(strcat("Simulação MPC anterior em ",num2str(t),"s  deu unfeasible"))   % Só aqui usamos o tempo, útil para debug !!
+                    disp(strcat("Esta é a tentativa ",num2str(obj.contador-PassoMPC)," para tentar achar solução ótima !!")) 
                 end
 
                 TempoIni=tic;   % Inicaliza contagem de tempo para o Solver
