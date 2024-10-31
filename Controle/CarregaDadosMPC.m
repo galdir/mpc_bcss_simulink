@@ -3,6 +3,8 @@
 % Começa carregando dados de uso geral e comum a qualquer ambiente (MPC ou CBR)
 CarregaDados;                % Função para carregar tabelas Petrobras e dados gerais necessários para a simulação
 
+WallTime=100;     % Tempo limite (em segundos) para o cálculo do Solver
+
 %% =============================================================================
 % Escolha o modelo Preditor no MPC
 TipoRede=1;        % 1=ESN ou  2=LSTM 

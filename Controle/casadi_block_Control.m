@@ -418,7 +418,9 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
             
             options.ipopt.max_iter=500;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
-            options.ipopt.max_wall_time=100;           % Tempo (em segundos) máximo para o solver encontrar solução
+
+            WallTime=evalin('base','WallTime');       
+            options.ipopt.max_wall_time=WallTime;   % Tempo (em segundos) máximo para o solver encontrar solução
          
             solver = nlpsol('solver','ipopt', nlp,options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)            
             obj.casadi_solver=solver;
