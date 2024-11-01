@@ -70,7 +70,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             num=1;
         end
         %===============        
-        function sz1 = getOutputSizeImpl(~)         % Organização da saida do bloco Casadi
+        function sz1 = getOutputSizeImpl(obj, ~)         % Organização da saida do bloco Casadi
             % Feasible (Dim=1)
             % Iteracoes (Dim=1)
             % TempoSolver (Dim=1)
@@ -94,7 +94,22 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             Hp =  evalin('base','Hp');  obj.Hp=Hp;  % Horizonte de predição
 
 %        SaidaMPC=[Feasible; Iteracoes; TempoSolver; U0; DeltaU; SomaDeltaFreq;   Jy  Ju  Jr  Jx   ErroX  ErroY    Ysp;         Xk;               Uk      ];
-            Dim =          [     1             1                    1              nu     nu                   1                  1    1    1    1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ];
+            % dimensoes da saida do MPC
+            Dim =   [1 ... % viabilidade (se viavel/feasible)
+                    1 ... % iteracoes
+                    1 ... % tempoSolver
+                    nu ... % U0 ?
+                    nu ... % DeltaU 
+                    1 ... % SomaDeltaFreq
+                    1 ... % Jy (custo?)
+                    1 ... % Ju
+                    1 ... % Jr
+                    1 ... % Jx
+                    nx ... % ErroX
+                    ny ... % ErroY
+                    ny ... % Ysp
+                    nx*(1+Hp) ... % Xk
+                    nu*Hp]; % Uk
 
             sz1 =  sum(Dim);
         end
@@ -215,7 +230,16 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             %% ===================================================
             % Parâmetros que foram oferecidos para o Solver
             %         [  Medições  Ações   AlvoEng;    Ysp     ErroX        ErroY    BuffDeltaFreq      Reservatório do ModeloPreditor]
-            Indice=[        nx            nu           nu            ny         nx             ny              45                       nx_ESN                  ];
+            %Indice=[        nx            nu           nu            ny         nx             ny              45                       nx_ESN                  ];
+            Indice = [nx ... % qtd Medições
+                      nu ... % qtd Ações
+                      nu ... % qtd AlvoEng
+                      ny ... % qtd Ysp
+                      nx ... % qtd ErroX
+                      ny ... % qtd ErroY
+                      45 ... % tamanho do Buffer de DeltaFreq
+                      nx_ESN]; % tamanho do estado do modelo de predicao
+            
             % Cria vetor de parâmetros na dimensão especificada
             P=MX.sym('P',sum(Indice));
             % Associa variáveis simbólicas as respectivas partes no vetor de parâmetros
