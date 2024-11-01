@@ -417,7 +417,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
             options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
             options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
             
-            options.ipopt.max_iter=500;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
+            options.ipopt.max_iter=1e3;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
 
             WallTime=evalin('base','WallTime');       
             options.ipopt.max_wall_time=WallTime;   % Tempo (em segundos) máximo para o solver encontrar solução
@@ -525,6 +525,7 @@ classdef casadi_block_Control < matlab.System & matlab.system.mixin.Propagates
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
             %% Independentemente do Solver ter ou não ter encontrado uma solução ótima
+            DeltaU=round(DeltaU,obj.NumCasasDecimais);
             Xk=obj.x0;   % Resgata valores para disponibilizar na saida do bloco MPC 
             Uk=obj.u0;   % Resgata valores para disponibilizar na saida do bloco MPC
             obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
