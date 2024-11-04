@@ -3,7 +3,7 @@
 % Começa carregando dados de uso geral e comum a qualquer ambiente (MPC ou CBR)
 CarregaDados;                % Função para carregar tabelas Petrobras e dados gerais necessários para a simulação
 
-WallTime=10;     % Tempo limite (em segundos) para o cálculo do Solver
+WallTime=5;     % Tempo limite (em segundos) para o cálculo do Solver
 
 %% =============================================================================
 % Escolha o modelo Preditor no MPC
@@ -24,7 +24,7 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
 Hp = 3;                              % Horizonte de predição
 Hc = Hp;                             % Horizonte de controle
-Qy=  diag([1  100]);           % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+Qy=  diag([1  10]);           % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qu = diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
 Qx= 0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
 R=    0*diag([1  1]);             % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 

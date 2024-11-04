@@ -114,7 +114,7 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
         FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 

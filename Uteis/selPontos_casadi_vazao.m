@@ -73,15 +73,22 @@ function [inferior, superior] = encontrarPontosInterpolacao(valor, grid)
     superior = grid(end);
     
     for i = 1:n-1
-        cond = (valor >= grid(i)) & (valor < grid(i+1));
+        cond = (valor > grid(i)) & (valor < grid(i+1));
         inferior = if_else(cond, grid(i), inferior);
         superior = if_else(cond, grid(i+1), superior);
+        
+        % caso o valor seja igual ao existente no grid
+        inferior = if_else(valor == grid(i), grid(i), inferior); %novo
+        superior = if_else(valor == grid(i), grid(i), superior); %novo
+
     end
     
     % Tratamento especial para o último ponto do grid
     cond_last = (valor == grid(end));
-    inferior = if_else(cond_last, grid(end-1), inferior);
-    superior = if_else(cond_last, grid(end), superior);
+    
+    %inferior = if_else(cond_last, grid(end-1), inferior);
+    inferior = if_else(cond_last, grid(end), inferior); %novo
+    superior = if_else(cond_last, grid(end), superior);    
 end
 
 function valor = selecionarValor(matriz, gridP, gridF, P, F)

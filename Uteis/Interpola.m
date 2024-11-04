@@ -42,11 +42,11 @@ function Pontos=selPontos(Freq,Press,T);
 
     % Verifica se o valor de frequencia está dentro do grid para não dar erro de interpolação
     if Freq<min(gridF) |  Freq>max(gridF)     % Avalia se o ponto fornecido para interpolar está dentro da faixa
-        disp(strcat("Ponto de Frequencia ",num2str(Freq,'%.1f'),"Hz está fora da faixa de interpolação [ ",num2str(min(gridF),'%.0f'),"  ",num2str(max(gridF),'%.0f'),"] Hz"))
+        %disp(strcat("Ponto de Frequencia ",num2str(Freq,'%.1f'),"Hz está fora da faixa de interpolação [ ",num2str(min(gridF),'%.0f'),"  ",num2str(max(gridF),'%.0f'),"] Hz"))
         if Freq<min(gridF) Freq=min(gridF);   end      % Se valor passado está abaixo da faixa, assume o valor mínimo do grid definido     
         if Freq>max(gridF) Freq=max(gridF); end     % Se valor passado está acima da faixa, assume o valor máximo do grid definido
-        disp(strcat("Cálculo feito com base na Frequencia = ",num2str(Freq,'%.0f'),"Hz"))
-        beep
+        %disp(strcat("Cálculo feito com base na Frequencia = ",num2str(Freq,'%.0f'),"Hz"))
+        %beep
     end
 
     if sum(Freq==gridF)      % Ponto de Frequencia para interpolar já existe no grid da simulação, não precisa fazer contas
@@ -64,11 +64,11 @@ function Pontos=selPontos(Freq,Press,T);
     % gridP=unique(T.PressChegada)';   % Armazena grid utilizado na simulação da Pressão de Chegada
     gridP=unique(T(:,2))';   % Armazena grid utilizado na simulação da Pressão de Chegada
     if Press<min(gridP) |  Press>max(gridP)     % Avalia se o ponto fornecido para interpolar está dentro da faixa
-        disp(strcat("Ponto P.Chegada ",num2str(Press,'%.1f')," Kgf/cm2 está fora da faixa de interpolação [ ",num2str(min(gridP),'%.0f'),"   ",num2str(max(gridP),'%.0f')," ] Kgf/cm2"))
+        %disp(strcat("Ponto P.Chegada ",num2str(Press,'%.1f')," Kgf/cm2 está fora da faixa de interpolação [ ",num2str(min(gridP),'%.0f'),"   ",num2str(max(gridP),'%.0f')," ] Kgf/cm2"))
         if Press<min(gridP) Press=min(gridP);   end      % Se valor passado está abaixo da faixa, assume o valor mínimo do grid definido     
         if Press>max(gridP) Press=max(gridP); end     % Se valor passado está acima da faixa, assume o valor máximo do grid definido
-        disp(strcat("Cálculo feito com base na Pressão de Chegada  = ",num2str(Press,'%.0f'),"Kgf/cm2"))
-        beep
+        %disp(strcat("Cálculo feito com base na Pressão de Chegada  = ",num2str(Press,'%.0f'),"Kgf/cm2"))
+        %beep
     end
     if sum(Press==gridP)                  % Ponto de Pressão para interpolar já existe no grid da simulação
         P(1)=Press;                              % Assume o valor da pressão no ponto 1
