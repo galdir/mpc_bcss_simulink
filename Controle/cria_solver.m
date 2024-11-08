@@ -1,5 +1,5 @@
 function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
-        Hp, Hc, Qy, Qu, R, Qx, nx, nu, ny, EstimaVazao, f_buscaLimites_sym, ModeloPreditor, h, WallTime)
+        Hp, Hc, Qy, Qu, R, Qx, nx, nu, ny, EstimaVazao, buscaLimites, ModeloPreditor, funcao_h, WallTime)
 
     % Marcador de tempo e importação de CasADi
     tInicializa = tic;
@@ -7,12 +7,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     nx_ESN = length(ModeloPreditor.data.a0);    
     
-    %% =============================================================================================
-    %% =============================================================================================
-    % Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl
-    % Doravante precisamos tratar tudo de forma simbólica para o Solver
-    %% =============================================================================================
-    %% =============================================================================================
+    
     %% Variáveis simbolicas para o problema de otimização
     % Para melhor entendimento, as COLUNAS representarão a evolução do instantes k das variáveis de decisão
     X = MX.sym('X',nx,1+Hp);                      % Estado atual + Estados futuros até Hp
@@ -53,7 +48,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     % É necessário criar restrições apenas para cumprir a estrutura do modelo CaSAdi
     % Para os indices X(2) até X(Hp+1) que represetam os estados preditos nos horizontes 1:Hp,
     % as restriçoes serão tratadas de forma dinâmica em g
-    for k=1:1+Hp
+    for k=1:1+Hp % 1 é o instante atual e Hp é o horizonte de predicao
         args.lbx=[args.lbx, zeros(1,nx) ];      % Limites inferiores para as restrições de X (serão tratada em g)
         args.ubx=[args.ubx, inf(1,nx)];         % Limites superiores para as restrições de X (serão tratada em g)
     end
@@ -90,7 +85,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     % Limita a primeira ação de controle pelo máximo DeltaU, tendo como referência a ação de controle atualmente aplicada
     g=[g; U(:,1) - Uk0 - DU(:,1)];               % Garante que o primeiro DeltaU vai ter com referência a entrada atual
-    args.lbg=[args.lbg,   zeros(1,nu)  ];     % Restrições de igualdade para impor limite
+    args.lbg=[args.lbg,   zeros(1,nu)  ];     % Limite para a restrições de igualdade acima
     args.ubg=[args.ubg, zeros(1,nu) ];
 
     %% Restrições de igualdade para assegurar que os estados futuros vão seguir as predições
@@ -101,7 +96,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
         % Restrições de igualdade para impor a dinâmica (técnica multipleshooting)
         g=[g;X(:,k+1)-x_predito];                          % Diferença entre os estado X futuro e o estado estimado pelo preditor
-        args.lbg=[args.lbg,   zeros(1,nx)  ];          % Restrições de igualdade para forçar a dinâmica do sistema
+        args.lbg=[args.lbg,   zeros(1,nx)  ];          % Limite para a restrição de igualdade acima
         args.ubg=[args.ubg, zeros(1,nx) ];
     end
 
@@ -127,13 +122,13 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         %             BUSCA RESTRIÇÕES DINÂMICAS PARA SEREM TRATADAS NO LOOP
         %             Lembrar que a linha 1 traz os limites máximos de todas as 11 variáveis do processo (10 + Vazão)
         %             Lembrar que a linha 2 traz os limites mínimos  de todas as 11 variáveis do processo (10 + Vazão)
-        LimitesX= f_buscaLimites_sym(U(1,k));  % Resgata limites (Max/Min) de alarmes para as variáveis do processo em função da frequência
+        LimitesX= buscaLimites(U(1,k));  % Resgata limites (Max/Min) de alarmes para as variáveis do processo em função da frequência
         LimitesX=LimitesX';                                    % Coloca na forma de coluna
 
         LimitesX(:,1)=LimitesX(:,1)*(1-MargemPercentual/100);   % Implementa margem de folga em relação ao máximo
         LimitesX(:,2)=LimitesX(:,2)*(1+MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo
 
-        LimitesY=h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
+        LimitesY=funcao_h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
 
         %             RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
         %             Insere restrições para os valores máximos das variáveis (estados X) preditos
@@ -150,7 +145,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
         %            RESTRIÇÕES PARA AS VARIÁVEIS DE SAIDA (CONTROLADAS POR SETPOINT)
         %            Insere restrições para os valores máximos das saidas controladas por setpoint que são preditas
-        y_saida= h(X(:,k+1));                       % Saidas preditas (variáveis controladas por setpoint)
+        y_saida= funcao_h(X(:,k+1));                       % Saidas preditas (variáveis controladas por setpoint)
 
         LimMaxY=LimitesY(:,1)-y_saida;    % Para não ser violado o limite, a diferença deve ser >= 0
         g=[g; LimMaxY];
@@ -202,9 +197,8 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     for k=1:Hp                                                    % Para todo o horizonte de predição
         % Incrementa custo com a diferença entre as saidas estimadas e o setpoint desejado
         % Observar que o ErroY entra para zerar offset provocado pelo erro do estimador
-        y_saida= h(X(:,k+1));                             % Saida estimada (variáveis controladas por setpoint - retorna coluna) 
+        y_saida= funcao_h(X(:,k+1));                             % Saida estimada (variáveis controladas por setpoint - retorna coluna) 
         fob=fob+(y_saida-Ysp+ErroY)'*Qy*(y_saida-Ysp+ErroY);
-        %fob=fob+(y_saida-Ysp)'*Qy*(y_saida-Ysp);
     end
 
     for k=1:Hc             % Para o horizonte de controle Hc
@@ -239,73 +233,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     disp(strcat("Tempo para inicialização = ",num2str(t_inicializacao)))
 end
 
-%% ==================        Outras funções adicionais   ================================
-%% ==============================================================================
-%% Função para execução a função de predição x(k+1)=f(xk,uk)
-function [predicoes, novo_a0] = executa_predicao(EntradaU,EstadosX, ESNdataa0, modelo_ESN, f_matrizVazao_sym)
-    %%
-    % EntradaU são as entradas do processo no instante atual : frequencia_aplicada, pressao_montante_alvo_aplicada
-    % EstadosX são as 11 variáveis do processo no instante atual:
-    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
-    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS,
-    %           temperatura_succao_BCSS, vibracao_BCSS,  temperatura_chegada, VazãoOleo
-    %
-    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
-    %
-    % ESNdataa0 é o estado atual do reservatorio
-    %
-    % matrizVazao é a matriz com vazoes estimadas em função da frequencia e pressao de chegada
-    %
-    % saidas é um vetor coluna com as predições dos novos estados referentes as 11 variáveis do processo:
 
-    % Executa predição da ESN
-    [predicoes, novo_a0] = executa_predicao_ESN(EntradaU,EstadosX, ESNdataa0, modelo_ESN);
-    % Executa predição da vazão (não é feita pela ESN)
-    Freq=EntradaU(1);
-    PChegada=predicoes(2)*1.019716;   % Tabela Simulador usa as pressões em Kgf/cm2, quando as medições do processo são em bar
-    vazaoOleo_estimada = f_matrizVazao_sym(Freq,PChegada); % A predição é feita com base na Tabela do Simulador,
-    % Monta vetor para retornar a predição no instante seguinte
-    predicoes = [predicoes; vazaoOleo_estimada];
-
-end
-%% ==============================================================================
-%% Função para execução da predição da ESN um passo a frente
-function [predicoes, novo_a0] = executa_predicao_ESN(EntradaU,EstadosX, ESNdataa0, modelo_ESN)
-    % EntradaU são as entradas do processo no instante atual : frequencia_BCSS, pressao_montante_alvo
-    % EstadosX são as 11 variáveis do processo no instante atual:
-
-    % Observar que a ESN tem como entrada as 2 variáveis manipuladas e 10 variáveis do processo
-    % uma vez que não trata a vazão
-
-    % Assim, "entradas" na função é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
-    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
-    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
-    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
-    %
-    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
-    %
-    % ESNdataa0 é o estado atual do reservatorio da ESN
-    %
-    % Saidas:
-    %           Retorna um vetor coluna com a estimativa das 11 variáveis do processo:
-    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
-    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
-    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
-    % Retorna os estados do reservatório da ESN para atualizar
-
-    entradas=[EntradaU;EstadosX(1:end-1)];   % Monta vetor para entrada da ESN (exclui último = vazão)
-    entradas_normalizadas = normaliza_entradas(entradas);
-    x_ESN = modelo_ESN.data.Wrr*ESNdataa0 + modelo_ESN.data.Wir*entradas_normalizadas + modelo_ESN.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
-    novo_a0 = (1-modelo_ESN.data.gama)*ESNdataa0 + modelo_ESN.data.gama*tanh(x_ESN);         % Atualiza estado da ESN
-    a_wbias = [1.0; novo_a0];                                                                         %
-    predicoes_normalizadas = modelo_ESN.data.Wro*a_wbias;
-
-    % Retorna os valores dos novos estados preditos pela ESN com 1 passo a frente
-    predicoes = desnormaliza_predicoes(predicoes_normalizadas);
-end
-%% ==============================================================================
-
-%% ==============================================================================
 %% Função para extrair partes que compõe os parâmetros do Solver
 function   [ Xk0,Uk0,AlvoEng,Ysp,ErroX, ErroY, BuffDeltaFreq, Reservatorio_ESN]=ExtraiParametros(P,Indice)
     Ate=[Indice(1)   sum(Indice(1:2))  sum(Indice(1:3))  sum(Indice(1:4))  sum(Indice(1:5))  sum(Indice(1:6))  sum(Indice(1:7))  sum(Indice(1:8)) ];

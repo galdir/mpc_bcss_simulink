@@ -150,26 +150,13 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
 
             obj.EstimaVazao=f_Interpola_casadi_vazao_sym;                  % Guarda pois a função será necessária durante a execução
 
-            %% Carrega tabelas Petrobras
-            % Tabelas para cálculos das proteções dinâmicas
-            % Transforma tabelas em matrizes para melhorar desempenho computacional e permitir o uso de algébra simbólica (CaSAdi)
-            %TabelaLimitesDinamicos =evalin('base', 'TabelaLimitesDinamicos');       % Tabela com limites Max/Min de todas as variáveis em todas as frequências (com resolução de 0,1)
-            %MatrizLimitesDinamicos = table2array(TabelaLimitesDinamicos);
-
-            % Tabela do Simulador para cálculos da vazão por interpolação
-            %TabelaSimulador=evalin('base', 'TabSimulador');                               % Tabela do Simulador para cálculos da vazão
-            %obj.MatrizSimulador=table2array(TabelaSimulador);
-            %MatrizSimuladorVazao = table2array(TabelaSimulador(:,1:3));        % Especificamente as colunas Freq, PChegada e Vazao para diminuir o esforço computacional
-
             %% Carrega parâmetros definidos pelo usuário
             % Dos dados de operação
             obj.umax =  evalin('base','umax');            % Valores máximos para as entradas (Freq e PMonAlvo)
             obj.umin =  evalin('base','umin');               % Valores mínimos para as entradas (Freq e PMonAlvo)
             obj.dumax =  evalin('base','dumax');          % Variação máxima do DeltaU nas entradas (variáveis manipuladas Freq e PMonAlvo)
             obj.MargemPercentual=evalin('base','MargemPercentual');   % Margem de folga para os limites dos alarmes
-            %LimitesMin =  evalin('base','LimitesMin');     % Limites minimos (lbx) para compor restrições
-            %LimitesMax =  evalin('base','LimitesMax');   % Limites máximos (ubx) para compor restrições
-
+            
             % Do controlador
             Hp =  evalin('base','Hp');  obj.Hp=Hp;  % Horizonte de predição
             Hc =  evalin('base','Hc');   obj.Hc=Hc; % Horizonte de controle
@@ -200,7 +187,6 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
 
             %% Carrega condições inciais conhecidas apenas para inicializar simulação
             XIni=evalin('base','XIni');                        % Condições iniciais das variáveis (estados) do processo (em coluna)
-            %YIni = full(h(XIni));                                   % Valor das variáveis de saida do processo (Y controladas por setpoint) na forma de coluna
             UIni=evalin('base','UIni');                        % Condições iniciais das entradas (variáveis manipuladas U) do processo (em coluna)
 
             %% Carrega modelo preditor e esquenta a ESN
@@ -217,7 +203,7 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
             end
             obj.ModeloPreditor = ModeloPreditor;           % Guarda como OBJ pois a ESN precisará ter seus estados internos atualizados a cada amostragem
 
-            % gera primeira predicao para o passo do mpc ter a predicao do passo anterior
+            % gera primeira predicao para o passo de execução do mpc ter a predicao do passo anterior
             [x_predito, ~] = executa_predicao(UIni,XIni, ModeloPreditor.data.a0, ModeloPreditor, obj.EstimaVazao);
             obj.Predicao=full(x_predito);
 
@@ -229,8 +215,12 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
             obj.BuffDeltaFreq=zeros(45,1);
 
 
-            obj.WallTime = evalin('base','WallTime');
+            obj.WallTime = evalin('base','WallTime'); % tempo maximo para execucao do solver
 
+            %% =============================================================================================
+            % Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl
+
+            %funcao para criar o solver
             [solver, args_solver] = cria_solver(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
                 obj.Hp, obj.Hc, obj.Qy, obj.Qu, obj.R, obj.Qx, obj.nx, obj.nu, obj.ny, ...
                 obj.EstimaVazao, obj.f_buscaLimites_sym, obj.ModeloPreditor, obj.Funcao_h, obj.WallTime);
@@ -242,7 +232,6 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
             obj.lbg=args_solver.lbg;                                % Lower Bounds para as restrições [g] que foram criadas
             obj.ubg=args_solver.ubg;                             % Upper Bounds para as restrições [g] que foram criadas
 
-
         end
 
         %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
@@ -252,7 +241,7 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
             import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
 
             %% Resgata informações facilitando os cálculos para a implementação da nova ação de controle
-            h=obj.Funcao_h;    % Restaura função para fazer o cálculo das saidas:  y=h(x);
+            Funcao_h=obj.Funcao_h;    % Restaura função para fazer o cálculo das saidas:  y=h(x);
 
             nx=obj.nx;                 % Extrai o número de variáveis em DadosProcesso
             nu=obj.nu;                 % Extrai o número de variáveis nas Ações de controle
@@ -267,15 +256,16 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
             XPredito=obj.Predicao;                       % Predição dos estados feita no instante anterior
             ErroX=X0-XPredito;                            % Erro entre as medições atuais e a predição feita no instante anterior
 
-            Y0=full(h(X0));                                      % Saidas controladas por setpoint
-            YPredito=full(h(XPredito));                  % Predição das saidas controladas por setpoint no instante anterior
+            Y0=full(Funcao_h(X0));                                      % Saidas controladas por setpoint
+            YPredito=full(Funcao_h(XPredito));                  % Predição das saidas controladas por setpoint no instante anterior
             ErroY=Y0-YPredito;                             % Erro entre as medições atuais e a predição feita no instante anterior
 
             % Atualiza setpoint das variáveis de saida controladas por setpoint (PChegada e Vazao)
             % Considerar o AlvoEng como sendo o setpoint para as variáveis controladas por setpoint (PChegada e vazão)
             % A PChegada ótima é o próprio PMonAlvoENG
             % Vazão ótima é estimada com o FreqAlvoENG e PMonAlvoENG
-            Ysp= [ AlvoEng(2) ;    full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2)*1.019716)) ];
+            conversao_bar_kgf = 1.019716;
+            Ysp= [ AlvoEng(2) ;    full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2)*conversao_bar_kgf)) ];
 
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
@@ -327,7 +317,7 @@ classdef casadi_block_Control_v2 < matlab.System & matlab.system.mixin.Propagate
                     Indice = [                                                      nx*(1+Hp)                                       nu*Hp                    nu*Hp              ];
                     Solucao_MPC=full(solver.x);                          % Solução ótima encontrada pelo otimizador
                     [Xk,Uk,DeltaUk]=ExtraiSolucao(Solucao_MPC,Indice);
-                    [Jy, Ju, Jr, Jx]=CalcCusto(Xk, Uk, Hp, Hc, obj.Qy, obj.Qu, obj.R, obj.Qx,ErroX,ErroY,Ysp,AlvoEng,h);
+                    [Jy, Ju, Jr, Jx]=CalcCusto(Xk, Uk, Hp, Hc, obj.Qy, obj.Qu, obj.R, obj.Qx,ErroX,ErroY,Ysp,AlvoEng,Funcao_h);
                     % Como o solver indica novo futuro predito, atualiza x0 e u0 para os próximos ciclos
                     obj.x0=Xk;              % Guarda nova condição inicial x0 para os estados atuais e preditos pelo solver
                     obj.u0=Uk;              % Guarda ações de controle (U ótimos) atuais e preditos pelo solver
@@ -414,72 +404,7 @@ function   [Xk,Uk,DeltaUk]=ExtraiSolucao(Solucao,Indice)
     Uk=Solucao(De(2):Ate(2));
     DeltaUk=Solucao(De(3):Ate(3));
 end
-%% ==============================================================================
 
-%% ==================        Outras funções adicionais   ================================
-%% ==============================================================================
-%% Função para execução a função de predição x(k+1)=f(xk,uk)
-function [predicoes, novo_a0] = executa_predicao(EntradaU,EstadosX, ESNdataa0, modelo_ESN, f_matrizVazao_sym)
-    %%
-    % EntradaU são as entradas do processo no instante atual : frequencia_aplicada, pressao_montante_alvo_aplicada
-    % EstadosX são as 11 variáveis do processo no instante atual:
-    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
-    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS,
-    %           temperatura_succao_BCSS, vibracao_BCSS,  temperatura_chegada, VazãoOleo
-    %
-    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
-    %
-    % ESNdataa0 é o estado atual do reservatorio
-    %
-    % matrizVazao é a matriz com vazoes estimadas em função da frequencia e pressao de chegada
-    %
-    % saidas é um vetor coluna com as predições dos novos estados referentes as 11 variáveis do processo:
 
-    % Executa predição da ESN
-    [predicoes, novo_a0] = executa_predicao_ESN(EntradaU,EstadosX, ESNdataa0, modelo_ESN);
-    % Executa predição da vazão (não é feita pela ESN)
-    Freq=EntradaU(1);
-    PChegada=predicoes(2)*1.019716;   % Tabela Simulador usa as pressões em Kgf/cm2, quando as medições do processo são em bar
-    vazaoOleo_estimada = f_matrizVazao_sym(Freq,PChegada); % A predição é feita com base na Tabela do Simulador,
-    % Monta vetor para retornar a predição no instante seguinte
-    predicoes = [predicoes; vazaoOleo_estimada];
-
-end
-%% ==============================================================================
-%% Função para execução da predição da ESN um passo a frente
-function [predicoes, novo_a0] = executa_predicao_ESN(EntradaU,EstadosX, ESNdataa0, modelo_ESN)
-    % EntradaU são as entradas do processo no instante atual : frequencia_BCSS, pressao_montante_alvo
-    % EstadosX são as 11 variáveis do processo no instante atual:
-
-    % Observar que a ESN tem como entrada as 2 variáveis manipuladas e 10 variáveis do processo
-    % uma vez que não trata a vazão
-
-    % Assim, "entradas" na função é uma vetor coluna: frequencia_BCSS, pressao_montante_alvo, ...
-    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
-    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
-    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
-    %
-    % modelo_ESN precisar ter: .data.Wrr, .data.Wir, .data.Wbr
-    %
-    % ESNdataa0 é o estado atual do reservatorio da ESN
-    %
-    % Saidas:
-    %           Retorna um vetor coluna com a estimativa das 11 variáveis do processo:
-    %           pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, ...
-    %           temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, ...
-    %           temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
-    % Retorna os estados do reservatório da ESN para atualizar
-
-    entradas=[EntradaU;EstadosX(1:end-1)];   % Monta vetor para entrada da ESN (exclui último = vazão)
-    entradas_normalizadas = normaliza_entradas(entradas);
-    x_ESN = modelo_ESN.data.Wrr*ESNdataa0 + modelo_ESN.data.Wir*entradas_normalizadas + modelo_ESN.data.Wbr;  %usar o modeloPreditor(ESN) para fazer a predição
-    novo_a0 = (1-modelo_ESN.data.gama)*ESNdataa0 + modelo_ESN.data.gama*tanh(x_ESN);         % Atualiza estado da ESN
-    a_wbias = [1.0; novo_a0];                                                                         %
-    predicoes_normalizadas = modelo_ESN.data.Wro*a_wbias;
-
-    % Retorna os valores dos novos estados preditos pela ESN com 1 passo a frente
-    predicoes = desnormaliza_predicoes(predicoes_normalizadas);
-end
-%% ==============================================================================
 
 
