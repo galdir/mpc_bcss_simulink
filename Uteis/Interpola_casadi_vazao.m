@@ -45,16 +45,17 @@ function f = Bilinear_casadi(x, y, x1, x2, y1, y2, f11, f12, f21, f22)
     % Interpolação BILINEAR
     K = (x2 - x1) * (y2 - y1);
     f = f11*(x2-x)*(y2-y) + f21*(x-x1)*(y2-y) + f12*(x2-x)*(y-y1) + f22*(x-x1)*(y-y1);
-    f = f / K;
+    f = if_else(K~=0, f / K, f);
     
     % Casos especiais para interpolação LINEAR
-    f_x = if_else(x1 == x2, f11 + (f12 - f11) * (y - y1) / (y2 - y1),  f);
+    f_x = if_else(x1 == x2 & y1~=y2, f11 + (f12 - f11) * (y - y1) / (y2 - y1),  f);
     
-    f_y = if_else(y1 == y2, f11 + (f21 - f11) * (x - x1) / (x2 - x1),  f);
+    f_y = if_else(y1 == y2 & x1~=x2, f11 + (f21 - f11) * (x - x1) / (x2 - x1),  f);
     
     % Seleciona o resultado apropriado
     f = if_else(x1 == x2, f_x, if_else(y1 == y2, f_y, f));
 
     % Para o caso em que os pontos são iguais aos conhecidos (não precisa interpolar)
-    f = if_else(x1 == x2, if_else(y1 == y2, f11, f), f);  
+    %f = if_else(x1 == x2, if_else(y1 == y2, f11, f), f);  
+    f = if_else(x1 == x2 & y1 == y2, f11, f);  
 end

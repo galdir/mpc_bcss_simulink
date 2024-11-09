@@ -46,14 +46,15 @@ LimiteProporcao=Ts/TempoESN;
 
 % Inicializações mais próximas da operação real
 % Condição inicial  das variáveis do processo e das entradas                       
-% [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:20:00',MatrizSimulador);    
-% [XIni,UIni]=SelCondicaoInicial('2024-07-12 16:05:00',MatrizSimulador);    
+% DataHoraIni='2024-07-12 10:20:00';
+% DataHoraIni='2024-07-12 16:05:00';
 
 % Inicializa logo no inicio de rampas de aceleração
 % Condição inicial  das variáveis do processo e das entradas                       
-% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:55:00',MatrizSimulador);    
-% [XIni,UIni]=SelCondicaoInicial('2024-07-15 14:40:00',MatrizSimulador);    
-[XIni,UIni]=SelCondicaoInicial('2024-07-17 01:00:00',MatrizSimulador);         
+% DataHoraIni='2024-06-18 00:55:00';
+% DataHoraIni='2024-07-15 14:40:00';
+DataHoraIni='2024-07-17 01:00:00';
+[XIni,UIni]=SelCondicaoInicial(DataHoraIni,MatrizSimulador);         
 
 
 %% Inicializações antes usadas, mas que podiam inicializar UNFEASIBLE
@@ -102,8 +103,8 @@ dumax = [0.1 , 1];                                                       %Varia�
 % o plano será executado tal qual definido em tabela, mesmo com alvo em região proibida
 
 % Plano=readtable('PlanoVerIsovazao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
-% Plano=readtable('PlanoAceleracao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
- Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
+Plano=readtable('PlanoAceleracao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
+%  Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 
 % Define se vai usar plano (tabela excel) para alterar alvos da engenharia ao longo da simulação
 UsaPlano=0;

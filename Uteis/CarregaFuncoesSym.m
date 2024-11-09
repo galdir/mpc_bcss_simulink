@@ -34,3 +34,7 @@ f_buscaLimites_sym = Function('BuscaLimites', {Freq_sym}, {buscaLimitesMatriz_ca
 Interpola_casadi_vazao_sym = Interpola_casadi_vazao(Freq_sym, Press_sym, MatrizSimulador(:,1:3));
 f_Interpola_casadi_vazao_sym = Function('f_vazao', {Freq_sym, Press_sym}, {Interpola_casadi_vazao_sym});
 
+%% ==========================================================
+% Função para carregar a matriz h e selecionar saidas que serão controladas por setpoint
+
+
