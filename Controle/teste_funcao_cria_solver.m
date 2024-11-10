@@ -42,7 +42,7 @@ matriz_h=zeros(2,nx); % Tamanho da matriz que vai indicar as variáveis controla
 matriz_h(1,2)=1;            % PChegada - Coluna na linha 1 que indica a primeira variável controlada
 matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda variável controlada
 estados_medidos_sym=MX.sym('estados_medidos',nx,1);
-funcao_h=Function('h',{estados_medidos_sym},{matriz_h*estados_medidos_sym}); % Função de saída que mapeia diretamente o estado para a saída
+funcao_h=Function('h',{estados_medidos_sym},{matriz_h * estados_medidos_sym}); % Função de saída que mapeia diretamente o estado para a saída
 
 WallTime = 10; % Tempo máximo de execução
 
