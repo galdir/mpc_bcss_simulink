@@ -1,10 +1,10 @@
 import numpy as np
 
-from estima_vazao import funcao_interpolacao_casadi
+from estima_vazao import cria_estimador_vazao_casadi
 from normalizacao import desnormaliza_predicoes, normaliza_entradas
 
 
-def executa_predicao(EntradaU, EstadosX, ESNdataa0, modelo_ESN, f_matrizVazao_sym):
+def executa_predicao(entrada_u, estado_x, ESNdataa0, modelo_ESN, estimador_vazao_casadi):
     """
     Executa a predição combinando ESN e tabela de vazão
     
@@ -22,19 +22,19 @@ def executa_predicao(EntradaU, EstadosX, ESNdataa0, modelo_ESN, f_matrizVazao_sy
     conversao_bar_kgf = 1.019716
     
     # Executa predição da ESN
-    predicoes, novo_a0 = executa_predicao_esn(EntradaU, EstadosX, ESNdataa0, modelo_ESN)
+    predicoes, novo_a0 = executa_predicao_esn(entrada_u, estado_x, ESNdataa0, modelo_ESN)
     
     # Executa predição da vazão
-    Freq = EntradaU[0]
-    PChegada = predicoes[1] * conversao_bar_kgf  # Converte pressão de bar para Kgf/cm2
-    vazaoOleo_estimada = f_matrizVazao_sym(Freq, PChegada)
+    freq = entrada_u[0]
+    pressa_chegada = predicoes[1] * conversao_bar_kgf  # Converte pressão de bar para Kgf/cm2
+    vazao_oleo_estimada = estimador_vazao_casadi(freq, pressa_chegada)
     
     # Monta vetor final incluindo a vazão estimada
-    predicoes = np.append(predicoes, vazaoOleo_estimada)
+    predicoes = np.append(predicoes, vazao_oleo_estimada)
     
     return predicoes, novo_a0
 
-def executa_predicao_esn(EntradaU, EstadosX, ESNdataa0, modelo_ESN):
+def executa_predicao_esn(entrada_u, entrada_x, estado_reservatorio, modelo_ESN):
     """
     Executa a predição da ESN um passo a frente
     
@@ -48,31 +48,53 @@ def executa_predicao_esn(EntradaU, EstadosX, ESNdataa0, modelo_ESN):
     predicoes -- vetor com estimativas das variáveis do processo
     novo_a0 -- novos estados do reservatório da ESN
     """
+    if(len(estado_reservatorio.shape) > 0):
+        Exception('estado do reservatorio precisa ter apenas uma dimensao')
+    
     # Monta vetor de entrada (excluindo vazão)
-    entradas = np.concatenate([EntradaU, EstadosX[:-1]])
+    entradas = np.concatenate([entrada_u, entrada_x[:-1]])
+    
     
     # Normaliza entradas
     entradas_normalizadas = normaliza_entradas(entradas)
+
+    pesos_reservatorio = modelo_ESN['data']['Wrr'][0][0]
+    pesos_entrada = modelo_ESN['data']['Wir'][0][0]
+    pesos_bias_reservatorio = modelo_ESN['data']['Wbr'][0][0].reshape(-1)
+    pesos_saida = modelo_ESN['data']['Wro'][0][0]
+    #estado_reservatorio = modelo_ESN['data']['a0'][0][0].reshape(-1)
+    #estado_reservatorio = estado_reservatorio.reshape(-1)
+    leakrate = modelo_ESN['data']['gama'][0][0][0][0]
+
     
     # Calcula novo estado do reservatório
-    x_ESN = (modelo_ESN['data']['Wrr'][0][0] @ ESNdataa0 + 
-             modelo_ESN['data']['Wir'][0][0] @ entradas_normalizadas + 
-             modelo_ESN['data']['Wbr'][0][0])
+    # z = (modelo_ESN['data']['Wrr'][0][0] @ ESNdataa0 + 
+    #          modelo_ESN['data']['Wir'][0][0] @ entradas_normalizadas + 
+    #          modelo_ESN['data']['Wbr'][0][0])
+    # z = (pesos_reservatorio @ estado_reservatorio + 
+    #           pesos_entrada @ entradas_normalizadas + 
+    #           pesos_bias_reservatorio)
+    z = (np.dot(pesos_reservatorio, estado_reservatorio) + 
+              np.dot(pesos_entrada, entradas_normalizadas) + 
+              pesos_bias_reservatorio)
     
     # Atualiza estado da ESN
-    novo_a0 = ((1 - modelo_ESN['data']['gama'][0][0]) * ESNdataa0 + 
-               modelo_ESN['data']['gama'][0][0] * np.tanh(x_ESN))
+    # estado_reservatorio_novo = ((1 - modelo_ESN['data']['gama'][0][0]) * estado_reservatorio + 
+    #            modelo_ESN['data']['gama'][0][0] * np.tanh(estado_reservatorio))
+    estado_reservatorio_novo = ((1 - leakrate) * estado_reservatorio + 
+                leakrate * np.tanh(z))
     
     # Adiciona bias
-    a_wbias = np.concatenate([[1.0], novo_a0])
+    a_wbias = np.concatenate([[1.0], estado_reservatorio_novo])
     
     # Calcula predições
-    predicoes_normalizadas = modelo_ESN['data']['Wro'][0][0] @ a_wbias
+    # predicoes_normalizadas = modelo_ESN['data']['Wro'][0][0] @ a_wbias
+    predicoes_normalizadas = pesos_saida @ a_wbias
     
     # Desnormaliza as predições
     predicoes = desnormaliza_predicoes(predicoes_normalizadas)
     
-    return predicoes, novo_a0
+    return predicoes, estado_reservatorio_novo
 
 
 # Exemplo de uso
@@ -80,6 +102,8 @@ if __name__ == "__main__":
     import scipy.io as sio
     from pathlib import Path
     import pandas as pd
+
+    conversao_bar_kgf = 1.019716
 
     # Nome do arquivo .mat a ser carregado
     nome_esn = 'weightsESNx_TR400_TVaz0.9_RaioE0.4.mat'
@@ -93,17 +117,29 @@ if __name__ == "__main__":
     # Carrega o arquivo .mat
     modelo_preditor = sio.loadmat(caminho_modelo_esn)
 
-    estimador_vazao = funcao_interpolacao_casadi(matriz)
+    estimador_vazao = cria_estimador_vazao_casadi(matriz)
 
     pasta_dados = Path('C:\\petrobras_2023_sistema_controle_inteligente_operacao_BCS_campo\\DADOS UTEIS\\dados MPA OPC\\')
-    nome_arquivo_dados = 'df_opc_mpa_11_12s.parquet'
-    #nome_arquivo_dados = 'df_opc_mpa_10s.parquet'
+    nome_arquivo_dados = 'df_opc_mpa_10s.parquet'
 
     df = pd.read_parquet(pasta_dados / nome_arquivo_dados)
-    periodo = { 'inicio': '2024-03-10 18:00:00',
-                'fim' : '2024-03-11 08:00:00'}
+
+    periodo = { 'inicio': '2024-07-17 01:00:00',
+                'fim' : '2024-07-17 03:00:00'}
     
-    df_periodo = df.query('index > @periodo["inicio"] and index < @periodo["fim"]').copy()
+    predicao_matlab_k0 = [88.6705552895, 
+                          34.3950864586,
+                          96.1270226239,
+                          184.7975779136, 
+                          109.7271982542, 
+                          97.2411879156, 
+                          137.9484935089, 
+                          72.2509765211, 
+                          0.5282321748, 
+                          67.8458677256, 
+                          348.5237743013]
+    
+    df_periodo = df.query('index >= @periodo["inicio"] and index <= @periodo["fim"]').copy()
     
     variaveis_manipuladas = ['frequencia_BCSS',
                           'pressao_montante_alvo']
@@ -120,32 +156,38 @@ if __name__ == "__main__":
                           'temperatura_chegada',
                           'vazao_oleo']
     
-    #estima vazao
-    vazao = float(estimador_vazao(df_periodo['frequencia_BCSS'].iloc[0], df_periodo['pressao_montante_alvo'].iloc[0]))
-    df_periodo['vazao_oleo'] = vazao
+    #estima vazao inicial
+    vazao = float(estimador_vazao(df_periodo['frequencia_BCSS'].iloc[0], 
+                                  df_periodo['pressao_chegada'].iloc[0]*conversao_bar_kgf))
+    df_periodo['vazao_oleo'] = np.NaN
+    df_periodo['vazao_oleo'].iloc[0] = vazao
 
     variaveis_preditoras = variaveis_manipuladas + variaveis_processo
 
-    #df_periodo_manipuladas = df_periodo[variaveis_manipuladas]
-    #df_periodo_processo = df_periodo[variaveis_processo]
-
     df_periodo_preditoras = df_periodo[variaveis_preditoras]
 
-    nsim = len(df_periodo)
-    predicao = np.zeros([nsim, len(variaveis_preditoras)])
+    reservatorio_esn = modelo_preditor['data']['a0'][0][0].reshape(-1)
+    
+    #esquentar ESN
+    entradas = df_periodo_preditoras.iloc[0].values
+    for k in range(1000):
+        predicao, reservatorio_esn = executa_predicao(entradas[:2], 
+                                                    entradas[2:], 
+                                                    reservatorio_esn, 
+                                                    modelo_preditor,
+                                                    estimador_vazao)
 
-    # =========================================================================
-    # Inicia a simulação da planta BCS para gerar os dados  
-    # =========================================================================
-    repositorio_esn = modelo_preditor['data']['a0'][0][0]
-    for k in range(nsim):
-        entradas = df_periodo_preditoras.iloc[k].values
-        #entradas_normalizadas = normaliza_entradas(df_periodo_preditoras.iloc[k].values)
-         
-        predicao_normalizada, repositorio_esn = executa_predicao(entradas[:2], 
-                                                                 entradas[2:], 
-                                                                 repositorio_esn, 
-                                                                 modelo_preditor,
-                                                                 estimador_vazao)
-        
-        predicao[k] = desnormaliza_predicoes(predicao_normalizada)
+    entradas = df_periodo_preditoras.iloc[0].values
+    
+    predicao, reservatorio_esn = executa_predicao(entradas[:2], 
+                                                                entradas[2:], 
+                                                                reservatorio_esn, 
+                                                                modelo_preditor,
+                                                                estimador_vazao)
+    
+    diferenca_predicao = predicao_matlab_k0 - predicao
+
+    print(f'diferencas na predicao: \n {diferenca_predicao}')
+    diferenca_maxima = max(diferenca_predicao) 
+    print(f'diferenca maxima na predicao: \n {diferenca_maxima}')
+

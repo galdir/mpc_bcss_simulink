@@ -142,20 +142,20 @@ def desnormaliza_predicoes(yk_aux):
         KeyError: Se alguma coluna não existir no sistema de normalização
     """
     # Desnormaliza cada uma das saídas
-    Psuc_desn = desnormalizar_dado_BCS(yk_aux[0], 'pressao_succao_BCSS')
-    Pche_desn = desnormalizar_dado_BCS(yk_aux[1], 'pressao_chegada')
-    Pdifer_desn = desnormalizar_dado_BCS(yk_aux[2], 'pressao_diferencial_BCSS')
-    Pdesc_desn = desnormalizar_dado_BCS(yk_aux[3], 'pressao_descarga_BCSS')
-    Tmotor_desn = desnormalizar_dado_BCS(yk_aux[4], 'temperatura_motor_BCSS')
-    Ctorque_desn = desnormalizar_dado_BCS(yk_aux[5], 'corrente_torque_BCSS')
-    Ctotal_desn = desnormalizar_dado_BCS(yk_aux[6], 'corrente_total_BCSS')
-    Tsuc_desn = desnormalizar_dado_BCS(yk_aux[7], 'temperatura_succao_BCSS')
-    Vib_desn = desnormalizar_dado_BCS(yk_aux[8], 'vibracao_BCSS')
-    Tche_desn = desnormalizar_dado_BCS(yk_aux[9], 'temperatura_chegada')
+    pressao_succao_BCSS = desnormalizar_dado_BCS(yk_aux[0], 'pressao_succao_BCSS')
+    pressao_chegada = desnormalizar_dado_BCS(yk_aux[1], 'pressao_chegada')
+    pressao_diferencial_BCSS = desnormalizar_dado_BCS(yk_aux[2], 'pressao_diferencial_BCSS')
+    pressao_descarga_BCSS = desnormalizar_dado_BCS(yk_aux[3], 'pressao_descarga_BCSS')
+    temperatura_motor_BCSS = desnormalizar_dado_BCS(yk_aux[4], 'temperatura_motor_BCSS')
+    corrente_torque_BCSS = desnormalizar_dado_BCS(yk_aux[5], 'corrente_torque_BCSS')
+    corrente_total_BCSS = desnormalizar_dado_BCS(yk_aux[6], 'corrente_total_BCSS')
+    temperatura_succao_BCSS = desnormalizar_dado_BCS(yk_aux[7], 'temperatura_succao_BCSS')
+    vibracao_BCSS = desnormalizar_dado_BCS(yk_aux[8], 'vibracao_BCSS')
+    temperatura_chegada = desnormalizar_dado_BCS(yk_aux[9], 'temperatura_chegada')
     
     # Retorna array numpy com todos os valores desnormalizados
     import numpy as np
     return np.array([
-        Psuc_desn, Pche_desn, Pdifer_desn, Pdesc_desn, Tmotor_desn,
-        Ctorque_desn, Ctotal_desn, Tsuc_desn, Vib_desn, Tche_desn
+        pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, temperatura_motor_BCSS,
+        corrente_torque_BCSS, corrente_total_BCSS, temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
     ])

@@ -204,7 +204,7 @@ def selecionar_valor(matriz: np.ndarray, press: ca.SX, freq: ca.SX) -> ca.SX:
     
     return valor
 
-def funcao_interpolacao_casadi(matriz):
+def cria_estimador_vazao_casadi(matriz):
     """
     Fixture que cria a função de interpolação CasADi usando dados do Excel
     """

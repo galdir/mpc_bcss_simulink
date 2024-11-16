@@ -54,6 +54,7 @@ LimiteProporcao=Ts/TempoESN;
 % DataHoraIni='2024-06-18 00:55:00';
 % DataHoraIni='2024-07-15 14:40:00';
 DataHoraIni='2024-07-17 01:00:00';
+%DataHoraIni = '2024-03-10 18:00:00';
 [XIni,UIni]=SelCondicaoInicial(DataHoraIni,MatrizSimulador);         
 
 
