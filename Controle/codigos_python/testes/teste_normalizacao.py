@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from numpy.testing import assert_array_almost_equal
-from codigos_python.normalizacao import (
+from normalizacao import (
     get_min_max_BCSS,
     normalizar_dado_BCS,
     desnormalizar_dado_BCS,

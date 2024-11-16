@@ -56,6 +56,5 @@ function f = Bilinear_casadi(x, y, x1, x2, y1, y2, f11, f12, f21, f22)
     f = if_else(x1 == x2, f_x, if_else(y1 == y2, f_y, f));
 
     % Para o caso em que os pontos são iguais aos conhecidos (não precisa interpolar)
-    %f = if_else(x1 == x2, if_else(y1 == y2, f11, f), f);  
     f = if_else(x1 == x2 & y1 == y2, f11, f);  
 end
