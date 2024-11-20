@@ -33,13 +33,14 @@ def get_min_max_BCSS(coluna: str) -> tuple[float, float]:
         'tensao_saida_VSD': (0, 5000),
         'pressao_montante_alvo': (0, 100)
     }
-    
+
     try:
         min_value, max_value = min_max_values[coluna]
         return min_value, max_value
     except KeyError:
-        raise KeyError(f'Coluna desconhecida: "{coluna}", não é possível normalizar.')
-    
+        raise KeyError(
+            f'Coluna desconhecida: "{coluna}", não é possível normalizar.')
+
 
 def normalizar_dado_BCS(dados, coluna: str):
     """
@@ -81,27 +82,34 @@ def normaliza_entradas(u):
         KeyError: Se alguma coluna não existir no sistema de normalização
     """
     # Normaliza as entradas principais
-    freq_n = normalizar_dado_BCS(u[0], 'frequencia_BCSS')
-    Pmon_n = normalizar_dado_BCS(u[1], 'pressao_montante_alvo')
-    
+    frequencia_BCSS = normalizar_dado_BCS(u[0], 'frequencia_BCSS')
+    pressao_montante_alvo = normalizar_dado_BCS(u[1], 'pressao_montante_alvo')
+
     # Normaliza os regressores
-    Psuc_n = normalizar_dado_BCS(u[2], 'pressao_succao_BCSS')
-    Pche_n = normalizar_dado_BCS(u[3], 'pressao_chegada')
-    Pdifer_n = normalizar_dado_BCS(u[4], 'pressao_diferencial_BCSS')
-    Pdesc_n = normalizar_dado_BCS(u[5], 'pressao_descarga_BCSS')
-    Tmotor_n = normalizar_dado_BCS(u[6], 'temperatura_motor_BCSS')
-    Ctorque_n = normalizar_dado_BCS(u[7], 'corrente_torque_BCSS')
-    Ctotal_n = normalizar_dado_BCS(u[8], 'corrente_total_BCSS')
-    Tsuc_n = normalizar_dado_BCS(u[9], 'temperatura_succao_BCSS')
-    Vib_n = normalizar_dado_BCS(u[10], 'vibracao_BCSS')
-    Tche_n = normalizar_dado_BCS(u[11], 'temperatura_chegada')
-    
+    pressao_succao_BCSS = normalizar_dado_BCS(u[2], 'pressao_succao_BCSS')
+    pressao_chegada = normalizar_dado_BCS(u[3], 'pressao_chegada')
+    pressao_diferencial_BCSS = normalizar_dado_BCS(u[4], 'pressao_diferencial_BCSS')
+    pressao_descarga_BCSS = normalizar_dado_BCS(u[5], 'pressao_descarga_BCSS')
+    temperatura_motor_BCSS = normalizar_dado_BCS(u[6], 'temperatura_motor_BCSS')
+    corrente_torque_BCSS = normalizar_dado_BCS(u[7], 'corrente_torque_BCSS')
+    corrente_total_BCSS = normalizar_dado_BCS(u[8], 'corrente_total_BCSS')
+    temperatura_succao_BCSS = normalizar_dado_BCS(u[9], 'temperatura_succao_BCSS')
+    vibracao_BCSS = normalizar_dado_BCS(u[10], 'vibracao_BCSS')
+    temperatura_chegada = normalizar_dado_BCS(u[11], 'temperatura_chegada')
+
     # Retorna array com todos os valores normalizados
-    import numpy as np
-    return np.array([
-        freq_n, Pmon_n, Psuc_n, Pche_n, Pdifer_n, Pdesc_n,
-        Tmotor_n, Ctorque_n, Ctotal_n, Tsuc_n, Vib_n, Tche_n
-    ])
+    # import numpy as np
+
+    # return np.array([
+    #     freq_n, Pmon_n, Psuc_n, Pche_n, Pdifer_n, Pdesc_n,
+    #     Tmotor_n, Ctorque_n, Ctotal_n, Tsuc_n, Vib_n, Tche_n
+    # ])
+    resultado = [
+        frequencia_BCSS, pressao_montante_alvo, pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS,
+        temperatura_motor_BCSS, corrente_torque_BCSS, corrente_total_BCSS, temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+    ]
+    return resultado
+
 
 def desnormalizar_dado_BCS(dado, coluna: str):
     """
@@ -124,6 +132,7 @@ def desnormalizar_dado_BCS(dado, coluna: str):
     dado_desnormalizado = (dado * (max_value - min_value)) + min_value
     return dado_desnormalizado
 
+
 def desnormaliza_predicoes(yk_aux):
     """
     Desnormaliza as predições do sistema BCS.
@@ -142,20 +151,33 @@ def desnormaliza_predicoes(yk_aux):
         KeyError: Se alguma coluna não existir no sistema de normalização
     """
     # Desnormaliza cada uma das saídas
-    pressao_succao_BCSS = desnormalizar_dado_BCS(yk_aux[0], 'pressao_succao_BCSS')
+    pressao_succao_BCSS = desnormalizar_dado_BCS(
+        yk_aux[0], 'pressao_succao_BCSS')
     pressao_chegada = desnormalizar_dado_BCS(yk_aux[1], 'pressao_chegada')
-    pressao_diferencial_BCSS = desnormalizar_dado_BCS(yk_aux[2], 'pressao_diferencial_BCSS')
-    pressao_descarga_BCSS = desnormalizar_dado_BCS(yk_aux[3], 'pressao_descarga_BCSS')
-    temperatura_motor_BCSS = desnormalizar_dado_BCS(yk_aux[4], 'temperatura_motor_BCSS')
-    corrente_torque_BCSS = desnormalizar_dado_BCS(yk_aux[5], 'corrente_torque_BCSS')
-    corrente_total_BCSS = desnormalizar_dado_BCS(yk_aux[6], 'corrente_total_BCSS')
-    temperatura_succao_BCSS = desnormalizar_dado_BCS(yk_aux[7], 'temperatura_succao_BCSS')
+    pressao_diferencial_BCSS = desnormalizar_dado_BCS(
+        yk_aux[2], 'pressao_diferencial_BCSS')
+    pressao_descarga_BCSS = desnormalizar_dado_BCS(
+        yk_aux[3], 'pressao_descarga_BCSS')
+    temperatura_motor_BCSS = desnormalizar_dado_BCS(
+        yk_aux[4], 'temperatura_motor_BCSS')
+    corrente_torque_BCSS = desnormalizar_dado_BCS(
+        yk_aux[5], 'corrente_torque_BCSS')
+    corrente_total_BCSS = desnormalizar_dado_BCS(
+        yk_aux[6], 'corrente_total_BCSS')
+    temperatura_succao_BCSS = desnormalizar_dado_BCS(
+        yk_aux[7], 'temperatura_succao_BCSS')
     vibracao_BCSS = desnormalizar_dado_BCS(yk_aux[8], 'vibracao_BCSS')
-    temperatura_chegada = desnormalizar_dado_BCS(yk_aux[9], 'temperatura_chegada')
-    
+    temperatura_chegada = desnormalizar_dado_BCS(
+        yk_aux[9], 'temperatura_chegada')
+
     # Retorna array numpy com todos os valores desnormalizados
-    import numpy as np
-    return np.array([
+    # import numpy as np
+    # return np.array([
+    #     pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, temperatura_motor_BCSS,
+    #     corrente_torque_BCSS, corrente_total_BCSS, temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
+    # ])
+
+    return [
         pressao_succao_BCSS, pressao_chegada, pressao_diferencial_BCSS, pressao_descarga_BCSS, temperatura_motor_BCSS,
         corrente_torque_BCSS, corrente_total_BCSS, temperatura_succao_BCSS, vibracao_BCSS, temperatura_chegada
-    ])
+    ]
