@@ -5,7 +5,7 @@ from normalizacao import desnormaliza_predicoes, normaliza_entradas
 import casadi as ca
 
 
-def executa_predicao_casadi(entrada_u, estado_x, ESNdataa0, modelo_ESN, estimador_vazao_casadi):
+def executa_predicao(entrada_u, estado_x, ESNdataa0, modelo_ESN, estimador_vazao_casadi):
     """
     Executa a predição combinando ESN e tabela de vazão
 
@@ -149,8 +149,8 @@ def executa_predicao_esn_casadi(entrada_u, entrada_x, estado_reservatorio, model
     # estado_reservatorio = ca.MX(estado_reservatorio)
     # Monta vetor de entrada (excluindo vazão)
     # entradas = np.concatenate([entrada_u, entrada_x[:-1]])
-    entradas = ca.vertcat(entrada_u, entrada_x[:-1])
-    #entradas = ca.horzcat(entrada_u, entrada_x[:-1])
+    #entradas = ca.vertcat(entrada_u, entrada_x[:-1])
+    entradas = ca.horzcat(entrada_u, entrada_x[:-1])
 
     # Normaliza entradas
     entradas_normalizadas = normaliza_entradas(entradas)
@@ -199,7 +199,7 @@ def executa_predicao_esn_casadi(entrada_u, entrada_x, estado_reservatorio, model
 
 def esquentar_esn(entradas, reservatorio_esn, modelo_preditor, estimador_vazao):
     for k in range(1000):
-        predicao, reservatorio_esn = executa_predicao_casadi(entradas[:2],
+        predicao, reservatorio_esn = executa_predicao(entradas[:2],
                                                       entradas[2:],
                                                       reservatorio_esn,
                                                       modelo_preditor,
@@ -297,7 +297,7 @@ if __name__ == "__main__":
 
     # entradas = df_periodo_preditoras.iloc[0].values
 
-    predicao, reservatorio_esn = executa_predicao_casadi(entradas[:2],
+    predicao, reservatorio_esn = executa_predicao(entradas[:2],
                                                   entradas[2:],
                                                   reservatorio_esn,
                                                   modelo_preditor,
