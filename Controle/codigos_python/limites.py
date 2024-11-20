@@ -33,6 +33,19 @@ def busca_limites_matriz_casadi(matriz, valor_procurado):
     # Retorna os limites excluindo a primeira coluna
     return ca.vertcat(lim_max[:, 1:], lim_min[:, 1:])
 
+def cria_busca_limites_casadi(matriz_limites_integrados):
+    # Criar a função CasADi
+    freq_sym = ca.MX.sym('freq_sym',1)        # Cria variável simbólica para a Frequencia
+
+    resultado = busca_limites_matriz_casadi(matriz_limites_integrados, freq_sym)
+    busca_limites = ca.Function('busca_limites',
+                               [freq_sym],  # entradas
+                               [resultado],                        # saídas
+                               ['valor'],               # nomes das entradas
+                               ['limites'])     
+    
+    return busca_limites
+
 
 # Exemplo de uso
 if __name__ == "__main__":
@@ -40,7 +53,6 @@ if __name__ == "__main__":
     import pandas as pd
     import casadi as ca
     
-    freq_sym = ca.MX.sym('freq_sym',1)        # Cria variável simbólica para a Frequencia
 
     arquivo_limites_integrados = 'TabelaLimitesDinamicos.xlsx' # Tabela completa com pré-cálculos dos limites dinâmicos em função da frequência
     caminho_tabelas = Path("./Tabelas")
@@ -48,5 +60,22 @@ if __name__ == "__main__":
         caminho_tabelas / arquivo_limites_integrados)
     matriz_limites_integrados = df_limites_integrados.values
 
-    busca_limites_matriz_casadi_sym = busca_limites_matriz_casadi(matriz_limites_integrados, freq_sym)
-    busca_limites = ca.Function('busca_limites', {freq_sym}, {busca_limites_matriz_casadi_sym})
+
+
+    # Criar a função CasADi
+    freq_sym = ca.MX.sym('freq_sym',1)        # Cria variável simbólica para a Frequencia
+
+    resultado = busca_limites_matriz_casadi(matriz_limites_integrados, freq_sym)
+    busca_limites = ca.Function('busca_limites',
+                               [freq_sym],  # entradas
+                               [resultado],                        # saídas
+                               ['valor'],               # nomes das entradas
+                               ['limites'])                       # nomes das saídas
+
+    valor_teste = 40.0
+    resultado = busca_limites(valor_teste)
+    print("Resultado para valor 40:")
+    print(resultado)
+
+    #busca_limites_matriz_casadi_sym = busca_limites_matriz_casadi(matriz_limites_integrados, freq_sym)
+    #busca_limites = ca.Function('busca_limites', {freq_sym}, {busca_limites_matriz_casadi_sym})

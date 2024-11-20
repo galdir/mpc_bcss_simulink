@@ -1,30 +1,34 @@
 import casadi
 import numpy as np
 
+from limites import cria_busca_limites_casadi
 from estima_vazao import cria_estimador_vazao_casadi
-import executa_predicao
+from predicao import esquentar_esn, executa_predicao_casadi
 
 
-def cria_solver(umax, umin, dumax, MargemPercentual,
-                Hp, Hc, Qy, Qu, R, Qx, nx, nu, ny,
-                EstimaVazao, buscaLimites, ModeloPreditor, funcao_h, WallTime):
+def cria_solver(umax, umin, dumax, margem_percentual,
+                hp, hc, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
+                estima_vazao, busca_limites, modelo_preditor, funcao_h, walltime):
     """
     Cria um solver MPC usando CasADi.
 
     Mantém os mesmos parâmetros da versão MATLAB, preservando a funcionalidade
     e nomenclatura em português.
     """
+
+    dumin = [-x for x in dumax] 
+    
     # Inicialização do timer e importação do CasADi
-    nx_ESN = len(ModeloPreditor.data.a0)
+    nx_ESN = len(modelo_preditor['data']['a0'][0][0])
 
     # Variáveis simbólicas para o problema de otimização
-    X = casadi.MX.sym('X', nx, 1+Hp)  # Estado atual + Estados futuros até Hp
-    U = casadi.MX.sym('U', nu, Hp)    # Ações de controle até o horizonte Hp
+    X = casadi.MX.sym('X', nx, 1+hp)  # Estado atual + Estados futuros até Hp
+    U = casadi.MX.sym('U', nu, hp)    # Ações de controle até o horizonte Hp
     # Variações nas ações de controle sobre o horizonte Hp
-    DU = casadi.MX.sym('DU', nu, Hp)
+    DU = casadi.MX.sym('DU', nu, hp)
 
     # Parâmetros que foram oferecidos para o Solver
-    Indice = [
+    indice_parametros = [
         nx,     # qtd Medições
         nu,     # qtd Ações
         nu,     # qtd AlvoEng
@@ -36,13 +40,13 @@ def cria_solver(umax, umin, dumax, MargemPercentual,
     ]
 
     # Cria vetor de parâmetros na dimensão especificada
-    P = casadi.MX.sym('P', sum(Indice))
+    parametros = casadi.MX.sym('P', sum(indice_parametros))
 
     # Associa variáveis simbólicas as respectivas partes no vetor de parâmetros
-    Xk0, Uk0, AlvoEng, Ysp, ErroX, ErroY, BuffDeltaFreq, Reservatorio_ESN = ExtraiParametros(
-        P, Indice)
+    xk0, uk0, alvo_eng, ysp, erro_x, erro_y, buff_delta_freq, reservatorio_esn = extrai_parametros(
+        parametros, indice_parametros)
 
-    ModeloPreditor_estado_atual = Reservatorio_ESN
+    modelo_preditor_estado_atual = reservatorio_esn
 
     # Inicializa variável que vai armazenar a estrutura de argumentos do NLP
     args = {
@@ -51,18 +55,18 @@ def cria_solver(umax, umin, dumax, MargemPercentual,
     }
 
     # Para os estados atuais e para todo o horizonte Hp
-    for k in range(1+Hp):
+    for k in range(1+hp):
         args['lbx'].extend([0] * nx)
         args['ubx'].extend([float('inf')] * nx)
 
     # Para as ações de controle em todo o horizonte futuro
-    for k in range(Hp):
+    for k in range(hp):
         args['lbx'].append(umin)
         args['ubx'].append(umax)
 
     # Restrições para os limites na variação das ações de controle
-    for k in range(Hp):
-        args['lbx'].append(-dumax)
+    for k in range(hp):
+        args['lbx'].append(dumin)
         args['ubx'].append(dumax)
 
     # Montando as restrições de igualdade/desigualdade em g
@@ -71,45 +75,45 @@ def cria_solver(umax, umin, dumax, MargemPercentual,
     args['ubg'] = []
 
     # Multipleshooting = restrições de igualdade para seguir dinâmica do sistema
-    g.append(X[:, 0] - Xk0)
+    g.append(X[:, 0] - xk0)
     args['lbg'].extend([0] * nx)
     args['ubg'].extend([0] * nx)
 
     # Limita a primeira ação de controle pelo máximo DeltaU
-    g.append(U[:, 0] - Uk0 - DU[:, 0])
+    g.append(U[:, 0] - uk0 - DU[:, 0])
     args['lbg'].extend([0] * nu)
     args['ubg'].extend([0] * nu)
 
     # Restrições de igualdade para assegurar que os estados futuros vão seguir as predições
-    for k in range(Hp):
-        x_predito, ModeloPreditor_novo_estado = executa_predicao(
-            U[:, k], X[:, k], ModeloPreditor_estado_atual, ModeloPreditor, EstimaVazao)
-        ModeloPreditor_estado_atual = ModeloPreditor_novo_estado
+    for k in range(hp):
+        x_predito, modelo_preditor_novo_estado = executa_predicao_casadi(
+            U[:, k], X[:, k], modelo_preditor_estado_atual, modelo_preditor, estima_vazao)
+        modelo_preditor_estado_atual = modelo_preditor_novo_estado
 
         g.append(X[:, k+1] - x_predito)
         args['lbg'].extend([0] * nx)
         args['ubg'].extend([0] * nx)
 
     # Restrições de igualdade para definir DeltaU em função de U
-    for k in range(Hp-1):
+    for k in range(hp-1):
         Soma = U[:, k+1] - U[:, k] - DU[:, k+1]
         g.append(Soma)
         args['lbg'].extend([0] * nu)
         args['ubg'].extend([0] * nu)
 
         # Restrição avaliando as variações acumuladas na frequencia
-        BuffDeltaFreq = casadi.vertcat(DU[0, k], BuffDeltaFreq[:-1])
-        Soma = casadi.sum1(BuffDeltaFreq)
+        buff_delta_freq = casadi.vertcat(DU[0, k], buff_delta_freq[:-1])
+        Soma = casadi.sum1(buff_delta_freq)
 
         g.append(Soma)
         args['lbg'].append(-1)
         args['ubg'].append(1)
 
     # Restrições dinâmicas para os estados X e para as saidas Y
-    for k in range(Hp):
-        LimitesX = buscaLimites(U[0, k]).T
-        LimitesX[:, 0] *= (1 - MargemPercentual/100)
-        LimitesX[:, 1] *= (1 + MargemPercentual/100)
+    for k in range(hp):
+        LimitesX = busca_limites(U[0, k]).T
+        LimitesX[:, 0] *= (1 - margem_percentual/100)
+        LimitesX[:, 1] *= (1 + margem_percentual/100)
 
         LimitesY = funcao_h(LimitesX)
 
@@ -151,24 +155,24 @@ def cria_solver(umax, umin, dumax, MargemPercentual,
         args['ubg'].append(float('inf'))
 
     # Depois do instante Hc, seguir a teoria e manter a mesma ação de controle futura
-    for k in range(Hc, Hp):
+    for k in range(hc, hp):
         g.append(U[:, k] - U[:, k-1])
         args['lbg'].extend([0] * nu)
         args['ubg'].extend([0] * nu)
 
     # Preparando o custo da função objetivo
     fob = 0
-    fob += casadi.mtimes(casadi.mtimes(ErroX.T, Qx), ErroX)
+    fob += casadi.mtimes(casadi.mtimes(erro_x.T, matriz_qx), erro_x)
 
-    for k in range(Hp):
+    for k in range(hp):
         y_saida = funcao_h(X[:, k+1])
-        erro_termo = y_saida - Ysp + ErroY
-        fob += casadi.mtimes(casadi.mtimes(erro_termo.T, Qy), erro_termo)
+        erro_termo = y_saida - ysp + erro_y
+        fob += casadi.mtimes(casadi.mtimes(erro_termo.T, matriz_qy), erro_termo)
 
-    for k in range(Hc):
-        erro_controle = U[:, k] - AlvoEng
-        fob += casadi.mtimes(casadi.mtimes(erro_controle.T, Qu), erro_controle)
-        fob += casadi.mtimes(casadi.mtimes(DU[:, k].T, R), DU[:, k])
+    for k in range(hc):
+        erro_controle = U[:, k] - alvo_eng
+        fob += casadi.mtimes(casadi.mtimes(erro_controle.T, matriz_qu), erro_controle)
+        fob += casadi.mtimes(casadi.mtimes(DU[:, k].T, matriz_r), DU[:, k])
 
     # Monta as variáveis de decisão em um vetor coluna
     variaveis_opt = casadi.vertcat(
@@ -182,7 +186,7 @@ def cria_solver(umax, umin, dumax, MargemPercentual,
         'f': fob,
         'x': variaveis_opt,
         'g': casadi.vertcat(*g),
-        'p': P
+        'p': parametros
     }
 
     # Configuração específica do IPOPT
@@ -192,7 +196,7 @@ def cria_solver(umax, umin, dumax, MargemPercentual,
             'print_level': 0,
             'bound_relax_factor': 0,
             'max_iter': 1000,
-            'max_wall_time': WallTime
+            'max_wall_time': walltime
         },
         'verbose': 0
     }
@@ -203,7 +207,7 @@ def cria_solver(umax, umin, dumax, MargemPercentual,
     return solver, args
 
 
-def ExtraiParametros(P, Indice):
+def extrai_parametros(P, Indice):
     """
     Extrai as partes que compõe os parâmetros do Solver.
 
@@ -304,14 +308,11 @@ if __name__ == "__main__":
 
     reservatorio_esn = modelo_preditor['data']['a0'][0][0].reshape(-1)
 
-    # esquentar ESN
     entradas = u_ini + x_ini
-    for k in range(1000):
-        predicao, reservatorio_esn = executa_predicao(entradas[:2],
-                                                      entradas[2:],
-                                                      reservatorio_esn,
-                                                      modelo_preditor,
-                                                      estimador_vazao)
+
+    # esquentar ESN
+    reservatorio_esn = esquentar_esn(
+        entradas, reservatorio_esn, modelo_preditor, estimador_vazao)
 
     # Limites máx/min para ser dado pelo controlador como entrada de Freq no processo
     freq_max_min = [60,  40]
@@ -359,12 +360,21 @@ if __name__ == "__main__":
     estados_medidos_sym = ca.MX.sym('estados_medidos', nx, 1)
 
     # Função de saída que mapeia diretamente o estado para a saída
-    funcao_h = ca.Function('h', 
-                    [estados_medidos_sym],
-                    [ca.mtimes(matriz_h, estados_medidos_sym)])
+    funcao_h = ca.Function('h',
+                           [estados_medidos_sym],
+                           [ca.mtimes(matriz_h, estados_medidos_sym)])
 
-    wall_time = 10 # Tempo máximo de execução
+    wall_time = 10  # Tempo máximo de execução
+
+    # Tabela completa com pré-cálculos dos limites dinâmicos em função da frequência
+    arquivo_limites_integrados = 'TabelaLimitesDinamicos.xlsx'
+    caminho_tabelas = Path("./Tabelas")
+    df_limites_integrados = pd.read_excel(
+        caminho_tabelas / arquivo_limites_integrados)
+    matriz_limites_integrados = df_limites_integrados.values
+
+    busca_limites = cria_busca_limites_casadi(matriz_limites_integrados)
 
     solver = cria_solver(umax, umin, dumax, margem_percentual,
                          HP, HC, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
-                         estimador_vazao, buscaLimites, modelo_preditor, funcao_h, wall_time)
+                         estimador_vazao, busca_limites, modelo_preditor, funcao_h, wall_time)
