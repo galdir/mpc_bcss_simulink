@@ -227,6 +227,11 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     options.ipopt.max_iter=1e3;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
 
     options.ipopt.max_wall_time=WallTime;   % Tempo (em segundos) máximo para o solver encontrar solução
+    
+    %options.ipopt.hessian_approximation = 'exact';  
+%     options.ipopt.limited_memory_max_history = 6;   % Número de atualizações para L-BFGS
+%     options.ipopt.hessian_constant = 'no';
+%     options.ipopt.hessian_approximation = 'limited-memory';  % Usar BFGS
 
     solver = nlpsol('solver','ipopt', nlp, options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
     t_inicializacao = toc(tInicializa);           % Tempo gasto para a inicialização do Solver

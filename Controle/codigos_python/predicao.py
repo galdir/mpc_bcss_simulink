@@ -93,7 +93,7 @@ def executa_predicao_esn(entrada_u, entrada_x, estado_reservatorio, modelo_ESN):
     return predicoes, estado_reservatorio_novo
 
 
-def executa_predicao_casadi(entrada_u, estado_x, ESNdataa0, modelo_ESN, estimador_vazao_casadi):
+def executa_predicao_casadi(entradas_u, entradas_x, ESNdataa0, modelo_ESN, estimador_vazao_casadi):
     """
     Executa a predição combinando ESN e tabela de vazão
 
@@ -112,13 +112,13 @@ def executa_predicao_casadi(entrada_u, estado_x, ESNdataa0, modelo_ESN, estimado
 
     # Executa predição da ESN
     predicoes, novo_a0 = executa_predicao_esn_casadi(
-        entrada_u, estado_x, ESNdataa0, modelo_ESN)
+        entradas_u, entradas_x, ESNdataa0, modelo_ESN)
 
     # Executa predição da vazão
-    freq = entrada_u[0]
+    freq = entradas_u[0]
     # Converte pressão de bar para Kgf/cm2
-    pressa_chegada = predicoes[1] * conversao_bar_kgf
-    vazao_oleo_estimada = estimador_vazao_casadi(freq, pressa_chegada)
+    pressao_chegada_kgf = predicoes[1] * conversao_bar_kgf
+    vazao_oleo_estimada = estimador_vazao_casadi(freq, pressao_chegada_kgf)
 
     # Monta vetor final incluindo a vazão estimada
     # predicoes = np.append(predicoes, vazao_oleo_estimada)
@@ -143,8 +143,8 @@ def executa_predicao_esn_casadi(entrada_u, entrada_x, estado_reservatorio, model
     predicoes -- vetor com estimativas das variáveis do processo
     novo_a0 -- novos estados do reservatório da ESN
     """
-    if (len(estado_reservatorio.shape) > 0):
-        Exception('estado do reservatorio precisa ter apenas uma dimensao')
+    #if (len(estado_reservatorio.shape) > 0):
+    #    Exception('estado do reservatorio precisa ter apenas uma dimensao')
 
     # estado_reservatorio = ca.MX(estado_reservatorio)
     # Monta vetor de entrada (excluindo vazão)

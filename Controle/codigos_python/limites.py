@@ -74,8 +74,14 @@ if __name__ == "__main__":
 
     valor_teste = 40.0
     resultado = busca_limites(valor_teste)
-    print("Resultado para valor 40:")
+    print(f"Resultado para valor {valor_teste}:")
     print(resultado)
+
+    valor_teste = 53.15
+    resultado = busca_limites(valor_teste)
+    print(f"Resultado para valor {valor_teste}:")
+    print(resultado)
+
 
     #busca_limites_matriz_casadi_sym = busca_limites_matriz_casadi(matriz_limites_integrados, freq_sym)
     #busca_limites = ca.Function('busca_limites', {freq_sym}, {busca_limites_matriz_casadi_sym})

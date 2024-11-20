@@ -1,4 +1,4 @@
-import casadi
+import casadi as ca
 import numpy as np
 
 from limites import cria_busca_limites_casadi
@@ -10,22 +10,22 @@ def cria_solver(umax, umin, dumax, margem_percentual,
                 hp, hc, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
                 estima_vazao, busca_limites, modelo_preditor, funcao_h, walltime):
     """
-    Cria um solver MPC usando CasADi.
+    Cria um solver MPC usando ca.
 
     Mantém os mesmos parâmetros da versão MATLAB, preservando a funcionalidade
     e nomenclatura em português.
     """
 
-    dumin = [-x for x in dumax] 
-    
+    dumin = [-x for x in dumax]
+
     # Inicialização do timer e importação do CasADi
     nx_ESN = len(modelo_preditor['data']['a0'][0][0])
 
     # Variáveis simbólicas para o problema de otimização
-    X = casadi.MX.sym('X', nx, 1+hp)  # Estado atual + Estados futuros até Hp
-    U = casadi.MX.sym('U', nu, hp)    # Ações de controle até o horizonte Hp
+    X = ca.MX.sym('X', nx, 1+hp)  # Estado atual + Estados futuros até Hp
+    U = ca.MX.sym('U', nu, hp)    # Ações de controle até o horizonte Hp
     # Variações nas ações de controle sobre o horizonte Hp
-    DU = casadi.MX.sym('DU', nu, hp)
+    DU = ca.MX.sym('DU', nu, hp)
 
     # Parâmetros que foram oferecidos para o Solver
     indice_parametros = [
@@ -40,13 +40,13 @@ def cria_solver(umax, umin, dumax, margem_percentual,
     ]
 
     # Cria vetor de parâmetros na dimensão especificada
-    parametros = casadi.MX.sym('P', sum(indice_parametros))
+    parametros = ca.MX.sym('p', sum(indice_parametros))
 
     # Associa variáveis simbólicas as respectivas partes no vetor de parâmetros
-    xk0, uk0, alvo_eng, ysp, erro_x, erro_y, buff_delta_freq, reservatorio_esn = extrai_parametros(
+    xk0, uk0, alvo_eng, ysp, erro_x, erro_y, buff_delta_freq, modelo_preditor_estado_atual = extrai_parametros(
         parametros, indice_parametros)
 
-    modelo_preditor_estado_atual = reservatorio_esn
+    # modelo_preditor_estado_atual = reservatorio_esn
 
     # Inicializa variável que vai armazenar a estrutura de argumentos do NLP
     args = {
@@ -61,13 +61,13 @@ def cria_solver(umax, umin, dumax, margem_percentual,
 
     # Para as ações de controle em todo o horizonte futuro
     for k in range(hp):
-        args['lbx'].append(umin)
-        args['ubx'].append(umax)
+        args['lbx'].extend(umin)
+        args['ubx'].extend(umax)
 
     # Restrições para os limites na variação das ações de controle
     for k in range(hp):
-        args['lbx'].append(dumin)
-        args['ubx'].append(dumax)
+        args['lbx'].extend(dumin)
+        args['ubx'].extend(dumax)
 
     # Montando as restrições de igualdade/desigualdade em g
     g = []
@@ -87,9 +87,10 @@ def cria_solver(umax, umin, dumax, margem_percentual,
     # Restrições de igualdade para assegurar que os estados futuros vão seguir as predições
     for k in range(hp):
         x_predito, modelo_preditor_novo_estado = executa_predicao_casadi(
-            U[:, k], X[:, k], modelo_preditor_estado_atual, modelo_preditor, estima_vazao)
+            ca.transpose(X[:, k]), ca.transpose(U[:, k]), modelo_preditor_estado_atual, modelo_preditor, estima_vazao)
+        
         modelo_preditor_estado_atual = modelo_preditor_novo_estado
-
+        #x_predito = x_predito.T
         g.append(X[:, k+1] - x_predito)
         args['lbg'].extend([0] * nx)
         args['ubg'].extend([0] * nx)
@@ -102,8 +103,8 @@ def cria_solver(umax, umin, dumax, margem_percentual,
         args['ubg'].extend([0] * nu)
 
         # Restrição avaliando as variações acumuladas na frequencia
-        buff_delta_freq = casadi.vertcat(DU[0, k], buff_delta_freq[:-1])
-        Soma = casadi.sum1(buff_delta_freq)
+        buff_delta_freq = ca.vertcat(DU[0, k], buff_delta_freq[:-1])
+        Soma = ca.sum1(buff_delta_freq)
 
         g.append(Soma)
         args['lbg'].append(-1)
@@ -111,46 +112,46 @@ def cria_solver(umax, umin, dumax, margem_percentual,
 
     # Restrições dinâmicas para os estados X e para as saidas Y
     for k in range(hp):
-        LimitesX = busca_limites(U[0, k]).T
-        LimitesX[:, 0] *= (1 - margem_percentual/100)
-        LimitesX[:, 1] *= (1 + margem_percentual/100)
+        limites_x = busca_limites(U[0, k]).T
+        limites_x[:, 0] *= (1 - margem_percentual/100)
+        limites_x[:, 1] *= (1 + margem_percentual/100)
 
-        LimitesY = funcao_h(LimitesX)
+        limites_y = funcao_h(limites_x)
 
         # Restrições para as variáveis do processo (estados X)
-        LimMaxX = LimitesX[:, 0] - X[:, k+1]
-        g.append(LimMaxX)
+        limites_x_max = limites_x[:, 0] - X[:, k+1]
+        g.append(limites_x_max)
         args['lbg'].extend([0] * nx)
         args['ubg'].extend([float('inf')] * nx)
 
-        LimMinX = X[:, k+1] - LimitesX[:, 1]
-        g.append(LimMinX)
+        limites_x_min = X[:, k+1] - limites_x[:, 1]
+        g.append(limites_x_min)
         args['lbg'].extend([0] * nx)
         args['ubg'].extend([float('inf')] * nx)
 
         # Restrições para as variáveis de saida
         y_saida = funcao_h(X[:, k+1])
 
-        LimMaxY = LimitesY[:, 0] - y_saida
-        g.append(LimMaxY)
+        limites_y_max = limites_y[:, 0] - y_saida
+        g.append(limites_y_max)
         args['lbg'].extend([0] * ny)
         args['ubg'].extend([float('inf')] * ny)
 
-        LimMinY = y_saida - LimitesY[:, 1]
-        g.append(LimMinY)
+        limites_y_min = y_saida - limites_y[:, 1]
+        g.append(limites_y_min)
         args['lbg'].extend([0] * ny)
         args['ubg'].extend([float('inf')] * ny)
 
         # Limites PMonAlvo
-        ValMin = max(LimitesX[1, 1], umin[1])
-        DiferencaMin = U[1, k] - ValMin
-        g.append(DiferencaMin)
+        limite_min_variavel_alvo = ca.fmax(limites_x[1, 1], umin[1])
+        diferenca_min = U[1, k] - limite_min_variavel_alvo
+        g.append(diferenca_min)
         args['lbg'].append(0)
         args['ubg'].append(float('inf'))
 
-        ValMax = min(LimitesX[1, 0], umax[1])
-        DiferencaMax = ValMax - U[1, k]
-        g.append(DiferencaMax)
+        limite_max_variavel_alvo = ca.fmin(limites_x[1, 0], umax[1])
+        diferenca_max = limite_max_variavel_alvo - U[1, k]
+        g.append(diferenca_max)
         args['lbg'].append(0)
         args['ubg'].append(float('inf'))
 
@@ -162,62 +163,77 @@ def cria_solver(umax, umin, dumax, margem_percentual,
 
     # Preparando o custo da função objetivo
     fob = 0
-    fob += casadi.mtimes(casadi.mtimes(erro_x.T, matriz_qx), erro_x)
+    fob += ca.mtimes(ca.mtimes(erro_x.T, matriz_qx), erro_x)
 
     for k in range(hp):
         y_saida = funcao_h(X[:, k+1])
         erro_termo = y_saida - ysp + erro_y
-        fob += casadi.mtimes(casadi.mtimes(erro_termo.T, matriz_qy), erro_termo)
+        fob += ca.mtimes(ca.mtimes(erro_termo.T, matriz_qy), erro_termo)
 
     for k in range(hc):
         erro_controle = U[:, k] - alvo_eng
-        fob += casadi.mtimes(casadi.mtimes(erro_controle.T, matriz_qu), erro_controle)
-        fob += casadi.mtimes(casadi.mtimes(DU[:, k].T, matriz_r), DU[:, k])
+        fob += ca.mtimes(ca.mtimes(erro_controle.T, matriz_qu), erro_controle)
+        fob += ca.mtimes(ca.mtimes(DU[:, k].T, matriz_r), DU[:, k])
 
     # Monta as variáveis de decisão em um vetor coluna
-    variaveis_opt = casadi.vertcat(
-        casadi.vec(X),
-        casadi.vec(U),
-        casadi.vec(DU)
+    variaveis_opt = ca.vertcat(
+        ca.vec(X),
+        ca.vec(U),
+        ca.vec(DU)
     )
 
     # Define a estrutura para problema de otimização não linear
     nlp = {
         'f': fob,
         'x': variaveis_opt,
-        'g': casadi.vertcat(*g),
+        'g': ca.vertcat(*g),
         'p': parametros
     }
 
     # Configuração específica do IPOPT
     opcoes = {
-        'print_time': 0,
+        'print_time': 1,
         'ipopt': {
-            'print_level': 0,
+            'print_level': 12,
             'bound_relax_factor': 0,
             'max_iter': 1000,
-            'max_wall_time': walltime
+            'max_wall_time': walltime,
+            'print_user_options': 'yes',
+            'print_timing_statistics': 'yes',
+            #'print_advanced_options': 'yes',
+            # 'print_options_documentation': 'yes',
+            #'sb': 'no',
+            #'regularization': 'no_regularization',
+            #'constr_viol_tol': 0.5,
+            #'acceptable_tol': 0.5
+            
         },
-        'verbose': 0
+        'verbose': 1,
+        #'expand': True,
+        #'jit': True,
+        'regularity_check': True,
+        'print_in': True,
+        'inputs_check': True,
+        'verbose_init': True,
     }
 
     # Define o solver IPOPT para resolver o problema de otimização não linear
-    solver = casadi.nlpsol('solver', 'ipopt', nlp, opcoes)
+    solver = ca.nlpsol('solver', 'ipopt', nlp, opcoes)
 
     return solver, args
 
 
-def extrai_parametros(P, Indice):
+def extrai_parametros(parametros, indice_parametros):
     """
     Extrai as partes que compõe os parâmetros do Solver.
 
     Similar à função ExtraiParametros do MATLAB.
     """
-    soma_acumulada = np.cumsum([0] + Indice)
+    soma_acumulada = np.cumsum([0] + indice_parametros)
     fatias = [slice(inicio, fim) for inicio, fim in zip(
         soma_acumulada[:-1], soma_acumulada[1:])]
 
-    return [P[s] for s in fatias]
+    return [parametros[s] for s in fatias]
 
 
 def busca_condicao_inicial(data_hora, estimador_vazao, df):
@@ -255,6 +271,105 @@ def busca_condicao_inicial(data_hora, estimador_vazao, df):
     return [x_ini, u_ini]
 
 
+def debug_solver_setup(solver, args, x0, p):
+    """
+    Verifica a configuração inicial do solver com suporte adequado para objetos CasADi
+    """
+    print("\nDEBUG SOLVER SETUP")
+    print("-----------------")
+
+    # 1. Verificar dimensões
+    print("\n1. Dimensões:")
+    print(f"Número de variáveis (x): {len(args['lbx'])}")
+    print(f"Número de restrições (g): {len(args['lbg'])}")
+    print(f"Tamanho do x0: {x0.size1() if isinstance(x0, ca.MX) else len(x0)}")
+    print(
+        f"Tamanho dos parâmetros p: {p.size1() if isinstance(p, ca.MX) else len(p)}")
+
+    # 2. Verificar limites
+    print("\n2. Verificação de limites:")
+    print(f"lbx length: {len(args['lbx'])}")
+    print(f"ubx length: {len(args['ubx'])}")
+    print(f"lbg length: {len(args['lbg'])}")
+    print(f"ubg length: {len(args['ubg'])}")
+
+    # 3. Verificar valores iniciais
+    print("\n3. Verificação de valores iniciais:")
+    if isinstance(x0, (np.ndarray, list)):
+        x0_array = np.array(x0)
+    else:
+        # Se for um objeto CasADi, vamos usar os valores originais de solucao_anterior
+        x0_array = np.array(solucao_anterior)
+
+    x0_inf = np.isinf(x0_array)
+    x0_nan = np.isnan(x0_array)
+    if np.any(x0_inf):
+        print("ERRO: x0 contém valores infinitos nas posições:",
+              np.where(x0_inf)[0])
+    if np.any(x0_nan):
+        print("ERRO: x0 contém NaN nas posições:", np.where(x0_nan)[0])
+
+    # 4. Verificar parâmetros
+    print("\n4. Verificação de parâmetros:")
+    if isinstance(p, (np.ndarray, list)):
+        p_array = np.array(p)
+    else:
+        # Se for um objeto CasADi, vamos usar os valores originais de args['p']
+        p_array = np.array(args['p'])
+
+    p_inf = np.isinf(p_array)
+    p_nan = np.isnan(p_array)
+    if np.any(p_inf):
+        print("ERRO: p contém valores infinitos nas posições:",
+              np.where(p_inf)[0])
+    if np.any(p_nan):
+        print("ERRO: p contém NaN nas posições:", np.where(p_nan)[0])
+
+    # 5. Verificar limites consistentes
+    print("\n5. Verificação de consistência de limites:")
+    for i in range(len(args['lbx'])):
+        if args['lbx'][i] > args['ubx'][i]:
+            print(
+                f"ERRO: Limite inconsistente na variável {i}: lb={args['lbx'][i]} > ub={args['ubx'][i]}")
+
+    for i in range(len(args['lbg'])):
+        if args['lbg'][i] > args['ubg'][i]:
+            print(
+                f"ERRO: Limite inconsistente na restrição {i}: lb={args['lbg'][i]} > ub={args['ubg'][i]}")
+
+    # 6. Verificar x0 dentro dos limites
+    print("\n6. Verificação de x0 dentro dos limites:")
+    for i in range(len(x0_array)):
+        if i < len(args['lbx']) and (x0_array[i] < args['lbx'][i] or x0_array[i] > args['ubx'][i]):
+            print(
+                f"ERRO: x0[{i}]={x0_array[i]} está fora dos limites [{args['lbx'][i]}, {args['ubx'][i]}]")
+
+    # 7. Mostrar valores das primeiras restrições
+    print("\n7. Amostra de valores iniciais e limites:")
+    n_sample = min(5, len(x0_array))
+    print("\nPrimeiros valores de x0:")
+    for i in range(n_sample):
+        print(
+            f"x0[{i}] = {x0_array[i]}, limites: [{args['lbx'][i]}, {args['ubx'][i]}]")
+
+    print("\n8. Verificação de estrutura do problema:")
+    print(f"Número de variáveis de estado por passo: {nx}")
+    print(f"Número de variáveis de controle por passo: {nu}")
+    print(f"Horizonte de predição (hp): {hp}")
+    print(f"Horizonte de controle (hc): {hc}")
+
+    # Adicionar informações sobre as dimensões esperadas
+    # estados + controles + delta controles
+    n_vars_expected = nx * (hp + 1) + nu * hp + nu * hp
+    print(f"\nDimensões esperadas:")
+    print(f"Número total de variáveis esperado: {n_vars_expected}")
+    print(f"Número atual de variáveis: {len(args['lbx'])}")
+    if n_vars_expected != len(args['lbx']):
+        print("ERRO: Dimensão das variáveis não corresponde ao esperado!")
+
+    return
+
+
 # Exemplo de uso
 if __name__ == "__main__":
     import scipy.io as sio
@@ -287,7 +402,7 @@ if __name__ == "__main__":
 
     data_hora = '2024-07-17 01:00:00'
 
-    x_ini, u_ini = busca_condicao_inicial(data_hora, estimador_vazao, df)
+    x_atual, u_atual = busca_condicao_inicial(data_hora, estimador_vazao, df)
 
     variaveis_manipuladas = ['frequencia_BCSS',
                              'pressao_montante_alvo']
@@ -308,7 +423,7 @@ if __name__ == "__main__":
 
     reservatorio_esn = modelo_preditor['data']['a0'][0][0].reshape(-1)
 
-    entradas = u_ini + x_ini
+    entradas = u_atual + x_atual
 
     # esquentar ESN
     reservatorio_esn = esquentar_esn(
@@ -326,8 +441,8 @@ if __name__ == "__main__":
     dumax = [0.1, 1]
     margem_percentual = 1
 
-    HP = 3
-    HC = HP-1
+    hp = 3
+    hc = hp-1
 
     # Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
     matriz_qy = np.diag([1,  10])
@@ -375,6 +490,86 @@ if __name__ == "__main__":
 
     busca_limites = cria_busca_limites_casadi(matriz_limites_integrados)
 
-    solver = cria_solver(umax, umin, dumax, margem_percentual,
-                         HP, HC, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
-                         estimador_vazao, busca_limites, modelo_preditor, funcao_h, wall_time)
+    solver, args = cria_solver(umax, umin, dumax, margem_percentual,
+                               hp, hc, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
+                               estimador_vazao, busca_limites, modelo_preditor, funcao_h, wall_time)
+
+    type(solver)
+
+    # x0 = XIni
+    # Condição inicial das variáveis medidas (estados X)
+    x_atual_hp = np.tile(x_atual, (1 + hp))
+    # u0 = UIni
+    # Condição inicial das ações de controle (U)
+    u_atual_hp = np.tile(u_atual, (hp))
+
+    freq_alvo_atual = 60
+    limites = busca_limites(freq_alvo_atual).full()
+    # Mais conservador entre limite minimo e PMonAlvoMin
+    p_mon_alvo_atual = max(limites[1, 1], p_mon_alvo_max_min[1])
+    alvos_eng = np.array([freq_alvo_atual, p_mon_alvo_atual])
+
+    vazao_alvo_ini = float(estimador_vazao(
+        alvos_eng[0], alvos_eng[1] * conversao_bar_kgf))
+
+    ysp = np.hstack([
+        alvos_eng[1],
+        vazao_alvo_ini
+    ])
+
+    erro_x = np.zeros((nx))
+    erro_y = np.zeros((ny))
+    buff_delta_freq = np.zeros(45)
+    # Inicializa valores futuros (variáveis de decisão)
+    du_atual_hp = np.zeros((hp * nu))
+
+    solucao_anterior = np.hstack([x_atual_hp, u_atual_hp, du_atual_hp])
+    # args={}
+    args['p'] = np.hstack([x_atual, u_atual, alvos_eng, ysp, erro_x,
+                          erro_y, buff_delta_freq, reservatorio_esn])
+
+    # Uso:
+    # try:
+    #     print("Iniciando verificação do setup do solver...")
+    #     debug_solver_setup(
+    #         solver,
+    #         args,
+    #         ca.MX(solucao_anterior),  # x0
+    #         ca.MX(args['p'])  # p
+    #     )
+
+    #     print("\nTentando executar o solver...")
+    #     solucao = solver(
+    #         x0=ca.MX(solucao_anterior),
+    #         lbx=ca.MX(args['lbx']),
+    #         ubx=ca.MX(args['ubx']),
+    #         lbg=ca.MX(args['lbg']),
+    #         ubg=ca.MX(args['ubg']),
+    #         p=ca.MX(args['p'])
+    #     )
+    #     print("Solver executado com sucesso")
+
+    # except Exception as e:
+    #     print(f"\nERRO durante a execução: {str(e)}")
+    #     if hasattr(e, '__traceback__'):
+    #         import traceback
+    #         print("\nTraceback completo:")
+    #         traceback.print_tb(e.__traceback__)
+
+    solucao = solver(
+        x0=ca.MX(solucao_anterior),
+        lbx=ca.MX(args['lbx']),
+        ubx=ca.MX(args['ubx']),
+        lbg=ca.MX(args['lbg']),
+        ubg=ca.MX(args['ubg']),
+        p=ca.MX(args['p'])
+    )
+
+    feasible = solver.stats()['success']
+    iteracoes = solver.stats()['iter_count']
+
+    print('feasible:')
+    print(feasible)
+    print('iteracoes:')
+    print(iteracoes)
+    # print(f"Constraint violations: {solver.stats()['g_violation']}")

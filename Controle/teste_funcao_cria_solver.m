@@ -59,17 +59,17 @@ else
 end
 
 % Verificar os argumentos do solver (args)
-disp('Limites inferiores para variáveis de decisão (lbx):');
-disp(args.lbx);
-
-disp('Limites superiores para variáveis de decisão (ubx):');
-disp(args.ubx);
-
-disp('Limites inferiores para restrições (lbg):');
-disp(args.lbg);
-
-disp('Limites superiores para restrições (ubg):');
-disp(args.ubg);
+% disp('Limites inferiores para variáveis de decisão (lbx):');
+% disp(args.lbx);
+% 
+% disp('Limites superiores para variáveis de decisão (ubx):');
+% disp(args.ubx);
+% 
+% disp('Limites inferiores para restrições (lbg):');
+% disp(args.lbg);
+% 
+% disp('Limites superiores para restrições (ubg):');
+% disp(args.ubg);
 
 %% testando o solver
 
@@ -96,7 +96,10 @@ solver_X0=[ X0_Hp;  U0_Hp; du0_Up];
 
 args.p=[x0; u0; AlvoEng; Ysp; ErroX; ErroY; BuffDeltaFreq; ModeloPreditor.data.a0];
 
+tic
 solucao = solver('x0', solver_X0,'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
+toc
+
 feasible=solver.stats.success;
 iteracoes=solver.stats.iter_count;
 disp('feasible:')

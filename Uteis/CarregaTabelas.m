@@ -1,4 +1,4 @@
-clc
+
 %===============================
 % Carrega tabelas XLS para variáveis
 TabRestricoesDinamicas=readtable('DP.xlsx');              % Tabela de valores de referência para as variáveis
