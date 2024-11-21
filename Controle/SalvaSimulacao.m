@@ -5,13 +5,15 @@ Qy=Qu*diag([ umax(1)           umax(2)  ]);              % Desfaz contas de pond
 DadosProcesso=TabelaDadosProcesso(out.DadosProcesso);
 SaidaMPC=TabelaSaidasMPC(out.SaidaMPC,nx,Hp);
 
-NomeArq=strcat("Simula Hp ",num2str(Hp));
+%NomeArq=strcat("Simula Hp ",num2str(Hp));
+NomeArq=strcat("Simula Ini - ",num2str(Dth));
 save(NomeArq,'out','ny','nx','nu','Qy','Qu','Qx','R', 'Hp', 'Hc','umin','umax', 'dumax','SNR','LimitesMin','LimitesMax',...
     'DataHoraIni','WallTime','NomeESN','DadosProcesso','SaidaMPC');
 
 TabelaCompleta=horzcat(SaidaMPC,DadosProcesso);
 TabelaCompleta.('Tempo')=out.tout;
- writetable(TabelaCompleta,strcat(NomeArq,'.xlsx')); 
+ writetable(TabelaCompleta,strcat(NomeArq,'.xlsx'));
+ savefig(strcat(NomeArq,'.fig'))
 
 %% ===========================   FIM DO PROGRAMA PRINCIPAL ==============================
 %% ======================================================================================

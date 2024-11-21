@@ -40,34 +40,24 @@ LimiteProporcao=Ts/TempoESN;
 %% =============================================================================
 % Define condição inicial para a simulação de acordo com um instante com valores reais das variáveis do processo 
 % 
-% Observar que a condilçao inicial UIni (Freq e PMonAlvo) vem da condição
-% do processo no instante selecionado e possivelmente serão diferentes dos alvos estabelecidos pelo usuário. 
+% Observar que a condilçao inicial UIni (Freq e PMonAlvo) vem da condição do processo no instante selecionado
+% e possivelmente serão diferentes dos alvos estabelecidos pelo usuário. 
 % Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
 
+%% Inicio de rampas de aceleração. Podem inicializar UNFEASIBLE
+DataHoraIni='2024-06-18 00:00:00';    % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
+% DataHoraIni='2024-07-15 13:50:00';    % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
+% DataHoraIni='2024-07-17 00:00:00';    % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
+
 % Inicializações mais próximas da operação real
-% Condição inicial  das variáveis do processo e das entradas                       
-% DataHoraIni='2024-07-12 10:20:00';
-% DataHoraIni='2024-07-12 16:05:00';
+% Condição inicial  das variáveis do processo e das entradas      PSuc [bar],    PChegada [bar]        Freq [Hz]
+% DataHoraIni='2024-07-12 10:00:00';                                        % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
+% DataHoraIni='2024-07-12 15:45:00';                                        % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
 
-% Inicializa logo no inicio de rampas de aceleração
-% Condição inicial  das variáveis do processo e das entradas                       
-% DataHoraIni='2024-06-18 00:55:00';
-% DataHoraIni='2024-07-15 14:40:00';
-DataHoraIni='2024-07-17 01:00:00';
+% Inicialização em uma rampa mas PSUC MUITO LONGE !!!
+% DataHoraIni='2024-06-17 15:12:00';    % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
+
 [XIni,UIni]=SelCondicaoInicial(DataHoraIni,MatrizSimulador);         
-
-
-%% Inicializações antes usadas, mas que podiam inicializar UNFEASIBLE
-% Inicio de rampas de aceleração para comparação
-% [XIni,UIni]=SelCondicaoInicial('2024-06-18 00:00:00',MatrizSimulador);        % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
-% [XIni,UIni]=SelCondicaoInicial('2024-07-15 13:50:00',MatrizSimulador);        % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-% [XIni,UIni]=SelCondicaoInicial('2024-07-17 00:00:00',MatrizSimulador);            % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
-
-% Condição inicial  das variáveis do processo e das entradas     PSuc [bar],    PChegada [bar]        Freq [Hz]
-% [XIni,UIni]=SelCondicaoInicial('2024-07-12 10:00:00',MatrizSimulador);     % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
-% [XIni,UIni]=SelCondicaoInicial('2024-07-12 15:45:00',MatrizSimulador);       % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
-% [XIni,UIni]=SelCondicaoInicial('2024-06-17 15:12:00',MatrizSimulador);       % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
-
 
 %% Usa uma matriz h para seleção dos estados que vão compor a saida. Representa a função y=h(x) 
 matriz_h=zeros(2,height(XIni)); % Tamanho da matriz que vai indicar as variáveis controladas por setpoint    
@@ -115,7 +105,7 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
         FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
@@ -125,7 +115,7 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=34;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
+        PMonAlvoIni=32;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     end

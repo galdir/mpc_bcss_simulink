@@ -113,8 +113,8 @@ function Limites=CalcLimites(Freq,MatrizSimuladorContas,BTP,MatrizRestricoesDina
     ProtecaoDin(1,7)=min(ProtecaoDin(1,7),PCheMax);    % O limite máximo é o menor deles
     ProtecaoDin(2,7)=max(ProtecaoDin(2,7),PCheMin);    % O limite mínimo é o maior deles
     % Limites da PSuc  (Coluna 3 na matriz de Proteções Dinâmicas original da Petrobras)
-    ProtecaoDin(1,3)=min(ProtecaoDin(1,3),PSucMax);     % O limite máximo é o menor deles
-    ProtecaoDin(2,3)=max(ProtecaoDin(2,3),PSucMin);     % O limite mínimo é o maior deles
+%     ProtecaoDin(1,3)=min(ProtecaoDin(1,3),PSucMax);     % O limite máximo é o menor deles
+%     ProtecaoDin(2,3)=max(ProtecaoDin(2,3),PSucMin);     % O limite mínimo é o maior deles
 
 
     %======================================

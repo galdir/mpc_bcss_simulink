@@ -238,7 +238,7 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
         %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
         function  SaidaMPC= stepImpl(obj,X0,U0,AlvoEng,t)
-            disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
+%             disp(strcat("Simulação MPC em ",num2str(t)," s"));   % Só aqui usamos o tempo, útil para debug !!
 
             import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
 
@@ -329,7 +329,11 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
                         disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
-                    obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
+                    obj.contador = 0;   % Reinicia contador para a atuação do MPC
+                else      % O solver deu unfeasible (não achou solução ótima)
+                    if t<1800 & U0<50                 % 30 min iniciais, assegura alvo para o MPA tirar da condição de unfeasible 
+                        U0=U0+[ 0.1; 0];                % Incrementa frequencia em 0.1Hz
+                    end
                 end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
@@ -395,7 +399,6 @@ function [Jy, Ju, Jr, Jx]=CalcCusto(Xk, Uk, Hp, Hc, Qy, Qu, R, Qx,ErroX,ErroY,Ys
 
     end
 end
-
 
 %% ==============================================================================
 %% Função para extrair partes que compõe a solução
