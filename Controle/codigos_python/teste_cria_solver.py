@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import casadi as ca
 import numpy as np
+import time
 
 from cria_solver import busca_condicao_inicial, cria_solver, extrai_parametros
 from limites import cria_busca_limites_casadi
@@ -156,60 +157,33 @@ buff_delta_freq = np.zeros(45)
 du_atual_hp = np.zeros((hp * nu))
 
 solucao_anterior = np.hstack([x_atual_hp, u_atual_hp, du_atual_hp])
-# args={}
+
 args['p'] = np.hstack([x_atual, u_atual, alvos_eng, ysp, erro_x,
                        erro_y, buff_delta_freq, reservatorio_esn])
 
-# nx_ESN = len(modelo_preditor['data']['a0'][0][0])
-# indice_parametros = [
-#         nx,     # qtd Medições
-#         nu,     # qtd Ações
-#         nu,     # qtd AlvoEng
-#         ny,     # qtd Ysp
-#         nx,     # qtd ErroX
-#         ny,     # qtd ErroY
-#         45,     # tamanho do Buffer de DeltaFreq
-#         nx_ESN  # tamanho do estado do modelo de predicao
-#     ]
-
-# xk0, uk0, alvo_eng, ysp, erro_x, erro_y, buff_delta_freq, modelo_preditor_estado_atual = extrai_parametros(
-#         args['p'], indice_parametros)
-# Uso:
-# try:
-#     print("Iniciando verificação do setup do solver...")
-#     debug_solver_setup(
-#         solver,
-#         args,
-#         ca.MX(solucao_anterior),  # x0
-#         ca.MX(args['p'])  # p
-#     )
-
-#     print("\nTentando executar o solver...")
-#     solucao = solver(
-#         x0=ca.MX(solucao_anterior),
-#         lbx=ca.MX(args['lbx']),
-#         ubx=ca.MX(args['ubx']),
-#         lbg=ca.MX(args['lbg']),
-#         ubg=ca.MX(args['ubg']),
-#         p=ca.MX(args['p'])
-#     )
-#     print("Solver executado com sucesso")
-
-# except Exception as e:
-#     print(f"\nERRO durante a execução: {str(e)}")
-#     if hasattr(e, '__traceback__'):
-#         import traceback
-#         print("\nTraceback completo:")
-#         traceback.print_tb(e.__traceback__)
+t1_start = time.process_time() 
 
 solucao = solver(
-    x0=ca.MX(solucao_anterior),
-    lbx=ca.MX(args['lbx']),
-    ubx=ca.MX(args['ubx']),
-    lbg=ca.MX(args['lbg']),
-    ubg=ca.MX(args['ubg']),
-    p=ca.MX(args['p'])
+    x0=solucao_anterior,
+    lbx=args['lbx'],
+    ubx=args['ubx'],
+    lbg=args['lbg'],
+    ubg=args['ubg'],
+    p=args['p']
 )
+
+t1_stop =  time.process_time()
+print("Elapsed time during the whole program in seconds:",
+                                         t1_stop-t1_start) 
+
+# solucao = solver(
+#     x0=ca.MX(solucao_anterior),
+#     lbx=ca.MX(args['lbx']),
+#     ubx=ca.MX(args['ubx']),
+#     lbg=ca.MX(args['lbg']),
+#     ubg=ca.MX(args['ubg']),
+#     p=ca.MX(args['p'])
+# )
 
 feasible = solver.stats()['success']
 iteracoes = solver.stats()['iter_count']
@@ -219,3 +193,12 @@ print(feasible)
 print('iteracoes:')
 print(iteracoes)
 #print(f"Constraint violations: {solver.stats()['g_violation']}")
+stats = solver.stats()
+total_wall_time = (stats['t_wall_nlp_f'] + stats['t_wall_nlp_g'] + 
+                  stats['t_wall_nlp_grad_f'] + stats['t_wall_nlp_jac_g'] + 
+                  stats['t_wall_nlp_hess_l'])
+print(f'tempo solver: {total_wall_time}')
+
+solucao_manipuladas = solucao["x"].full().reshape(-1)[(-hp*3*2):]
+
+print(f'solucao: {solucao["x"].full().reshape(-1)}')

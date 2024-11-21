@@ -106,3 +106,6 @@ disp('feasible:')
 disp(feasible)
 disp('iteracoes:')
 disp(iteracoes)
+solucao_manipuladas = full(solucao.x);
+solucao_manipuladas = solucao_manipuladas(nx*(Hp+1)+1:nx*(Hp+1)+1+1);
+disp(solucao_manipuladas)
