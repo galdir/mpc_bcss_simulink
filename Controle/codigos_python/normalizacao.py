@@ -1,4 +1,4 @@
-def get_min_max_BCSS(coluna: str) -> tuple[float, float]:
+def get_min_max_BCSS(coluna: str):
     """
     Retorna os valores mínimos e máximos para normalização de colunas específicas.
 

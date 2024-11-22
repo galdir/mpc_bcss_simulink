@@ -1,9 +1,54 @@
+from pathlib import Path
 import casadi as ca
 import numpy as np
+import sys
+import os
+import scipy.io as sio
+
+import pandas as pd
+sys.path.append(os.path.abspath("codigos_python"))
+#sys.path.append(os.path.abspath("../../Tabelas"))
+#sys.path.append(os.path.abspath("../../Modelos/ESN/"))
 
 from limites import cria_busca_limites_casadi
+from predicao import executa_predicao_casadi
 from estima_vazao import cria_estimador_vazao_casadi
-from predicao import esquentar_esn, executa_predicao_casadi
+
+
+def cria_solver_com_funcoes(umax, umin, dumax, margem_percentual,
+                hp, hc, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
+                walltime):
+    arquivo_tabela_vazao = 'DoSimulador.xlsx'
+    arquivo_tabela_limites_integrados = 'TabelaLimitesDinamicos.xlsx'
+    caminho_tabelas = Path("../Tabelas")
+    nome_modelo_esn = 'weightsESNx_TR400_TVaz0.9_RaioE0.4.mat'
+    caminho_modelos = Path("../Modelos/ESN")
+
+    
+    
+    df_matriz_vazao = pd.read_excel(
+        caminho_tabelas / arquivo_tabela_vazao, skiprows=2, header=None)
+    matriz = df_matriz_vazao.iloc[:, :3].values
+
+    df_limites_integrados = pd.read_excel(
+        caminho_tabelas / arquivo_tabela_limites_integrados)
+    matriz_limites_integrados = df_limites_integrados.values
+
+    estima_vazao = cria_estimador_vazao_casadi(matriz)
+    
+    busca_limites = cria_busca_limites_casadi(matriz_limites_integrados)
+    
+    caminho_modelo_esn = caminho_modelos / nome_modelo_esn
+
+    modelo_preditor = sio.loadmat(caminho_modelo_esn)
+
+    print('aqui')
+    funcao_h = cria_funcao_h(nx)
+    
+
+    return cria_solver(umax, umin, dumax, margem_percentual,
+                    hp, hc, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
+                    estima_vazao, busca_limites, modelo_preditor, funcao_h, walltime)
 
 
 def cria_solver(umax, umin, dumax, margem_percentual,
@@ -284,3 +329,22 @@ def busca_condicao_inicial(data_hora, estimador_vazao, df):
              vazao_ini]
 
     return [x_ini, u_ini]
+
+def cria_funcao_h(nx):
+    # Tamanho da matriz que vai indicar as variáveis controladas por setpoint
+    matriz_h = np.zeros((2, nx))
+
+    # PChegada - Coluna na linha 1 que indica a primeira variável controlada
+    matriz_h[0, 1] = 1
+
+    # Vazao - Coluna na linha 2 que indica a segunda variável controlada
+    matriz_h[1, 10] = 1
+
+    # Criação da variável simbólica para os estados medidos
+    estados_medidos_sym = ca.MX.sym('estados_medidos', nx, 1)
+
+    # Função de saída que mapeia diretamente o estado para a saída
+    funcao_h = ca.Function('h',
+                        [estados_medidos_sym],
+                        [ca.mtimes(matriz_h, estados_medidos_sym)])
+    return funcao_h

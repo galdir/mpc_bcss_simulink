@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 import time
 
-from cria_solver import busca_condicao_inicial, cria_solver, extrai_parametros
+from cria_solver import busca_condicao_inicial, cria_funcao_h, cria_solver
 from limites import cria_busca_limites_casadi
 from predicao import esquentar_esn
 from estima_vazao import cria_estimador_vazao_casadi
@@ -95,22 +95,7 @@ nu = matriz_qu.shape[0]
 # Número de variáveis de saida controladas por SetPoint
 ny = matriz_qy.shape[0]
 
-# Tamanho da matriz que vai indicar as variáveis controladas por setpoint
-matriz_h = np.zeros((2, nx))
-
-# PChegada - Coluna na linha 1 que indica a primeira variável controlada
-matriz_h[0, 1] = 1
-
-# Vazao - Coluna na linha 2 que indica a segunda variável controlada
-matriz_h[1, 10] = 1
-
-# Criação da variável simbólica para os estados medidos
-estados_medidos_sym = ca.MX.sym('estados_medidos', nx, 1)
-
-# Função de saída que mapeia diretamente o estado para a saída
-funcao_h = ca.Function('h',
-                       [estados_medidos_sym],
-                       [ca.mtimes(matriz_h, estados_medidos_sym)])
+funcao_h = cria_funcao_h(nx)
 
 wall_time = 10  # Tempo máximo de execução
 
@@ -126,8 +111,6 @@ busca_limites = cria_busca_limites_casadi(matriz_limites_integrados)
 solver, args = cria_solver(umax, umin, dumax, margem_percentual,
                            hp, hc, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
                            estimador_vazao, busca_limites, modelo_preditor, funcao_h, wall_time)
-
-type(solver)
 
 # x0 = XIni
 # Condição inicial das variáveis medidas (estados X)
