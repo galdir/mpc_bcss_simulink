@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import casadi as ca
 import numpy as np
@@ -15,9 +16,25 @@ from predicao import executa_predicao_casadi
 from estima_vazao import cria_estimador_vazao_casadi
 
 
-def cria_solver_com_funcoes(umax, umin, dumax, margem_percentual,
-                hp, hc, matriz_qy, matriz_qu, matriz_r, matriz_qx, nx, nu, ny,
+def cria_solver_json(umax_json, umin_json, dumax_json, margem_percentual,
+                hp, hc, matriz_qy_json, matriz_qu_json, matriz_r_json, matriz_qx_json, nx, nu, ny,
                 walltime):
+    print(umax_json)
+    print(type(umax_json))
+    print(dumax_json)
+    print(type(matriz_qx_json))
+    print(matriz_qx_json)
+
+   
+    umax = np.array(json.loads(umax_json))
+    umin = np.array(json.loads(umin_json))
+    dumax = np.array(json.loads(dumax_json))
+    matriz_qy = np.array(json.loads(matriz_qy_json))
+    matriz_qu = np.array(json.loads(matriz_qu_json))
+    matriz_r = np.array(json.loads(matriz_r_json))
+    matriz_qx = np.array(json.loads(matriz_qx_json))
+
+
     arquivo_tabela_vazao = 'DoSimulador.xlsx'
     arquivo_tabela_limites_integrados = 'TabelaLimitesDinamicos.xlsx'
     caminho_tabelas = Path("../Tabelas")
@@ -42,7 +59,6 @@ def cria_solver_com_funcoes(umax, umin, dumax, margem_percentual,
 
     modelo_preditor = sio.loadmat(caminho_modelo_esn)
 
-    print('aqui')
     funcao_h = cria_funcao_h(nx)
     
 
@@ -219,10 +235,12 @@ def cria_solver(umax, umin, dumax, margem_percentual,
         g = ca.vertcat(g, u_sym[:, k] - u_sym[:, k-1])
         args['lbg'].extend([0] * nu)
         args['ubg'].extend([0] * nu)
-
+        
+    print('aqui 1')
     # Preparando o custo da função objetivo
     fob = 0
     fob += ca.mtimes(ca.mtimes(erro_x.T, matriz_qx), erro_x)
+    print('aqui 2')
 
     for k in range(hp):
         y_saida = funcao_h(x_sym[:, k+1])

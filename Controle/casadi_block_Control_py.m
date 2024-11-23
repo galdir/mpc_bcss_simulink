@@ -223,15 +223,26 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
             % Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl
 
             %funcao para criar o solver        
-%             [solver, args_solver] = cria_solver(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
-%                 obj.Hp, obj.Hc, obj.Qy, obj.Qu, obj.R, obj.Qx, obj.nx, obj.nu, obj.ny, ...
-%                 obj.EstimaVazao, obj.f_buscaLimites_sym, obj.ModeloPreditor, obj.Funcao_h, obj.WallTime);
+             [solver, args_solver] = cria_solver(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
+                 obj.Hp, obj.Hc, obj.Qy, obj.Qu, obj.R, obj.Qx, obj.nx, obj.nu, obj.ny, ...
+                 obj.EstimaVazao, obj.f_buscaLimites_sym, obj.ModeloPreditor, obj.Funcao_h, obj.WallTime);
 
             cria_solver_py = py.importlib.import_module('codigos_python.cria_solver');
             py.importlib.reload(py.importlib.import_module('codigos_python.cria_solver'));
-            [solver, args_solver] = cria_solver_py.cria_solver_com_funcoes(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
-                 obj.Hp, obj.Hc, obj.Qy, obj.Qu, obj.R, obj.Qx, int32(obj.nx), obj.nu, obj.ny, ...
-                 obj.WallTime);
+            umax_json = jsonencode(obj.umax);
+            umin_json = jsonencode(obj.umin);
+            dumax_json = jsonencode(obj.dumax);
+            qy_json = jsonencode(obj.Qy);
+            qu_json = jsonencode(obj.Qu);
+            r_json = jsonencode(obj.R);
+            qx_json = jsonencode(obj.Qx);
+
+            resultado = cria_solver_py.cria_solver_json(umax_json, umin_json, dumax_json, int32(obj.MargemPercentual), ...
+                 int32(obj.Hp), int32(obj.Hc), qy_json, qu_json, r_json, qx_json, int32(obj.nx), int32(obj.nu), int32(obj.ny), ...
+                 int32(obj.WallTime));
+
+            solver_py = resultado(1);
+            args_solver_py = resultado(2);
 
             obj.casadi_solver=solver;
 
