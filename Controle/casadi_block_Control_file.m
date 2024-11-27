@@ -157,7 +157,7 @@ classdef casadi_block_Control_file< matlab.System & matlab.system.mixin.Propagat
             obj.umin =  evalin('base','umin');               % Valores mínimos para as entradas (Freq e PMonAlvo)
             obj.dumax =  evalin('base','dumax');          % Variação máxima do DeltaU nas entradas (variáveis manipuladas Freq e PMonAlvo)
             obj.MargemPercentual=evalin('base','MargemPercentual');   % Margem de folga para os limites dos alarmes
-            
+
             % Do controlador
             Hp =  evalin('base','Hp');  obj.Hp=Hp;  % Horizonte de predição
             Hc =  evalin('base','Hc');   obj.Hc=Hc; % Horizonte de controle
@@ -222,10 +222,10 @@ classdef casadi_block_Control_file< matlab.System & matlab.system.mixin.Propagat
             %% =============================================================================================
             % Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl
 
-            %funcao para criar o solver        
-             [solver, args_solver] = cria_solver(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
-                 obj.Hp, obj.Hc, obj.Qy, obj.Qu, obj.R, obj.Qx, obj.nx, obj.nu, obj.ny, ...
-                 obj.EstimaVazao, obj.f_buscaLimites_sym, obj.ModeloPreditor, obj.Funcao_h, obj.WallTime);
+            %funcao para criar o solver
+            [solver, args_solver] = cria_solver(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
+                obj.Hp, obj.Hc, obj.Qy, obj.Qu, obj.R, obj.Qx, obj.nx, obj.nu, obj.ny, ...
+                obj.EstimaVazao, obj.f_buscaLimites_sym, obj.ModeloPreditor, obj.Funcao_h, obj.WallTime);
 
             obj.casadi_solver=solver;
 
@@ -241,51 +241,12 @@ classdef casadi_block_Control_file< matlab.System & matlab.system.mixin.Propagat
         function  SaidaMPC= stepImpl(obj,X0,U0,AlvoEng,t)
             disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
             %escrever arquivo para o ddmpc python
-            % Define as chaves e seus valores de tags
-            tags = struct();
-            tags.pressao_succao_BCSS = 'M54PI103E/1.PV';
-            tags.pressao_chegada = 'T61PSI033/1.PV';
-            tags.pressao_diferencial_BCSS = 'M54PDI109E/1.PV';
-            tags.pressao_descarga_BCSS = 'M54PI104E/1.PV';
-            tags.temperatura_motor_BCSS = 'M54TI106E/1.PV';
-            tags.corrente_torque_BCSS = 'M54II108E/1.PV';
-            tags.corrente_total_BCSS = 'M54IQI117E/1.PV';
-            tags.temperatura_succao_BCSS = 'M54TI105E/1.PV';
-            tags.vibracao_BCSS = 'M54VXI107E/1.PV';
-            tags.frequencia_BCSS = 'M54SI111E/1.PV_OS';
-            tags.pressao_montante_alvo = 'TE4104_PMON_ALVO';
-            tags.frequencia_BCSS_alvo_eng = 'frequencia_BCSS_alvo_eng';
-            tags.pressao_montante_alvo_eng = 'pressao_montante_alvo_eng';
+            arquivo_entrada_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_entrada.csv';
+            escreve_entradas_ddmpc(X0, U0, AlvoEng, arquivo_entrada_ddmpc);
 
-            % Assume que seus dados estão em um array chamado 'dados'
-            % dados = [valor1 valor2 valor3 ...]; % seu array de dados aqui
-            dados = [X0(1:end-1);U0;AlvoEng]; %removendo vazao
-            % Pega os nomes das tags da struct
-            tagNames = fieldnames(tags);
-
-            % Abre o arquivo para escrita
-            fileID = fopen('output.csv', 'w');
-
-            % Escreve a primeira linha (valores das tags)
-            for i = 1:length(tagNames)
-                fprintf(fileID, '%s', tags.(tagNames{i}));
-                if i < length(tagNames)
-                    fprintf(fileID, ';');
-                end
-            end
-            fprintf(fileID, '\n');
-
-            % Escreve a segunda linha (valores numéricos)
-            for i = 1:length(dados)
-                fprintf(fileID, '%.6f', dados(i));  % usando 6 casas decimais, ajuste conforme necessário
-                if i < length(dados)
-                    fprintf(fileID, ';');
-                end
-            end
             
-            % Fecha o arquivo
-            fclose(fileID);
-                       
+            arquivo_saida_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_saida_extendida.csv';
+            saidas = ler_saidas_ddmpc(arquivo_saida_ddmpc);
 
             % Inicializa custos parciais que podem compor a função objetivo
             Jy=0; Ju=0; Jr=0; Jx=0;
@@ -306,10 +267,10 @@ classdef casadi_block_Control_file< matlab.System & matlab.system.mixin.Propagat
                 end
 
                 %TempoIni=tic;   % Inicaliza contagem de tempo para o Solver
-                
+
                 nomeArquivoSaidaPython = 'variaveis_saida.csv';
                 [freq_alvo, pressao_montante_alvo, Feasible, TempoSolver] = lerEApagarArquivo(nomeArquivoSaidaPython);
-                
+
                 %% Se uma solução foi encontrada
                 if Feasible
                     % Saida do Solver. Dimensão = [ EstadosAtuais e futuros em todo Hp  +   U até Hp           DeltaU até Hp   ]
@@ -404,49 +365,133 @@ function   [Xk,Uk,DeltaUk]=ExtraiSolucao(Solucao,Indice)
     DeltaUk=Solucao(De(3):Ate(3));
 end
 
+function escreve_entradas_ddmpc(X0, U0, AlvoEng, nome_arquivo)
 
+    % Define as chaves e seus valores de tags
+    tags = struct();
+    tags.pressao_succao_BCSS = 'M54PI103E/1.PV';
+    tags.pressao_chegada = 'T61PSI033/1.PV';
+    tags.pressao_diferencial_BCSS = 'M54PDI109E/1.PV';
+    tags.pressao_descarga_BCSS = 'M54PI104E/1.PV';
+    tags.temperatura_motor_BCSS = 'M54TI106E/1.PV';
+    tags.corrente_torque_BCSS = 'M54II108E/1.PV';
+    tags.corrente_total_BCSS = 'M54IQI117E/1.PV';
+    tags.temperatura_succao_BCSS = 'M54TI105E/1.PV';
+    tags.vibracao_BCSS = 'M54VXI107E/1.PV';
+    tags.temperatura_chegada = 'T61TI035/1.PV';
+    tags.frequencia_BCSS = 'M54SI111E/1.PV_OS';
+    tags.pressao_montante_alvo = 'TE4104_PMON_ALVO';
+    tags.freq_alvo_BCSS = 'TE4104_FREQ_ALVO';
+    %tags.pressao_montante_alvo_eng = 'pressao_montante_alvo_eng';
 
-function [freq_alvo, pressao_montante] = lerEApagarArquivo(nomeArquivo)
-    %nomeArquivo = 'variaveis_saida.csv';
-    freq_alvo = NaN;
-    pressao_montante = NaN;
-    
-    % Loop principal que só termina quando todas as operações forem bem sucedidas
-    while true
-        try
-            % Verifica se o arquivo existe
-            if ~isfile(nomeArquivo)
-                fprintf('Arquivo %s não encontrado. Aguardando...\n', nomeArquivo);
-                pause(1); % Espera 1 segundo antes de tentar novamente
-                continue;
-            end
-            
-            % Tenta ler o arquivo
-            dados = readtable(nomeArquivo, 'Delimiter', ';', 'Format', '%{yyyy-MM-dd HH:mm:ss.SSSSSS}D %f %f');
-            
-            % Extrai os valores numéricos
-            freq_alvo = dados.freq_alvo_BCSS(1);
-            pressao_montante = dados.pressao_montante_alvo(1);
-            
-            % Mostra os valores lidos
-            fprintf('Valores lidos:\n');
-            fprintf('Frequência alvo: %.6f\n', freq_alvo);
-            fprintf('Pressão montante: %.6f\n', pressao_montante);
-            
-            % Tenta apagar o arquivo
-            delete(nomeArquivo);
-            
-            % Verifica se o arquivo foi realmente apagado
-            if ~isfile(nomeArquivo)
-                fprintf('Arquivo %s foi apagado com sucesso!\n', nomeArquivo);
-                break; % Sai do loop apenas se todas as operações foram bem sucedidas
-            else
-                fprintf('Falha ao apagar o arquivo. Tentando novamente...\n');
-            end
-            
-        catch erro
-            fprintf('Erro durante a operação: %s\n', erro.message);
-            pause(1); % Espera 1 segundo antes de tentar novamente
+    % Assume que seus dados estão em um array chamado 'dados'
+    % dados = [valor1 valor2 valor3 ...]; % seu array de dados aqui
+    dados = [X0(1:end-1);U0;AlvoEng(1)]; %removendo vazao e duplicata da pmon_alvo
+    % Pega os nomes das tags da struct
+    tagNames = fieldnames(tags);
+
+    % Abre o arquivo para escrita
+    fileID = fopen(nome_arquivo, 'w');
+
+    % Escreve a primeira linha (valores das tags)
+    for i = 1:length(tagNames)
+        fprintf(fileID, '%s', tags.(tagNames{i}));
+        if i < length(tagNames)
+            fprintf(fileID, ';');
         end
     end
+    fprintf(fileID, '\n');
+
+    % Escreve a segunda linha (valores numéricos)
+    for i = 1:length(dados)
+        fprintf(fileID, '%.6f', dados(i));  % usando 6 casas decimais, ajuste conforme necessário
+        if i < length(dados)
+            fprintf(fileID, ';');
+        end
+    end
+
+    % Fecha o arquivo
+    fclose(fileID);
+end
+
+
+function [variaveis] = ler_saidas_ddmpc(nome_arquivo)
+    variaveis = []
+    % Loop para esperar o arquivo existir
+    if exist(nome_arquivo, 'file')
+        try
+            % Tenta ler o arquivo
+            dados = readtable(nome_arquivo, 'Delimiter', ';');
+
+            % Se conseguiu ler, tenta deletar
+            delete(nome_arquivo);
+
+            % Se chegou aqui, conseguiu ler e deletar
+            break;
+        catch ME
+            disp('erro na leitura do arquivo de saidas')
+        end
+
+
+    % Criar estrutura para armazenar as variáveis
+    variaveis = struct();
+
+    % Extrair variáveis básicas
+    variaveis.data_hora = dados.data_hora;
+    variaveis.feasible = dados.feasible;
+    variaveis.iteracoes = dados.iteracoes;
+    variaveis.tempo_solver = dados.tempo_solver;
+    variaveis.freq_alvo_BCSS = dados.freq_alvo_BCSS;
+    variaveis.pressao_montante_alvo = dados.pressao_montante_alvo;
+    variaveis.delta_freq_alvo_BCSS = dados.delta_freq_alvo_BCSS;
+    variaveis.delta_pressao_montante_alvo = dados.delta_pressao_montante_alvo;
+    variaveis.soma_delta_freq = dados.soma_delta_freq;
+    variaveis.jy = dados.jy;
+    variaveis.ju = dados.ju;
+    variaveis.jr = dados.jr;
+    variaveis.jx = dados.jx;
+    variaveis.ysp_0 = dados.ysp_0;
+    variaveis.ysp_1 = dados.ysp_1;
+
+    % Extrair variáveis erro_x
+    colunas_erro_x = startsWith(dados.Properties.VariableNames, 'erro_x_');
+    nomes_erro_x = dados.Properties.VariableNames(colunas_erro_x);
+    erro_x = zeros(1, sum(colunas_erro_x));
+
+    for i = 1:length(nomes_erro_x)
+        erro_x(i) = dados.(nomes_erro_x{i})(1);
+    end
+    variaveis.erro_x = erro_x;
+
+    % Extrair variáveis erro_y
+    colunas_erro_y = startsWith(dados.Properties.VariableNames, 'erro_y_');
+    nomes_erro_y = dados.Properties.VariableNames(colunas_erro_y);
+    erro_y = zeros(1, sum(colunas_erro_y));
+
+    for i = 1:length(nomes_erro_y)
+        erro_y(i) = dados.(nomes_erro_y{i})(1);
+    end
+    variaveis.erro_y = erro_y;
+
+    % Extrair variáveis xk
+    colunas_xk = startsWith(dados.Properties.VariableNames, 'xk_');
+    nomes_xk = dados.Properties.VariableNames(colunas_xk);
+    xk = zeros(1, sum(colunas_xk));
+
+    for i = 1:length(nomes_xk)
+        xk(i) = dados.(nomes_xk{i})(1);
+    end
+    variaveis.xk = xk;
+
+    % Extrair variáveis uk
+    colunas_uk = startsWith(dados.Properties.VariableNames, 'uk_');
+    nomes_uk = dados.Properties.VariableNames(colunas_uk);
+    uk = zeros(1, sum(colunas_uk));
+
+    for i = 1:length(nomes_uk)
+        uk(i) = dados.(nomes_uk{i})(1);
+    end
+    variaveis.uk = uk;
+
+    fprintf('Arquivo lido e removido com sucesso!\n');
 end
