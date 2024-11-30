@@ -263,7 +263,7 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
             Xk = zeros(1, obj.nx * (obj.Hp+1));
             Uk = zeros(1, obj.nu * obj.Hp);
             
-            %pause(5);
+            pause(0.5);
             saidas = ler_saidas_ddmpc_quando_modificado(obj.arquivo_saida_ddmpc);
             if size(saidas) > 0
                 Feasible = saidas.feasible;
