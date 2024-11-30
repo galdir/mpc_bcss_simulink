@@ -268,6 +268,8 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
             % Vazão ótima é estimada com o FreqAlvoENG e PMonAlvoENG
             conversao_bar_kgf = 1.019716;
             Ysp= [ AlvoEng(2) ;    full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2)*conversao_bar_kgf)) ];
+            disp('Ysp')
+            disp(Ysp)
 
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver

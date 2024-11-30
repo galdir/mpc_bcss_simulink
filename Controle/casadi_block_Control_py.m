@@ -43,6 +43,7 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
         MargemPercentual
         contador                                                     % Variável para guardar o contador de passos de amostragem - usado para definir momentos de atuação do MPC
         NumCasasDecimais                                  % NUmero de casas decimais para limite minimo de ação do DeltaU
+        arquivo_saida_ddmpc
     end
     %%======================================================
     methods (Access = protected)
@@ -141,6 +142,9 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
         %% ================     Inicialização geral dos parâmetros e solver - só passa aqui uma única vez
         function setupImpl(obj,~)
             tInicializa=tic;                                         % Marcador para o tempo gasto na Inicialização
+            obj.arquivo_saida_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_saida_extendida.csv';
+            deletar_arquivo_saidas_ddmpc(obj.arquivo_saida_ddmpc)
+            
             import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
             obj.contador = 0;                                   % Contador para indicar passos/momentos de atuação do controle MPC
             obj.NumCasasDecimais=evalin('base', 'NumCasasDecimais');   % Numero de casas decimais para ações de DeltaU
@@ -244,79 +248,49 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
             %escrever arquivo para o ddmpc python
             arquivo_entrada_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_entrada.csv';
             escreve_entradas_ddmpc(X0, U0, AlvoEng, arquivo_entrada_ddmpc);
-            pause(5);
-
-            
-            arquivo_saida_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_saida_extendida.csv';
-            saidas = ler_saidas_ddmpc(arquivo_saida_ddmpc);
-
             
 
             % Inicializa custos parciais que podem compor a função objetivo
             Jy=0; Ju=0; Jr=0; Jx=0;
-
-            %% ===================== %Parâmetros e atuação do solver ========================================
-            obj.contador = obj.contador+1;     % Contador ajudará a saber se é momento para atuar o controlador
-            DeltaU=zeros(nu,1);                     % Reinicia DeltaU=0, inclusive para saber quando não passou pelo Solver
+            DeltaU=zeros(1, obj.nu);                     % Reinicia DeltaU=0, inclusive para saber quando não passou pelo Solver
             TempoSolver=0;                            % Inicializa contador para calcular o tempo gasto com o Solver, quando for o caso !!
             Feasible=0.5;                                 % Assumir padrão para indicar que não passou pelo Solver
             Iteracoes=0;                                   % Numero de iterações, alterado qdo passa pelo Solver
-            TempoSolver=0;
-            %% Passo para atuação do MPC/Solver
-            if (obj.contador >= PassoMPC)    % Solver só entra no passo definido pelos parâmetros de Passo do MPC ou se deu Unfeasible na amostra anteriior
-                %% Para acompanhar caso de UNFEASIBLE
-                if  obj.contador > PassoMPC   % (Passou por uma condição unfeasible, por isso não ressetou o contador
-                    disp(strcat("Simulação MPC anterior em ",num2str(t),"s  deu unfeasible"))   % Só aqui usamos o tempo, útil para debug !!
-                    disp(strcat("Esta é a tentativa ",num2str(obj.contador-PassoMPC)," para tentar achar solução ótima !!"))
+            SomaDeltaFreq = 0;
+            ErroX = zeros(1, obj.nx);  
+            ErroY = zeros(1, obj.ny);
+            Ysp = zeros(1, obj.ny);
+            Xk = zeros(1, obj.nx * (obj.Hp+1));
+            Uk = zeros(1, obj.nu * obj.Hp);
+            
+            %pause(5);
+            saidas = ler_saidas_ddmpc_quando_modificado(obj.arquivo_saida_ddmpc);
+            if size(saidas) > 0
+                Feasible = saidas.feasible;
+                Iteracoes = saidas.iteracoes;
+                TempoSolver = saidas.tempo_solver;
+                DeltaU = [saidas.du0_0, saidas.du0_1];
+                SomaDeltaFreq = saidas.soma_delta_freq;
+                Jy=saidas.jy; 
+                Ju=saidas.ju; 
+                Jr=saidas.jr; 
+                Jx=saidas.jx;
+                ErroX = saidas.erro_x;
+                ErroY = saidas.erro_y;
+                Ysp = [saidas.ysp_0, saidas.ysp_1];
+                Xk = saidas.xk;
+                Uk = saidas.uk;
+                if(saidas.timestamp~=-1)
+                    U0 = [saidas.u0_0, saidas.u0_1]';
                 end
-
-                %TempoIni=tic;   % Inicaliza contagem de tempo para o Solver
-
-                nomeArquivoSaidaPython = 'variaveis_saida.csv';
-                [freq_alvo, pressao_montante_alvo, Feasible, TempoSolver] = lerEApagarArquivo(nomeArquivoSaidaPython);
-
-                %% Se uma solução foi encontrada
-                if Feasible
-                    % Saida do Solver. Dimensão = [ EstadosAtuais e futuros em todo Hp  +   U até Hp           DeltaU até Hp   ]
-                    %Indice = [                                                      nx*(1+Hp)                                       nu*Hp                    nu*Hp              ];
-                    %Solucao_MPC=full(solver.x);                          % Solução ótima encontrada pelo otimizador
-                    %[Xk,Uk,DeltaUk]=ExtraiSolucao(Solucao_MPC,Indice);
-                    %[Jy, Ju, Jr, Jx]=CalcCusto(Xk, Uk, Hp, Hc, obj.Qy, obj.Qu, obj.R, obj.Qx,ErroX,ErroY,Ysp,AlvoEng,Funcao_h);
-                    % Como o solver indica novo futuro predito, atualiza x0 e u0 para os próximos ciclos
-                    %obj.x0=Xk;              % Guarda nova condição inicial x0 para os estados atuais e preditos pelo solver
-                    %obj.u0=Uk;              % Guarda ações de controle (U ótimos) atuais e preditos pelo solver
-                    %DeltaU=DeltaUk(1:nu);                     % Delta U como variável indicada pelo solver
-                    %DeltaU2=obj.u0(1:nu)-U0;                 % DeltaU = Ação ótima calculada agora, menos a ação antes aplicada
-                    %if norm(DeltaU-DeltaU2,2)>1e-10
-                    %    disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
-                    %    disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
-                    %end
-                    obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
-                end
-                %TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
-            %% Independentemente do Solver ter ou não ter encontrado uma solução ótima
-            DeltaU=round(DeltaU,obj.NumCasasDecimais);
-            Xk=obj.x0;   % Resgata valores para disponibilizar na saida do bloco MPC
-            Uk=obj.u0;   % Resgata valores para disponibilizar na saida do bloco MPC
-            obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
-            U0=U0+DeltaU;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
-            SomaDeltaFreq=sum(obj.BuffDeltaFreq);
-            SomaDeltaFreq=round(SomaDeltaFreq,obj.NumCasasDecimais);
-            if SomaDeltaFreq>1
-                disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
-                disp("Não sei como poderia a soma ser > 1  !!")
-            end
-            if DeltaU(1)>0.1
-                disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
-                disp("Não sei como poderia ter DeltaFreq > 0.1  !!")
-            end
+                
 
             % Prepara saidas do bloco MPC
             % Dimensão = [     1             1                    1              nu     nu                   1                1    1    1   1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ]
-            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U0; DeltaU;  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX;  ErroY;  Ysp;        Xk;               Uk    ];
+            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U0; DeltaU';  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX';  ErroY';  Ysp';        Xk';               Uk'    ];
 
-            % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado
+             % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado
             ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor
             [x_predito, ESNdataa0] = executa_predicao(U0,X0, ModeloPreditor.data.a0, ModeloPreditor, obj.EstimaVazao);
             ModeloPreditor.data.a0=ESNdataa0;      % Mantem a ESN com reservatório atualizado
@@ -383,14 +357,17 @@ function escreve_entradas_ddmpc(X0, U0, AlvoEng, nome_arquivo)
     tags.temperatura_succao_BCSS = 'M54TI105E/1.PV';
     tags.vibracao_BCSS = 'M54VXI107E/1.PV';
     tags.temperatura_chegada = 'T61TI035/1.PV';
+    
     tags.frequencia_BCSS = 'M54SI111E/1.PV_OS';
     tags.pressao_montante_alvo = 'TE4104_PMON_ALVO';
-    tags.freq_alvo_BCSS = 'TE4104_FREQ_ALVO';
-    %tags.pressao_montante_alvo_eng = 'pressao_montante_alvo_eng';
+    
+    tags.freq_alvo_eng = 'TE4104_FREQ_ALVO';
+    %tags.freq_BCSS_entrada_VSD = '301072_M54_SI_112_E';
+    tags.pressao_montante_alvo_eng = 'pressao_montante_alvo_eng';
 
     % Assume que seus dados estão em um array chamado 'dados'
     % dados = [valor1 valor2 valor3 ...]; % seu array de dados aqui
-    dados = [X0(1:end-1);U0;AlvoEng(1)]; %removendo vazao e duplicata da pmon_alvo
+    dados = [X0(1:end-1);U0;AlvoEng]; %removendo vazao e duplicata da pmon_alvo
     % Pega os nomes das tags da struct
     tagNames = fieldnames(tags);
 
@@ -418,6 +395,16 @@ function escreve_entradas_ddmpc(X0, U0, AlvoEng, nome_arquivo)
     fclose(fileID);
 end
 
+function deletar_arquivo_saidas_ddmpc(nome_arquivo)
+    if exist(nome_arquivo, 'file')
+        try
+            delete(nome_arquivo);
+        catch ME
+            disp(strcat('erro na leitura do arquivo de saidas', ME))
+        end
+    end
+end
+
 
 function [variaveis] = ler_saidas_ddmpc(nome_arquivo)
     variaveis = [];
@@ -428,7 +415,7 @@ function [variaveis] = ler_saidas_ddmpc(nome_arquivo)
             dados = readtable(nome_arquivo, 'Delimiter', ';');
 
             % Se conseguiu ler, tenta deletar
-            delete(nome_arquivo);
+            %delete(nome_arquivo);
 
             % Se chegou aqui, conseguiu ler e deletar
         catch ME
@@ -442,7 +429,7 @@ function [variaveis] = ler_saidas_ddmpc(nome_arquivo)
     % Criar estrutura para armazenar as variáveis
     variaveis = struct();
 
-    % Extrair variáveis básicas
+    variaveis.timestamp = dados.timestamp;
     variaveis.data_hora = dados.data_hora;
     variaveis.feasible = dados.feasible;
     variaveis.iteracoes = dados.iteracoes;
@@ -500,4 +487,98 @@ function [variaveis] = ler_saidas_ddmpc(nome_arquivo)
     variaveis.uk = uk;
 
     fprintf('Arquivo lido e removido com sucesso!\n');
+end
+
+function [variaveis] = ler_saidas_ddmpc_quando_modificado(nome_arquivo)
+    persistent ultima_modificacao;
+    variaveis = [];
+    
+    % Loop infinito até que o arquivo seja criado ou modificado
+    while true
+        % Se o arquivo não existe, continua esperando
+        if ~exist(nome_arquivo, 'file')
+            disp('aguardando arquivo de saida ddmpc')
+            pause(0.5);  % Pausa para não sobrecarregar o CPU
+            continue;
+        end
+        
+        % Obtém informações do arquivo
+        info_arquivo = dir(nome_arquivo);
+        modificacao_atual = info_arquivo.datenum;
+        
+        % Se é primeira execução (arquivo acabou de ser criado) OU arquivo foi modificado
+        if isempty(ultima_modificacao) || modificacao_atual > ultima_modificacao
+            try
+                % Tenta ler o arquivo
+                dados = readtable(nome_arquivo, 'Delimiter', ';');
+                % Atualiza o tempo da última modificação
+                ultima_modificacao = modificacao_atual;
+                break;  % Sai do loop após leitura bem-sucedida
+            catch ME
+                disp(strcat('erro na leitura do arquivo de saidas', ME))
+                pause(0.5);  % Pausa antes de tentar novamente
+                continue;
+            end
+        end
+        
+        % Se arquivo existe mas não foi modificado, espera
+        pause(0.1);
+    end
+    
+    % Criar estrutura para armazenar as variáveis
+    variaveis = struct();
+    variaveis.timestamp = dados.timestamp;
+    variaveis.data_hora = dados.data_hora;
+    variaveis.feasible = dados.feasible;
+    variaveis.iteracoes = dados.iteracoes;
+    variaveis.tempo_solver = dados.tempo_solver;
+    variaveis.u0_0 = dados.u0_0;
+    variaveis.u0_1 = dados.u0_1;
+    variaveis.du0_0 = dados.du0_0;
+    variaveis.du0_1 = dados.du0_1;
+    variaveis.soma_delta_freq = dados.soma_delta_freq;
+    variaveis.jy = dados.jy;
+    variaveis.ju = dados.ju;
+    variaveis.jr = dados.jr;
+    variaveis.jx = dados.jx;
+    variaveis.ysp_0 = dados.ysp_0;
+    variaveis.ysp_1 = dados.ysp_1;
+
+    % Extrair variáveis erro_x
+    colunas_erro_x = startsWith(dados.Properties.VariableNames, 'erro_x_');
+    nomes_erro_x = dados.Properties.VariableNames(colunas_erro_x);
+    erro_x = zeros(1, sum(colunas_erro_x));
+    for i = 1:length(nomes_erro_x)
+        erro_x(i) = dados.(nomes_erro_x{i})(1);
+    end
+    variaveis.erro_x = erro_x;
+
+    % Extrair variáveis erro_y
+    colunas_erro_y = startsWith(dados.Properties.VariableNames, 'erro_y_');
+    nomes_erro_y = dados.Properties.VariableNames(colunas_erro_y);
+    erro_y = zeros(1, sum(colunas_erro_y));
+    for i = 1:length(nomes_erro_y)
+        erro_y(i) = dados.(nomes_erro_y{i})(1);
+    end
+    variaveis.erro_y = erro_y;
+
+    % Extrair variáveis xk
+    colunas_xk = startsWith(dados.Properties.VariableNames, 'xk_');
+    nomes_xk = dados.Properties.VariableNames(colunas_xk);
+    xk = zeros(1, sum(colunas_xk));
+    for i = 1:length(nomes_xk)
+        xk(i) = dados.(nomes_xk{i})(1);
+    end
+    variaveis.xk = xk;
+
+    % Extrair variáveis uk
+    colunas_uk = startsWith(dados.Properties.VariableNames, 'uk_');
+    nomes_uk = dados.Properties.VariableNames(colunas_uk);
+    uk = zeros(1, sum(colunas_uk));
+    for i = 1:length(nomes_uk)
+        uk(i) = dados.(nomes_uk{i})(1);
+    end
+    variaveis.uk = uk;
+
+    fprintf('Arquivo lido com sucesso!\n');
 end
