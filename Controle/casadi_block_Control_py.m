@@ -246,11 +246,10 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
         function  SaidaMPC= stepImpl(obj,X0,U0,AlvoEng,t)
             disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
             %escrever arquivo para o ddmpc python
-            pause(0.5);
+            %pause(0.5);
             arquivo_entrada_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_entrada.csv';
             escreve_entradas_ddmpc(X0, U0, AlvoEng, arquivo_entrada_ddmpc);
             
-
             % Inicializa custos parciais que podem compor a função objetivo
             Jy=0; Ju=0; Jr=0; Jx=0;
             DeltaU=zeros(1, obj.nu);                     % Reinicia DeltaU=0, inclusive para saber quando não passou pelo Solver
@@ -289,6 +288,8 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
             % Prepara saidas do bloco MPC
             % Dimensão = [     1             1                    1              nu     nu                   1                1    1    1   1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ]
             SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U0; DeltaU';  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX';  ErroY';  Ysp';        Xk';               Uk'    ];
+
+            
 
              % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado
             ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor
