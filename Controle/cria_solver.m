@@ -219,19 +219,25 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     %Configuração específica do IPOPT
     options=struct;
-    options.print_time= 0;                           %
-    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    options.print_time= 1;                           %
+    options.ipopt.print_level=5;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    %options.ipopt.print_options_documentation = 'yes';
+    options.ipopt.print_user_options = 'yes';
     options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
     options.verbose = 0;
 
     options.ipopt.max_iter=1e3;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
 
     options.ipopt.max_wall_time=WallTime;   % Tempo (em segundos) máximo para o solver encontrar solução
-    
-    %options.ipopt.hessian_approximation = 'exact';  
+    options.ipopt.acceptable_tol = 1e-6; % default 1e-6
+    options.ipopt.hessian_approximation = 'limited-memory';  %Possible values: exact: Use second derivatives provided by the NLP. limited-memory: Perform a limited-memory quasi-Newton approximation
+    %options.ipopt.hessian_constant = 'yes';
     %options.ipopt.limited_memory_max_history = 6;   % Número de atualizações para L-BFGS
-    %options.ipopt.hessian_constant = 'no';
-    %options.ipopt.hessian_approximation = 'limited-memory';  % Usar BFGS
+    %options.expand = 1; % Expande a função objetivo e restrições
+    %options.jit = 1;  % Habilita compilação JIT
+    %options.compiler = "shell";  % Usa compilador do sistema
+    
+
 
     solver = nlpsol('solver','ipopt', nlp, options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
     t_inicializacao = toc(tInicializa);           % Tempo gasto para a inicialização do Solver

@@ -44,6 +44,7 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
         contador                                                     % Variável para guardar o contador de passos de amostragem - usado para definir momentos de atuação do MPC
         NumCasasDecimais                                  % NUmero de casas decimais para limite minimo de ação do DeltaU
         arquivo_saida_ddmpc
+        timestamp_arquivo
     end
     %%======================================================
     methods (Access = protected)
@@ -239,14 +240,15 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
             obj.ubx=args_solver.ubx;                             % Upper Bounds para as variáveis de decisão do MPC
             obj.lbg=args_solver.lbg;                                % Lower Bounds para as restrições [g] que foram criadas
             obj.ubg=args_solver.ubg;                             % Upper Bounds para as restrições [g] que foram criadas
-
+            obj.timestamp_arquivo = -1;
         end
 
         %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
         function  SaidaMPC= stepImpl(obj,X0,U0,AlvoEng,t)
             disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
             %escrever arquivo para o ddmpc python
-            %pause(0.5);
+            pause(5);
+            
             arquivo_entrada_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_entrada.csv';
             escreve_entradas_ddmpc(X0, U0, AlvoEng, arquivo_entrada_ddmpc);
             
@@ -263,23 +265,28 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
             Xk = zeros(1, obj.nx * (obj.Hp+1));
             Uk = zeros(1, obj.nu * obj.Hp);
             
-            saidas = ler_saidas_ddmpc_quando_modificado(obj.arquivo_saida_ddmpc);
+            %saidas = ler_saidas_ddmpc_quando_modificado(obj.arquivo_saida_ddmpc);
+            saidas = ler_saidas_ddmpc(obj.arquivo_saida_ddmpc);
+            %disp(saidas)
             if size(saidas) > 0
-                Feasible = saidas.feasible;
-                Iteracoes = saidas.iteracoes;
-                TempoSolver = saidas.tempo_solver;
-                DeltaU = [saidas.du0_0, saidas.du0_1];
-                SomaDeltaFreq = saidas.soma_delta_freq;
-                Jy=saidas.jy; 
-                Ju=saidas.ju; 
-                Jr=saidas.jr; 
-                Jx=saidas.jx;
-                ErroX = saidas.erro_x;
-                ErroY = saidas.erro_y;
-                Ysp = [saidas.ysp_0, saidas.ysp_1];
-                Xk = saidas.xk;
-                Uk = saidas.uk;
-                if(saidas.timestamp~=-1)
+                %conferir se o arquivo foi atualizado
+                timestamp_atual = saidas.timestamp;
+                if obj.timestamp_arquivo < timestamp_atual && timestamp_atual~=-1 
+                    obj.timestamp_arquivo = timestamp_atual;
+                    Feasible = saidas.feasible;
+                    Iteracoes = saidas.iteracoes;
+                    TempoSolver = saidas.tempo_solver;
+                    DeltaU = [saidas.du0_0, saidas.du0_1];
+                    SomaDeltaFreq = saidas.soma_delta_freq;
+                    Jy=saidas.jy; 
+                    Ju=saidas.ju; 
+                    Jr=saidas.jr; 
+                    Jx=saidas.jx;
+                    ErroX = saidas.erro_x;
+                    ErroY = saidas.erro_y;
+                    Ysp = [saidas.ysp_0, saidas.ysp_1];
+                    Xk = saidas.xk;
+                    Uk = saidas.uk;
                     U0 = [saidas.u0_0, saidas.u0_1]';
                 end
             end
@@ -348,23 +355,23 @@ function escreve_entradas_ddmpc(X0, U0, AlvoEng, nome_arquivo)
 
     % Define as chaves e seus valores de tags
     tags = struct();
-    tags.pressao_succao_BCSS = 'M54PI103E/1.PV';
-    tags.pressao_chegada = 'T61PSI033/1.PV';
-    tags.pressao_diferencial_BCSS = 'M54PDI109E/1.PV';
-    tags.pressao_descarga_BCSS = 'M54PI104E/1.PV';
-    tags.temperatura_motor_BCSS = 'M54TI106E/1.PV';
-    tags.corrente_torque_BCSS = 'M54II108E/1.PV';
-    tags.corrente_total_BCSS = 'M54IQI117E/1.PV';
-    tags.temperatura_succao_BCSS = 'M54TI105E/1.PV';
-    tags.vibracao_BCSS = 'M54VXI107E/1.PV';
-    tags.temperatura_chegada = 'T61TI035/1.PV';
+    tags.pressao_succao_BCSS = 'HUBP57.SERV2.M54PI103E';
+    tags.pressao_chegada = 'HUBP57.SERV2.T61PSI033';
+    tags.pressao_diferencial_BCSS = 'HUBP57.SERV2.M54PDI109E';
+    tags.pressao_descarga_BCSS = 'HUBP57.SERV2.M54PI104E';
+    tags.temperatura_motor_BCSS = 'HUBP57.SERV2.M54TI106E';
+    tags.corrente_torque_BCSS = 'HUBP57.SERV2.M54II108E';
+    tags.corrente_total_BCSS = 'HUBP57.SERV2.M54IQI117E';
+    tags.temperatura_succao_BCSS = 'HUBP57.SERV2.M54TI105E';
+    tags.vibracao_BCSS = 'HUBP57.SERV2.M54VXI107E';
+    tags.temperatura_chegada = 'HUBP57.SERV2.T61TI035';
     
-    tags.frequencia_BCSS = 'M54SI111E/1.PV_OS';
-    tags.pressao_montante_alvo = 'TE4104_PMON_ALVO';
+    tags.frequencia_BCSS = 'HUBP57.SERV2.M54SI111E';
+    tags.pressao_montante_alvo = 'HUBP57.MPA_BCSS.JUB27_PMON_SP';
     
-    tags.freq_alvo_eng = 'TE4104_FREQ_ALVO';
+    tags.freq_alvo_eng = '_sim_freq_alvo_eng'; %'TE4104_FREQ_ALVO';
     %tags.freq_BCSS_entrada_VSD = '301072_M54_SI_112_E';
-    tags.pressao_montante_alvo_eng = 'pressao_montante_alvo_eng';
+    tags.pmon_alvo_eng = '_sim_pmon_alvo_eng'; %'pressao_montante_alvo_eng';
 
     % Assume que seus dados estão em um array chamado 'dados'
     % dados = [valor1 valor2 valor3 ...]; % seu array de dados aqui
@@ -419,80 +426,21 @@ function [variaveis] = ler_saidas_ddmpc(nome_arquivo)
             %delete(nome_arquivo);
 
             % Se chegou aqui, conseguiu ler e deletar
+            variaveis = trata_dados_saidas_ddmpc(dados);
         catch ME
             disp(strcat('erro na leitura do arquivo de saidas', ME))
+            return
         end
     else
         return
     end
 
-
-    % Criar estrutura para armazenar as variáveis
-    variaveis = struct();
-
-    variaveis.timestamp = dados.timestamp;
-    variaveis.data_hora = dados.data_hora;
-    variaveis.feasible = dados.feasible;
-    variaveis.iteracoes = dados.iteracoes;
-    variaveis.tempo_solver = dados.tempo_solver;
-    variaveis.u0_0 = dados.u0_0;
-    variaveis.u0_1 = dados.u0_1;
-    variaveis.du0_0 = dados.du0_0;
-    variaveis.du0_1 = dados.du0_1;
-    variaveis.soma_delta_freq = dados.soma_delta_freq;
-    variaveis.jy = dados.jy;
-    variaveis.ju = dados.ju;
-    variaveis.jr = dados.jr;
-    variaveis.jx = dados.jx;
-    variaveis.ysp_0 = dados.ysp_0;
-    variaveis.ysp_1 = dados.ysp_1;
-
-    % Extrair variáveis erro_x
-    colunas_erro_x = startsWith(dados.Properties.VariableNames, 'erro_x_');
-    nomes_erro_x = dados.Properties.VariableNames(colunas_erro_x);
-    erro_x = zeros(1, sum(colunas_erro_x));
-
-    for i = 1:length(nomes_erro_x)
-        erro_x(i) = dados.(nomes_erro_x{i})(1);
-    end
-    variaveis.erro_x = erro_x;
-
-    % Extrair variáveis erro_y
-    colunas_erro_y = startsWith(dados.Properties.VariableNames, 'erro_y_');
-    nomes_erro_y = dados.Properties.VariableNames(colunas_erro_y);
-    erro_y = zeros(1, sum(colunas_erro_y));
-
-    for i = 1:length(nomes_erro_y)
-        erro_y(i) = dados.(nomes_erro_y{i})(1);
-    end
-    variaveis.erro_y = erro_y;
-
-    % Extrair variáveis xk
-    colunas_xk = startsWith(dados.Properties.VariableNames, 'xk_');
-    nomes_xk = dados.Properties.VariableNames(colunas_xk);
-    xk = zeros(1, sum(colunas_xk));
-
-    for i = 1:length(nomes_xk)
-        xk(i) = dados.(nomes_xk{i})(1);
-    end
-    variaveis.xk = xk;
-
-    % Extrair variáveis uk
-    colunas_uk = startsWith(dados.Properties.VariableNames, 'uk_');
-    nomes_uk = dados.Properties.VariableNames(colunas_uk);
-    uk = zeros(1, sum(colunas_uk));
-
-    for i = 1:length(nomes_uk)
-        uk(i) = dados.(nomes_uk{i})(1);
-    end
-    variaveis.uk = uk;
-
-    fprintf('Arquivo lido e removido com sucesso!\n');
+    fprintf('Arquivo lido com sucesso!\n');
 end
 
 function [variaveis] = ler_saidas_ddmpc_quando_modificado(nome_arquivo)
     persistent ultima_modificacao;
-    variaveis = [];
+    %variaveis = [];
     
     % Loop infinito até que o arquivo seja criado ou modificado
     while true
@@ -525,7 +473,14 @@ function [variaveis] = ler_saidas_ddmpc_quando_modificado(nome_arquivo)
         % Se arquivo existe mas não foi modificado, espera
         pause(0.1);
     end
+
+    variaveis = trata_dados_saidas_ddmpc(dados);
     
+     fprintf('Arquivo lido com sucesso!\n');
+end
+
+function [variaveis] = trata_dados_saidas_ddmpc(dados)
+
     % Criar estrutura para armazenar as variáveis
     variaveis = struct();
     variaveis.timestamp = dados.timestamp;
@@ -533,10 +488,10 @@ function [variaveis] = ler_saidas_ddmpc_quando_modificado(nome_arquivo)
     variaveis.feasible = dados.feasible;
     variaveis.iteracoes = dados.iteracoes;
     variaveis.tempo_solver = dados.tempo_solver;
-    variaveis.u0_0 = dados.u0_0;
-    variaveis.u0_1 = dados.u0_1;
-    variaveis.du0_0 = dados.du0_0;
-    variaveis.du0_1 = dados.du0_1;
+    variaveis.u0_0 = dados.freq_mpc;
+    variaveis.u0_1 = dados.pmon_mpc;
+    variaveis.du0_0 = dados.delta_freq_mpc;
+    variaveis.du0_1 = dados.delta_pmon_mpc;
     variaveis.soma_delta_freq = dados.soma_delta_freq;
     variaveis.jy = dados.jy;
     variaveis.ju = dados.ju;
@@ -581,5 +536,4 @@ function [variaveis] = ler_saidas_ddmpc_quando_modificado(nome_arquivo)
     end
     variaveis.uk = uk;
 
-    fprintf('Arquivo lido com sucesso!\n');
 end

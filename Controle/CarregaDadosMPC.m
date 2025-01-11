@@ -11,7 +11,8 @@ TipoRede=1;        % 1=ESN ou  2=LSTM
 
 % Carrega rede ESN que será utilizada como preditor no MPC
 % NomeESN= 'weightsESNx_TR300_TVaz0.8_RaioE0.1.mat';    % Esta foi usada como processo
-NomeESN='weightsESNx_TR400_TVaz0.9_RaioE0.4.mat';
+NomeESN='weightsESNx_TR400_TVaz0.9_RaioE0.4.mat'; %usado por leizer
+%NomeESN='weightsESNx_TR100_TVaz0.12_RaioE0.99_mape0.55.mat'; %criada no matlab
 ESN_MPC = load(NomeESN);
 ESN_MPC.data.tipo = TipoRede;     % Insere o tipo de rede na estrutura do modelo
 ModeloPreditor = ESN_MPC;
@@ -22,7 +23,7 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
-Hp = 3;                               % Horizonte de predição
+Hp = 7;                               % Horizonte de predição
 Hc = Hp-1;                         % Horizonte de controle
 Qy=  0*diag([1  10]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qu = 1*diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)

@@ -51,9 +51,11 @@ LimiteProporcao=Ts/TempoESN;
 
 % Inicializa logo no inicio de rampas de aceleração
 % Condição inicial  das variáveis do processo e das entradas                       
-% DataHoraIni='2024-06-18 00:55:00';
+%DataHoraIni='2024-06-18 00:55:00';
+DataHoraIni='2024-06-18 00:00:00';
+%DataHoraIni='2024-07-12 10:00:00';
 % DataHoraIni='2024-07-15 14:40:00';
-DataHoraIni='2024-07-17 01:00:00';
+%DataHoraIni='2024-07-17 01:00:00'; <<<<<
 %DataHoraIni = '2024-03-10 18:00:00';
 [XIni,UIni]=SelCondicaoInicial(DataHoraIni,MatrizSimulador);         
 
@@ -123,10 +125,10 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         PMonAlvoIni=max([ Limites(2,2), PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     else                                  % Os alvos serão dados manualmente pela engenharia
         %    Inicializa alvo da ENG manualmente
-        FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
+        FreqAlvoIni=40;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=34;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
+        PMonAlvoIni=28;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     end
