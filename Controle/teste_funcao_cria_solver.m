@@ -16,7 +16,7 @@ dumax = [0.1 , 1];                                                       %Varia√
 
 MargemPercentual = 1;
 
-Hp = 3;
+Hp = 10;
 Hc = Hp-1;
 
 Qy=  diag([1  10]);           % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)

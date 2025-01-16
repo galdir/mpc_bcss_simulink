@@ -44,7 +44,7 @@ matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda var
 estados_medidos_sym=MX.sym('estados_medidos',nx,1);
 funcao_h=Function('h',{estados_medidos_sym},{matriz_h * estados_medidos_sym}); % Função de saída que mapeia diretamente o estado para a saída
 
-WallTime = 10; % Tempo máximo de execução
+WallTime = 9; % Tempo máximo de execução
 
 % Chamar a função para criar o solver
 [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
@@ -54,6 +54,33 @@ WallTime = 10; % Tempo máximo de execução
 % Testar se o solver foi criado
 if isa(solver, 'casadi.Function')
     disp('Solver criado com sucesso');
+else
+    disp('Erro na criação do solver');
+end
+
+opts_gen = struct('main', true,...
+              'verbose', true,...
+              'mex', true);
+disp('Gerando codigo c');
+solver.generate('solver_gen.c',opts_gen);
+disp('Compilando dll');
+!C:\MinGW64\mingw64\bin\gcc.exe -v -fPIC -shared solver_gen.c -o solver_gen.dll -I"C:\Users\galdir\Documents\GitHub\mpc_bcss_simulink\Casadi\include" -L"C:\Users\galdir\Documents\GitHub\mpc_bcss_simulink\Casadi" -lipopt
+%!C:\MinGW64\mingw64\bin\gcc.exe -fPIC -shared solver_gen.c -o solver_gen.dll
+%!gcc.exe -fPIC -shared solver_gen.c -o solver_gen.dll
+
+solver_compilado = external('solver', './solver_gen.dll');
+
+
+
+
+%C = Importer('solver_gen.c','gcc');
+%solver_gen = external('f',C);
+%disp(f(3.14))
+
+
+% Testar se o solver foi criado
+if isa(solver, 'casadi.Function')
+    disp('Solver compilado carregado com sucesso');
 else
     disp('Erro na criação do solver');
 end
@@ -96,16 +123,26 @@ solver_X0=[ X0_Hp;  U0_Hp; du0_Up];
 
 args.p=[x0; u0; AlvoEng; Ysp; ErroX; ErroY; BuffDeltaFreq; ModeloPreditor.data.a0];
 
+disp('Testando solver criado')
 tic
 solucao = solver('x0', solver_X0,'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
 toc
 
 feasible=solver.stats.success;
-iteracoes=solver.stats.iter_count;
+%iteracoes=solver.stats.iter_count;
 disp('feasible:')
 disp(feasible)
-disp('iteracoes:')
-disp(iteracoes)
+%disp('iteracoes:')
+%disp(iteracoes)
+solucao_manipuladas = full(solucao.x);
+solucao_manipuladas = solucao_manipuladas(nx*(Hp+1)+1:nx*(Hp+1)+1+1);
+disp(solucao_manipuladas)
+
+disp('Testando solver compliado')
+tic
+solucao = solver_compilado('x0', solver_X0,'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
+toc
+
 solucao_manipuladas = full(solucao.x);
 solucao_manipuladas = solucao_manipuladas(nx*(Hp+1)+1:nx*(Hp+1)+1+1);
 disp(solucao_manipuladas)
