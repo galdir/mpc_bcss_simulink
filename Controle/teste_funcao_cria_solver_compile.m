@@ -58,17 +58,16 @@ else
     disp('Erro na criação do solver');
 end
 
-opts_gen = struct('main', true,...
-              'verbose', true,...
+opts_gen = struct('verbose', true,...
               'mex', true);
 disp('Gerando codigo c');
 solver.generate('solver_gen.c',opts_gen);
 disp('Compilando dll');
-!C:\MinGW64\mingw64\bin\gcc.exe -v -fPIC -shared solver_gen.c -o solver_gen.dll -I"C:\Users\galdir\Documents\GitHub\mpc_bcss_simulink\Casadi\include" -L"C:\Users\galdir\Documents\GitHub\mpc_bcss_simulink\Casadi" -lipopt
-%!C:\MinGW64\mingw64\bin\gcc.exe -fPIC -shared solver_gen.c -o solver_gen.dll
-%!gcc.exe -fPIC -shared solver_gen.c -o solver_gen.dll
-
-solver_compilado = external('solver', './solver_gen.dll');
+% !C:\MinGW64\mingw64\bin\gcc.exe -v -fPIC -shared solver_gen.c -o solver_gen.dll -I"C:\Users\galdir\Documents\GitHub\mpc_bcss_simulink\Casadi\include" -L"C:\Users\galdir\Documents\GitHub\mpc_bcss_simulink\Casadi" -lipopt
+% !C:\MinGW64\mingw64\bin\gcc.exe -fPIC -shared solver_gen.c -o solver_gen.dll
+% !gcc.exe -fPIC -shared solver_gen.c -o solver_gen.dll
+% 
+% solver_compilado = external('solver', './solver_gen.dll');
 
 
 
@@ -140,7 +139,9 @@ disp(solucao_manipuladas)
 
 disp('Testando solver compliado')
 tic
-solucao = solver_compilado('x0', solver_X0,'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
+%mex solver_gen.c -largeArrayDims % Matlab
+mex -v -DMATLAB_MEX_FILE -I"C:\Users\luis.lima\Documents\mpc_bcss_simulink\Casadi\include" -L"C:\Users\luis.lima\Documents\mpc_bcss_simulink\Casadi" -lipopt solver_gen.c % Octave
+solucao = solver_gen('solver', 'x0', solver_X0,'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
 toc
 
 solucao_manipuladas = full(solucao.x);
