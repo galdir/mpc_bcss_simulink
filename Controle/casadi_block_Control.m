@@ -210,12 +210,11 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
             % Condições inciais para algumas das variáveis de decisão do MPC [  x0    u0 ]. Precisam estar em vetores coluna
             % Delta U será inicializado com zeros
-            obj.x0=repmat(XIni,1+Hp,1);                % Condição incial das variáveis medidas (estados X) atuais e futuras
+            obj.x0=repmat(XIni,1+Hp,1);            % Condição incial das variáveis medidas (estados X) atuais e futuras
             obj.u0=repmat(UIni,Hp,1);                % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
 
             % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
             obj.BuffDeltaFreq=zeros(45,1);
-
 
             obj.WallTime = evalin('base','WallTime'); % tempo maximo para execucao do solver
 

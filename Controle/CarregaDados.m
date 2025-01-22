@@ -1,6 +1,6 @@
-clc
-clear all
-close all
+% clc
+% clear all
+% close all
 
 % Define sementes de números aleatórios para garantir repetibilidade
 rand('seed',1) 
@@ -44,10 +44,10 @@ LimiteProporcao=Ts/TempoESN;
 % e possivelmente serão diferentes dos alvos estabelecidos pelo usuário. 
 % Isso não é crítico, mas influencia na inicialização da plotagem dos pontos alvos no mapa
 
-%% Inicio de rampas de aceleração. Podem inicializar UNFEASIBLE
-DataHoraIni='2024-06-18 00:00:00';    % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
+%% Inicio de rampas de aceleração.
+% DataHoraIni='2024-06-18 00:00:00';    % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
 % DataHoraIni='2024-07-15 13:50:00';    % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-% DataHoraIni='2024-07-17 00:00:00';    % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
+DataHoraIni='2024-07-17 00:00:00';    % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
 
 % Inicializações mais próximas da operação real
 % Condição inicial  das variáveis do processo e das entradas      PSuc [bar],    PChegada [bar]        Freq [Hz]
@@ -80,7 +80,7 @@ matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda var
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
 FreqMaxMin=[60 ,  40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
-PMonAlvoMaxMin=[50 , 20];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
+PMonAlvoMaxMin=[50 , 25];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
 umax  = [FreqMaxMin(1) ,  PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
 umin  =  [FreqMaxMin(2), PMonAlvoMaxMin(2)] ;        % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
@@ -94,7 +94,6 @@ dumax = [0.1 , 1];                                                       %Varia�
 
 % Plano=readtable('PlanoVerIsovazao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 Plano=readtable('PlanoAceleracao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
-%  Plano=readtable('PlanoAceleracaoErro.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
 
 % Define se vai usar plano (tabela excel) para alterar alvos da engenharia ao longo da simulação
 UsaPlano=0;
@@ -105,17 +104,22 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
-        FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
+       FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([ Limites(2,2), PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     else                                  % Os alvos serão dados manualmente pela engenharia
-        %    Inicializa alvo da ENG manualmente
-        FreqAlvoIni=55;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
+        %    Inicializa alvo da ENG manualmente (2 casos básicos)
+        AlvosRefFreq=[ 60  40];
+        AlvosRefPMon=[ 38   28]; 
+        Caso=1;
+         
+        % Seleciona FreqAlvo e PMonAlvo
+        FreqAlvoIni=AlvosRefFreq(Caso);          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=32;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
+        PMonAlvoIni=AlvosRefPMon(Caso);    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     end

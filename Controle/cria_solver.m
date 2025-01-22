@@ -219,14 +219,36 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     %Configuração específica do IPOPT
     options=struct;
+    % Parâmetros para análise/depuração
     options.print_time= 0;                           %
-    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
-    options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    options.ipopt.print_level=0;                   % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     options.verbose = 0;
+    options.ipopt.timing_statistics ='yes';       % Permite visualizar dados estatísticos dos processo do solver
+%     options.ipopt.print_options_documentation = 'yes';
+%     options.ipopt.print_user_options = 'yes';
 
-    options.ipopt.max_iter=1e3;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
+    % Parâmetros que podem ser definidos externamente - padronizamos 9s no caso epecífico Petrobras
+    options.ipopt.max_wall_time=WallTime;  % Tempo (em segundos) máximo para o solver encontrar solução
 
-    options.ipopt.max_wall_time=WallTime;   % Tempo (em segundos) máximo para o solver encontrar solução
+% Parâmetros alterados em relação ao padrão do Solver
+    options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    options.ipopt.hessian_approximation = 'limited-memory';    % This determines which kind of information for the Hessian of the Lagrangian function is used by the algorithm. The default value for this string option is "exact".
+%    options.ipopt.max_iter=1e4;                     % Especifica o número máximo de iterações que o solver deve executar antes de parar.
+    
+% Parâmetros avaliados mas que concluimos por manter o padrão do Solver
+% options.ipopt.mu_init=1e-6;   ou  options.ipopt.mu_init=1e-1;
+% options.ipopt.hessian_constant = 'yes';   % Flag indicating if we need to ask for Hessian only once
+% options_solver.ipopt.warm_start_init_point=  'yes';
+% options_solver.ipopt.dependency_detector=  'MUMPS';
+% options_solver.ipopt.linear_solver=  'MUMPS';
+% options_solver.ipopt.dependency_detection_with_rhs= 'yes';
+% options_solver.ipopt.fixed_variable_treatment=  'make_parameter';
+% options_solver.ipopt.honor_original_bounds=  'yes';
+
+% Condições testadas mas que se mostraram inviáveis por UNFEASIBLE
+% grad_f_constant=  'yes';
+% warm_start_same_structure=  'yes';    
+% nlp_scaling_method='equilibration-based';
 
     solver = nlpsol('solver','ipopt', nlp, options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
     t_inicializacao = toc(tInicializa);           % Tempo gasto para a inicialização do Solver
