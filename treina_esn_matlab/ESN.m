@@ -32,7 +32,7 @@ classdef ESN < handle
         cum_data_output       % dados de saída acumulados
         number_of_simulations % número de simulações
         simulations_start     % lista que rastreia cada início de simulação
-        default_warmupdrop    % warmupdrop padrão
+        warmupdrop    % warmupdrop 
     end
     
     methods
@@ -53,7 +53,7 @@ classdef ESN < handle
             %     'output_feedback': feedback de saída (default: false)
             %     'noise_amplitude': amplitude do ruído (default: 0)
             %     'out_scale': escala da saída (default: 0)
-            %     'default_warmupdrop': amostras descartadas (default: 100)
+            %     'warmupdrop': amostras iniciais descartadas durante treino (default: 100)
             
             p = inputParser;
             addParameter(p, 'gama', 0.5);
@@ -66,7 +66,7 @@ classdef ESN < handle
             addParameter(p, 'output_feedback', false);
             addParameter(p, 'noise_amplitude', 0);
             addParameter(p, 'out_scale', 0);
-            addParameter(p, 'default_warmupdrop', 0);
+            addParameter(p, 'warmupdrop', 100);
             
             parse(p, varargin{:});
             
@@ -114,7 +114,7 @@ classdef ESN < handle
             obj.cum_data_output = [];
             obj.number_of_simulations = 0;
             obj.simulations_start = [];
-            obj.default_warmupdrop = p.Results.default_warmupdrop;
+            obj.warmupdrop = p.Results.warmupdrop;
         end
         
         function y = update(obj, inp, y_in, training)
@@ -165,7 +165,7 @@ classdef ESN < handle
             %   warmupdrop: número de amostras iniciais a descartar
             
             if nargin < 4
-                warmupdrop = obj.default_warmupdrop;
+                warmupdrop = obj.warmupdrop;
             end
             
             % Verifica dimensões
@@ -206,21 +206,73 @@ classdef ESN < handle
             
             obj.number_of_simulations = obj.number_of_simulations + 1;
         end
+
+        function add_data_warmup(obj, input_data, output_data, warmup)
+            % Adiciona dados de treinamento à rede
+            % Parâmetros:
+            %   input_data: matriz de dados de entrada (amostras x n_in)
+            %   output_data: matriz de dados de saída (amostras x n_out)
+            %   warmup: número de simulacoes com a primeira amostra para
+            %   esquentar o modelo para o ponto atual
+            
+            % Verifica dimensões
+            [n_samples, n_inputs] = size(input_data);
+            if n_inputs ~= obj.n_in
+                error('Número incorreto de entradas: esperado %d, recebido %d', obj.n_in, n_inputs);
+            end
+            
+            % Registra início da nova simulação
+            if isempty(obj.simulations_start)
+                obj.simulations_start = 0;
+            else
+                obj.simulations_start(end+1) = size(obj.cum_data_input, 1);
+            end
+            
+            if warmup > 0
+                for i = 1:warmup
+                    obj.update(input_data(1,:)', [], true);
+                end
+            end
+
+            % Coleta estados do reservatório
+            A = zeros(n_samples, obj.neu);
+            for i = 1:n_samples
+                %if obj.output_feedback && i > 1
+                %    obj.update(input_data(i,:)', output_data(i-1,:)', true);
+                %else
+                    obj.update(input_data(i,:)', [], true);
+                %end
+                
+                A(i,:) = obj.a';
+
+            end
+            
+            % Acumula dados
+            if isempty(obj.cum_data_input)
+                obj.cum_data_input = A;
+                obj.cum_data_output = output_data(1:end,:);
+            else
+                obj.cum_data_input = [obj.cum_data_input; A];
+                obj.cum_data_output = [obj.cum_data_output; output_data(1:end,:)];
+            end
+            
+            obj.number_of_simulations = obj.number_of_simulations + 1;
+        end
         
-        function [best_error, best_reg] = cum_train_cv(obj, min_reg, max_reg, tests, folds)
+        function [best_error, best_reg] = cum_train_cv(obj, min_reg, max_reg, folds, tests)
             % Treina a rede usando validação cruzada
             % Parâmetros:
             %   min_reg: valor mínimo de regularização
             %   max_reg: valor máximo de regularização
             %   tests: número de testes (default: 50)
             %   folds: número de partições (default: 10)
-            
             if nargin < 4
-                tests = 50;
-            end
-            if nargin < 5
                 folds = 10;
             end
+            if nargin < 5
+                tests = 50;
+            end
+            
             
             if min_reg > max_reg
                 error('min_reg deve ser menor que max_reg');

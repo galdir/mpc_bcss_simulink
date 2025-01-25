@@ -16,7 +16,7 @@ dumax = [0.1 , 1];                                                       %Varia�
 
 MargemPercentual = 1;
 
-Hp = 3;
+Hp = 10;
 Hc = Hp-1;
 
 Qy=  diag([1  10]);           % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
@@ -28,7 +28,9 @@ nx=height(Qx);  % Número de variáveis (estados) do processo
 nu=height(Qu);  % Número de variáveis de entrada no processo (manipuladas)
 ny=height(Qy); % Número de variáveis de saida controladas por SetPoint
 
-ESN_MPC = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
+ESN_MPC = load('weightsESNx_TR100_TVaz0.50_RaioE0.50_mape_msa_dois_2.60.mat');
+%ESN_MPC = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
+
 ModeloPreditor = ESN_MPC;
 %esquentar o modelo preditor esn (o solver da unfeasible sem esquentar)
 entradas_normalizadas = normaliza_entradas([UIni;XIni]);   % Normaliza entradas provenientes do processo (observar que a função nada faz com a vazão)

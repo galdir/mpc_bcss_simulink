@@ -219,8 +219,8 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     %Configuração específica do IPOPT
     options=struct;
-    options.print_time= 0;                           %
-    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    options.print_time= 1;                           %
+    options.ipopt.print_level=3;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';
     options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
@@ -242,6 +242,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     %options.ipopt.acceptable_tol = 1e-3; % default 1e-6
     %options.ipopt.compl_inf_tol = 1e-3; % default 1e-4
     %options.ipopt.acceptable_iter = 5; % default 15
+    
     options.ipopt.hessian_approximation = 'limited-memory';  %Possible values: exact: Use second derivatives provided by the NLP. limited-memory: Perform a limited-memory quasi-Newton approximation
 
 

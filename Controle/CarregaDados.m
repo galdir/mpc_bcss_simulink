@@ -52,7 +52,9 @@ LimiteProporcao=Ts/TempoESN;
 % Inicializa logo no inicio de rampas de aceleração
 % Condição inicial  das variáveis do processo e das entradas                       
 %DataHoraIni='2024-06-18 00:55:00';
-DataHoraIni='2024-06-18 00:00:00';
+%DataHoraIni='2024-06-18 00:00:00'; %aceleracao a partir de 40%
+%DataHoraIni='2024-06-18 03:00:00'; %aceleracao a partir de 50%
+DataHoraIni='2024-06-18 05:00:00'; %aceleracao a partir de 55%
 %DataHoraIni='2024-07-12 10:00:00';
 % DataHoraIni='2024-07-15 14:40:00';
 %DataHoraIni='2024-07-17 01:00:00'; <<<<<
