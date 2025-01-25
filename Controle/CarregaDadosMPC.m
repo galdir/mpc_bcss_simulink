@@ -1,5 +1,11 @@
 % Carrega para a área de trabalho dados e parâmetros gerais para atuação do controlador MPC
 
+clc
+clear all
+close all
+
+tempo_simulacao_manual = 1*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h, Padrao 4*3600
+
 % Começa carregando dados de uso geral e comum a qualquer ambiente (MPC ou CBR)
 CarregaDados;                % Função para carregar tabelas Petrobras e dados gerais necessários para a simulação
 
@@ -13,8 +19,8 @@ TipoRede=1;        % 1=ESN ou  2=LSTM
 %NomeESN= 'weightsESNx_TR300_TVaz0.8_RaioE0.1.mat';    % Esta foi usada como processo
 %NomeESN='weightsESNx_TR400_TVaz0.9_RaioE0.4.mat'; %usado por leizer
 %NomeESN='weightsESNx_TR100_TVaz0.50_RaioE0.50_mape_msa_dois_2.60.mat';
-NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.50_mape_msa_dois_2.52.mat';
-%NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat'; %criada no matlab
+%NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.50_mape_msa_dois_2.52.mat';
+NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat'; %criada no matlab, escolhida por Leizer
 
 
 ESN_MPC = load(NomeESN);
@@ -27,7 +33,7 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
-Hp = 15;                               % Horizonte de predição
+Hp = 10;                               % Horizonte de predição
 Hc = Hp-1;                         % Horizonte de controle
 Qy=  0*diag([1  10]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qu = 1*diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)

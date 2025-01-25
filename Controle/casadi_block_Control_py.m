@@ -45,6 +45,7 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
         NumCasasDecimais                                  % NUmero de casas decimais para limite minimo de ação do DeltaU
         arquivo_saida_ddmpc
         timestamp_arquivo
+        contagem_sem_atualizacao
     end
     %%======================================================
     methods (Access = protected)
@@ -142,6 +143,7 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
         %===============
         %% ================     Inicialização geral dos parâmetros e solver - só passa aqui uma única vez
         function setupImpl(obj,~)
+            obj.contagem_sem_atualizacao = 0;
             tInicializa=tic;                                         % Marcador para o tempo gasto na Inicialização
             obj.arquivo_saida_ddmpc = 'C:\Users\galdir\Documents\GitHub\ddmpc_bcss\variaveis_saida_extendida.csv';
             deletar_arquivo_saidas_ddmpc(obj.arquivo_saida_ddmpc)
@@ -272,6 +274,7 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
                 %conferir se o arquivo foi atualizado
                 timestamp_atual = saidas.timestamp;
                 if obj.timestamp_arquivo < timestamp_atual && timestamp_atual~=-1 
+                    obj.contagem_sem_atualizacao = 0;
                     obj.timestamp_arquivo = timestamp_atual;
                     Feasible = saidas.feasible;
                     Iteracoes = saidas.iteracoes;
@@ -288,6 +291,12 @@ classdef casadi_block_Control_py< matlab.System & matlab.system.mixin.Propagates
                     Xk = saidas.xk;
                     Uk = saidas.uk;
                     U0 = [saidas.u0_0, saidas.u0_1]';
+                else
+                    obj.contagem_sem_atualizacao = obj.contagem_sem_atualizacao + 1 ;
+                    if(obj.contagem_sem_atualizacao > 2)
+                        disp('ARQUIVO NAO ATUALIZOU AINDA');
+                        disp(obj.contagem_sem_atualizacao);
+                    end
                 end
             end
                 

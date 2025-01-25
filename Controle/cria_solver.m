@@ -219,8 +219,8 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     %Configuração específica do IPOPT
     options=struct;
-    options.print_time= 1;                           %
-    options.ipopt.print_level=3;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    options.print_time= 0;                           %
+    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';
     options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)

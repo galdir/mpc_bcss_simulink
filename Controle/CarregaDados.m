@@ -1,10 +1,12 @@
-clc
-clear all
-close all
+% clc
+% clear all
+% close all
 
 % Define sementes de números aleatórios para garantir repetibilidade
 rand('seed',1) 
 randn('seed',1)
+
+%tempo_simulacao_manual= evalin('base','tempo_simulacao_manual'); 
 
 % =============================================================================
 % Necessário ajustar o Path do Matlab para apontar onde estão as tabelas e dados Petrobras e arquivos de uso geral
@@ -119,7 +121,7 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     PMonAlvoIni=Plano.PMonAlvo(1);                    % Resgata da tabela o ponto de inicial desejado pela ENG para a PMonAlvo [bar]
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
-    StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
+    StopTime=tempo_simulacao_manual;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
     AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
         FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
