@@ -1,4 +1,4 @@
-classdef ESN < handle
+classdef ESN_warmupfix < handle
     % ESN (Echo State Network) - Rede Neural de Estado de Eco
     % Esta classe implementa uma rede neural de estado de eco para modelagem de séries temporais
     
@@ -36,7 +36,7 @@ classdef ESN < handle
     end
     
     methods
-        function obj = ESN(neu, n_in, n_out, varargin)
+        function obj = ESN_warmupfix(neu, n_in, n_out, varargin)
             % Construtor da ESN
             % Parâmetros:
             %   neu: número de neurônios

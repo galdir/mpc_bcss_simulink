@@ -5,7 +5,7 @@ tamanho_do_reservatorio = 100;
 cv_folds = 5;
 
 %nome_arquivo_modelo = 'weightsESNx_TR100_TVaz0.12_RaioE0.99_mape_msa_8809.59.mat';
-nome_arquivo_modelo = 'weightsESNx_TR400_TVaz0.9_RaioE0.4_mape_msa_3.38.mat';
+%nome_arquivo_modelo = 'weightsESNx_TR400_TVaz0.9_RaioE0.4_mape_msa_3.38.mat';
 %nome_arquivo_modelo = 'weightsESNx_JUB27n100_mape_msa_4.85.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR300_TVaz0.8_RaioE0.1_mape_msa_3.41.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_2.62.mat';
@@ -14,6 +14,7 @@ nome_arquivo_modelo = 'weightsESNx_TR400_TVaz0.9_RaioE0.4_mape_msa_3.38.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR900_TVaz0.9_RaioE0.4_mape_msa_3.12.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR100_TVaz0.50_RaioE0.99_mape_msa_2.35.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat';
+nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.50_mape_3msa1.71.mat';
 
 %nome_arquivo_modelo = 'weightsESNx_TR100_TVaz0.50_RaioE0.99.mat';
 
@@ -61,16 +62,19 @@ n_in = length(variaveis_preditoras);
 n_out = length(variaveis_preditas);
 
 % Período de validação
-periodo_validacao = {'2024-09-09 00:00:00', '2024-09-09 13:20:00'};
-periodo_validacao2 = {'2024-07-12 23:06:04', '2024-07-13 06:48:00'};
-%periodo_validacao = {'2024-09-09 00:00:00', '2024-09-09 00:20:00'};
+%periodo_validacao = {'2024-07-12 23:06:04', '2024-07-13 06:48:00'}; %meu
+%DataHoraIni  ={'2024-07-12 10:00:00', '2024-07-16 23:00:00'}; %leizer
+%DataHoraFim={'2024-07-12 16:50:00', '2024-07-17 02:30:00'}; %leizer
+periodo_validacao = {'2024-07-12 10:00:00', '2024-07-12 16:50:00'}; % leizer
+periodo_validacao2 = {'2024-07-16 23:00:00', '2024-07-17 02:30:00'}; %leizer
+periodo_validacao3 = {'2024-09-09 00:00:00', '2024-09-09 13:20:00'}; %meu
 
 % Carregar dados
 df = parquetread(nome_arquivo_dados);
 df = fillmissing(df, 'previous');
 
 % Criar e carregar ESN
-esn = ESN(tamanho_do_reservatorio, n_in, n_out);
+esn = ESN_warmupfix(tamanho_do_reservatorio, n_in, n_out);
 disp(['Carregando modelo: ' nome_arquivo_modelo]);
 esn.load_reservoir(nome_arquivo_modelo);
 
@@ -78,6 +82,10 @@ esn.load_reservoir(nome_arquivo_modelo);
 mape1 = testa_esn_multi_passos(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
 
 mape2 = testa_esn_multi_passos(esn, df, periodo_validacao2, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
-mape_testes = mean([mape1, mape2]);
+
+mape3 = testa_esn_multi_passos(esn, df, periodo_validacao3, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
+
+
+mape_testes = mean([mape1, mape2, mape3]);
 
 fprintf('\nMAPE msa testes: %.2f%%\n', mape_testes);

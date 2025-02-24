@@ -12,22 +12,22 @@ rng(42);
 taxa_vazamento = 0.5;
 raio_espectral = 0.5;
 psi= 0; % 0.5;
-in_scale = 0.1;
-bias_scale = 0.5;
+in_scale = 0.01;%0.01;
+bias_scale = 0.5;%0.5;
 noise_amplitude = 0; %0.005;
-warmupdrop=300;
+warmupdrop=0;
 warmup=1000;
 tamanho_do_reservatorio = 200;
-
 add_data_warmup = 1;
 
-reg_min = 1e-10;
-reg_max = 1e-1;
+reg_min = 1e-8;
+reg_max = 1e-4;
 
+cv_folds = 10;
 
-cv_folds = 3;
+plotar = 1;
+salvar = 0;
 
-plotar = 0;
 
 
 % Definição das variáveis
@@ -83,8 +83,13 @@ periodos_interesse = {
 };
 
 % Período de validação
-periodo_validacao = {'2024-09-09 00:00:00', '2024-09-09 13:20:00'};
-periodo_validacao2 = {'2024-07-12 23:06:04', '2024-07-13 06:48:00'};
+%periodo_validacao = {'2024-07-12 23:06:04', '2024-07-13 06:48:00'}; %meu
+%DataHoraIni  ={'2024-07-12 10:00:00', '2024-07-16 23:00:00'}; %leizer
+%DataHoraFim={'2024-07-12 16:50:00', '2024-07-17 02:30:00'}; %leizer
+periodo_validacao = {'2024-07-12 10:00:00', '2024-07-12 16:50:00'}; % leizer
+periodo_validacao2 = {'2024-07-16 10:00:00', '2024-07-17 02:30:00'}; %leizer
+periodo_validacao3 = {'2024-09-09 00:00:00', '2024-09-09 13:20:00'}; %meu
+
 
 
 df=parquetread(nome_arquivo_dados);
@@ -93,7 +98,7 @@ df=fillmissing(df,'previous');
 
 disp('Cria a ESN com parâmetros personalizados');
 
-esn = ESN(tamanho_do_reservatorio, n_in, n_out, ...
+esn = ESN_warmupfix(tamanho_do_reservatorio, n_in, n_out, ...
     'gama', taxa_vazamento, ...        % taxa de vazamento
     'ro', raio_espectral, ...         % raio espectral
     'psi', psi, ...        % esparsidade
@@ -137,22 +142,29 @@ disp('Treinando ESN...');
 fprintf('Melhor regularização: %.10f\n', melhor_reg);
 fprintf('Erro CV: %.6f\n', erro_cv);
 
-% Cria nome do modelo com os parâmetros
-nome_arquivo_modelo = sprintf('weightsESNx_TR%d_TVaz%.2f_RaioE%.2f.mat', ...
-    tamanho_do_reservatorio, taxa_vazamento, raio_espectral);
-disp(nome_arquivo_modelo)
-
-% Salva o modelo
-esn.save_reservoir(nome_arquivo_modelo);
-
 testa_esn(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_apelidos_unidades, plotar);
 
 % Testar ESN com previsão multi-passos
 mape1 = testa_esn_multi_passos(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
 
 mape2 = testa_esn_multi_passos(esn, df, periodo_validacao2, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
-mape_testes = mean([mape1, mape2]);
+
+mape3 = testa_esn_multi_passos(esn, df, periodo_validacao3, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
+
+mape_testes = mean([mape1, mape2, mape3]);
 fprintf('\nMAPE msa testes: %.2f%%\n', mape_testes);
+
+% Cria nome do modelo com os parâmetros
+nome_arquivo_modelo = sprintf('weightsESNx_TR%d_TVaz%.2f_RaioE%.2f_mape_3msa%.2f.mat', ...
+    tamanho_do_reservatorio, taxa_vazamento, raio_espectral, mape_testes);
+disp(nome_arquivo_modelo)
+
+% Salva o modelo
+if salvar
+    esn.save_reservoir(nome_arquivo_modelo);
+end
+
+
 
 %nome_arquivo_modelo_leizer = 'weightsESNx_TR400_TVaz0.9_RaioE0.4.mat';
 %disp('Testando outra esn')
