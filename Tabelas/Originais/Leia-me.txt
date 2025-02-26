@@ -1,0 +1,15 @@
+De onde tirar as informações compor a tabela DoBTP.XLSX
+
+Exemplo Arquivo: P-57 - JUB-27 - BTP 112 - 23.07.2024 - CONCLUSIVO
+
+Planilha: BTP_CORRIGIDO
+Células:
+-RGO: M59   (61,3)
+-BSW: Q59   (89,5) 
+
+Arquivo: ANEXO C.1 - Planilha para cálculo da condição operacional da BCSS
+Planilha: BTP_CORRIGIDO
+Células:
+-API: C6
+-dg: C7
+-Pb: C8
