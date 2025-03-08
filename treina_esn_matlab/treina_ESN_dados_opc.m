@@ -17,16 +17,19 @@ bias_scale = 0.5;%0.5;
 noise_amplitude = 0; %0.005;
 warmupdrop=0;
 warmup=1000;
-tamanho_do_reservatorio = 200;
+tamanho_do_reservatorio = 100;
 add_data_warmup = 1;
 
 reg_min = 1e-8;
 reg_max = 1e-4;
 
-cv_folds = 10;
+cv_folds = 5;
+
+normalizar_v2=0;
 
 plotar = 1;
 salvar = 0;
+
 
 
 
@@ -72,24 +75,43 @@ variaveis_apelidos_unidades = {
 n_in = length(variaveis_preditoras);  % 12 (número de variáveis de entrada)
 n_out = length(variaveis_preditas);   % 10 (número de variáveis de saída)
 
+desc_treino = 'estacionarios';% '072024';
+desc_validacao = 'naoestacionarios';
+
 % Definir períodos de interesse
 periodos_interesse = {
-    {'2024-07-12 09:30:00', '2024-07-12 12:30:00'}  % 1 - transiente pmon subindo
-    {'2024-07-12 12:30:00', '2024-07-12 16:59:00'}  % 2 - transiente freqs e pmon descendo
-    {'2024-07-12 23:06:04', '2024-07-13 02:41:00'}  % 3 - transiente pmon subindo
-    {'2024-07-13 03:30:00', '2024-07-13 06:48:00'}  % 4 - transientes freq descendo
-    {'2024-07-15 13:33:30', '2024-07-15 22:00:00'}  % 5 - transiente pmon sobe
-    {'2024-07-16 22:00:00', '2024-07-17 05:00:00'}  % 6 - transiente pmon desce  
+    {'2024-07-12 09:30:00', '2024-07-12 16:50:00'}  % alinhamento teste, inicio estacionario, freq e pmon subindo e descendo
+    {'2024-07-12 23:10:00', '2024-07-13 02:41:00'}  % inicio nao estacionario, freq e pmon subindo
+    {'2024-07-13 03:30:00', '2024-07-13 06:48:00'}  % inicio estacionario, freq descendo
+    {'2024-07-15 13:33:30', '2024-07-15 22:00:00'}  % inicio nao estacionario, freq pmon sobe
+    {'2024-07-16 22:00:00', '2024-07-17 05:00:00'}  % inicio estacionario, freq sobe, pmon desce  
+    {'2024-08-13 19:00:00', '2024-08-13 21:30:00'}  % inicio estacionario, freq sobe, pmon desce  
+    {'2024-09-21 07:00:00', '2024-09-21 13:55:00'} % inicio estacionario, freq desce, pmon sobe  
+    {'2024-09-09 00:00:00', '2024-09-09 13:20:00'} % inicio nao estacionario, freq e pmon sobe
+    {'2024-09-21 22:30:00', '2024-09-22 05:10:00'} % inicio nao estacionario, freq e pmon sobe  
+    {'2024-10-25 00:00:00', '2024-10-25 18:00:00'} % inicio estacionario, freq e pmon sobe e desce
 };
 
 % Período de validação
 %periodo_validacao = {'2024-07-12 23:06:04', '2024-07-13 06:48:00'}; %meu
 %DataHoraIni  ={'2024-07-12 10:00:00', '2024-07-16 23:00:00'}; %leizer
 %DataHoraFim={'2024-07-12 16:50:00', '2024-07-17 02:30:00'}; %leizer
-periodo_validacao = {'2024-07-12 10:00:00', '2024-07-12 16:50:00'}; % leizer
-periodo_validacao2 = {'2024-07-16 10:00:00', '2024-07-17 02:30:00'}; %leizer
-periodo_validacao3 = {'2024-09-09 00:00:00', '2024-09-09 13:20:00'}; %meu
+%periodo_validacao = {'2024-07-12 09:30:00', '2024-07-12 16:50:00'};  % alinhamento teste, inicio estacionario, freq e pmon subindo e descendo
+%periodo_validacao2 = {'2024-07-16 22:00:00', '2024-07-17 05:00:00'};  % inicio estacionario, freq sobe, pmon desce  
+%periodo_validacao3 = {'2024-09-09 00:00:00', '2024-09-09 13:20:00'}; % inicio nao estacionario, freq e pmon sobe
 
+periodos_validacao = {
+    {'2024-07-12 09:30:00', '2024-07-12 16:50:00'}  % alinhamento teste, inicio estacionario, freq e pmon subindo e descendo
+    {'2024-07-12 23:10:00', '2024-07-13 02:41:00'}  % inicio nao estacionario, freq e pmon subindo
+    {'2024-07-13 03:30:00', '2024-07-13 06:48:00'}  % inicio estacionario, freq descendo
+    {'2024-07-15 13:33:30', '2024-07-15 22:00:00'}  % inicio nao estacionario, freq pmon sobe
+    {'2024-07-16 22:00:00', '2024-07-17 05:00:00'}  % inicio estacionario, freq sobe, pmon desce  
+    {'2024-08-13 19:00:00', '2024-08-13 21:30:00'}  % inicio estacionario, freq sobe, pmon desce  
+    {'2024-09-21 07:00:00', '2024-09-21 13:55:00'} % inicio estacionario, freq desce, pmon sobe  
+    {'2024-09-09 00:00:00', '2024-09-09 13:20:00'} % inicio nao estacionario, freq e pmon sobe
+    {'2024-09-21 22:30:00', '2024-09-22 05:10:00'} % inicio nao estacionario, freq e pmon sobe  
+    {'2024-10-25 00:00:00', '2024-10-25 18:00:00'} % inicio estacionario, freq e pmon sobe e desce
+};
 
 
 df=parquetread(nome_arquivo_dados);
@@ -122,7 +144,12 @@ for i = 1:length(periodos_interesse)
 
     %normalizando
     for k=1:length(matriz_df)
-        matriz_df(k, :) = normaliza_entradas(matriz_df(k,:));
+        if normalizar_v2==1
+            matriz_df(k, :) = normaliza_entradas_v2(matriz_df(k,:));
+        else
+            matriz_df(k, :) = normaliza_entradas(matriz_df(k,:));
+        end
+
     end
     
     y_treina = matriz_df(2:end, 3:end);
@@ -142,21 +169,31 @@ disp('Treinando ESN...');
 fprintf('Melhor regularização: %.10f\n', melhor_reg);
 fprintf('Erro CV: %.6f\n', erro_cv);
 
-testa_esn(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_apelidos_unidades, plotar);
+testa_esn_predicao_direta(esn, df, periodos_validacao{1}, variaveis_preditoras, variaveis_preditas, variaveis_apelidos_unidades, plotar, normalizar_v2);
+
+
+n_periodos = length(periodos_validacao);
+mapes = zeros(1, n_periodos);
+for i=1:n_periodos
+    periodo_validacao = periodos_validacao{i};
+    mape_atual = testa_esn_multi_passos(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar, normalizar_v2);
+    mapes(i) = mean(mape_atual);
+end
 
 % Testar ESN com previsão multi-passos
-mape1 = testa_esn_multi_passos(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
+%mape1 = testa_esn_multi_passos(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
 
-mape2 = testa_esn_multi_passos(esn, df, periodo_validacao2, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
+%mape2 = testa_esn_multi_passos(esn, df, periodo_validacao2, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
 
-mape3 = testa_esn_multi_passos(esn, df, periodo_validacao3, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
+%mape3 = testa_esn_multi_passos(esn, df, periodo_validacao3, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar);
+mape_testes = mean(mapes);
+%mape_testes = mean([mape1, mape2, mape3]);
 
-mape_testes = mean([mape1, mape2, mape3]);
 fprintf('\nMAPE msa testes: %.2f%%\n', mape_testes);
 
 % Cria nome do modelo com os parâmetros
-nome_arquivo_modelo = sprintf('weightsESNx_TR%d_TVaz%.2f_RaioE%.2f_mape_3msa%.2f.mat', ...
-    tamanho_do_reservatorio, taxa_vazamento, raio_espectral, mape_testes);
+nome_arquivo_modelo = sprintf("weightsESNx_TR%d_TVaz%.2f_RaioE%.2f-treino_%s-mape_msa_%s_%.2f.mat", ...
+    tamanho_do_reservatorio, taxa_vazamento, raio_espectral, desc_treino, desc_validacao, mape_testes);
 disp(nome_arquivo_modelo)
 
 % Salva o modelo
@@ -172,122 +209,4 @@ end
 %esn.load_reservoir(nome_arquivo_modelo_leizer);
 %testa_esn(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, plotar);
 
-
-function testa_esn(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_apelidos_unidades, plotar)
-    disp('Testando ESN com o período:');
-    disp(periodo_validacao);
-    n_out = length(variaveis_preditas);   % 10 (número de variáveis de saída)
-
-    
-    % Seleciona dados do período
-    idx_periodo = df.data_hora >= periodo_validacao{1} & df.data_hora <= periodo_validacao{2};
-    df_periodo = df(idx_periodo, :);
-    matriz_df = table2array(df_periodo(:, variaveis_preditoras)); 
-    %normalizando
-    for k=1:length(matriz_df)
-        matriz_df(k, :) = normaliza_entradas(matriz_df(k,:));
-    end
-    
-    u_teste = matriz_df(1:end-1, :);
-    %y_teste = matriz_df(2:end, 3:end);
-    y_teste = table2array(df_periodo(2:end, variaveis_preditas)); 
-    y_pred = zeros(size(y_teste));
-    
-    %esquenta modelo para o ponto atual dos dados
-    for i=1:1000
-        esn.update(u_teste(1,:));
-    end
-    
-    % Previsão
-    for i = 1:length(u_teste)
-        y_pred(i,:) = esn.update(u_teste(i,:));
-    end
-    
-    %desnormaliza predicoes
-    for k=1:length(y_pred)
-        y_pred(k, :) = desnormaliza_predicoes(y_pred(k,:));
-    end
-    
-    % Calcula erro de teste
-    mse = mean((y_teste - y_pred).^2);
-    mape = mean(abs((y_teste - y_pred) ./ y_teste)) * 100;
-    
-    fprintf('Erro de teste (MAPE) geral: %.2f%%\n', mean(mape));
-    fprintf('Erro de teste (MSE) geral: %.6f\n', mean(mse));
-    fprintf('Erro de teste (RMSE) geral: %.6f\n', mean(sqrt(mse)));
-    
-    for i=1:length(variaveis_preditas)
-        mape = mean(abs((y_teste(:,i) - y_pred(:,i)) ./ y_teste(:,i))) * 100;
-        %disp(variaveis_preditas{i})
-        fprintf('Erro de teste (MAPE) %s: %.2f%%\n', variaveis_preditas{i}, mape);
-    end    
-
-
-    if plotar
-    
-        %% Plots dos resultados
-        
-        % Configurações gerais dos plots
-        set(0,'defaultAxesFontSize',12)
-        set(0,'defaultTextFontSize',12)
-        set(0,'defaultAxesFontName','Arial')
-        set(0,'defaultTextFontName','Arial')
-        set(0,'defaultLineLineWidth',1.5)
-        
-        %% 1. Plot do período de teste - Todas as variáveis em subplots
-        figure('Position', [100 100 1200 800])
-        n_rows = ceil(n_out/2);  % 2 colunas
-        for i = 1:n_out
-            subplot(n_rows, 2, i)
-            plot(df_periodo.data_hora(1:end-1), y_teste(:,i), 'b-', 'DisplayName', 'Real')
-            hold on
-            plot(df_periodo.data_hora(1:end-1), y_pred(:,i), 'r--', 'DisplayName', 'Previsto')
-            title(variaveis_apelidos_unidades{i}{2})
-            grid on
-            legend('show')
-            if i == n_out-1 || i == n_out  % Apenas últimos subplots
-                xlabel('Tempo')
-            end
-            %ylabel('Valor Normalizado')
-            ylabel(variaveis_apelidos_unidades{i}{3});
-            hold off
-        end
-        sgtitle('Comparação entre Valores Reais e Previstos - Período de Teste')
-        
-        %% 2. Plot de dispersão - Previsto vs Real
-        figure('Position', [100 100 1200 800])
-        n_rows = ceil(n_out/2);
-        for i = 1:n_out
-            subplot(n_rows, 2, i)
-            scatter(y_teste(:,i), y_pred(:,i), 20, 'filled', 'MarkerFaceAlpha', 0.5)
-            hold on
-            % Linha ideal (y=x)
-            min_val = min(min(y_teste(:,i)), min(y_pred(:,i)));
-            max_val = max(max(y_teste(:,i)), max(y_pred(:,i)));
-            plot([min_val max_val], [min_val max_val], 'r--')
-            title(variaveis_preditas{i})
-            xlabel('Valor Real')
-            ylabel('Valor Previsto')
-            grid on
-            hold off
-        end
-        sgtitle('Gráficos de Dispersão - Valores Previstos vs Reais')
-        
-        %% 3. Plot de erro ao longo do tempo
-        erros = y_teste - y_pred;
-        figure('Position', [100 100 1200 800])
-        n_rows = ceil(n_out/2);
-        for i = 1:n_out
-            subplot(n_rows, 2, i)
-            plot(df_periodo.data_hora(1:end-1), erros(:,i))
-            title(['Erro - ', variaveis_preditas{i}])
-            grid on
-            if i == n_out-1 || i == n_out  % Apenas últimos subplots
-                xlabel('Tempo')
-            end
-            ylabel('Erro')
-        end
-        sgtitle('Erro de Previsão ao Longo do Tempo')
-    end
-end
 

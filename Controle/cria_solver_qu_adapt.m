@@ -204,8 +204,28 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     for k=1:Hc             % Para o horizonte de controle Hc
         % Incrementa custo com a diferença entre a ação de controle e o AlvoEng
         % Incrementa custo da função objetivo com o valor de DeltaU
-        S=(U(:,k)-AlvoEng)'*Qu*(U(:,k)-AlvoEng) + DU(:,k)'*R*DU(:,k);
-        fob=fob+S;
+        %S=(U(:,k)-AlvoEng)'*Qu*(U(:,k)-AlvoEng) + DU(:,k)'*R*DU(:,k);
+        %fob=fob+S;
+
+        erro_alvo = U(:,k) - AlvoEng;
+    
+        % Calcule margens para U
+        margem_u_max = umax' - U(:,k);
+        margem_u_min = U(:,k) - umin';
+        margem_u = fmin(margem_u_max, margem_u_min);
+        
+        % Calcule pesos adaptativos para U
+        escala_u = 0.1; % Ajustar conforme escala das entradas
+        pesos_u = margem_u ./ (margem_u + escala_u);
+        
+        % Matriz adaptativa Qu
+        Qu_adaptativo = MX.zeros(size(Qu));
+        for i=1:size(Qu,1)
+            Qu_adaptativo(i,i) = Qu(i,i) * pesos_u(i);
+        end
+        
+        % Adicione à função objetivo
+        fob = fob + erro_alvo'*Qu_adaptativo*erro_alvo + DU(:,k)'*R*DU(:,k);
     end
 
 
@@ -223,7 +243,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';
-    options.ipopt.bound_relax_factor= 0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
     options.verbose = 0;
 
     options.ipopt.max_iter=1e3;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
@@ -238,7 +258,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     %options.expand= 1;  % Expande a formulação CasADi
     %options.ipopt.linear_solver = 'mumps'; % Solver linear mais eficiente (se disponível) outros possiveis: ma27, ma97, spral, mumps 
     
-    %options.ipopt.tol= 1e-4; % default 1e-8
+    %options.ipopt.tol= 1e-3; % default 1e-8
     %options.ipopt.acceptable_tol = 1e-3; % default 1e-6
     %options.ipopt.compl_inf_tol = 1e-3; % default 1e-4
     %options.ipopt.acceptable_iter = 5; % default 15

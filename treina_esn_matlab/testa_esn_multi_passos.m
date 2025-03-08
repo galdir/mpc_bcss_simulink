@@ -1,4 +1,13 @@
-function mape_geral = testa_esn_multi_passos(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar)
+function mape_geral = testa_esn_multi_passos(esn, df, periodo_validacao, variaveis_preditoras, variaveis_preditas, variaveis_manipuladas, variaveis_apelidos_unidades, plotar, normalizar_v2)
+    
+    if nargin < 9
+           normalizar_v2 = 0;
+    end
+
+    if normalizar_v2==1
+        disp('Normalizacao v2');
+    end
+    
     disp(' ');
     disp('Testando ESN com previsão multi-passos para o período:');
     disp(periodo_validacao);
@@ -22,7 +31,11 @@ function mape_geral = testa_esn_multi_passos(esn, df, periodo_validacao, variave
     % Normalizar todo o conjunto de dados uma vez
     matriz_df_norm = zeros(size(matriz_df));
     for k = 1:size(matriz_df, 1)
-        matriz_df_norm(k, :) = normaliza_entradas(matriz_df(k, :));
+        if normalizar_v2==1
+            matriz_df_norm(k, :) = normaliza_entradas_v2(matriz_df(k, :));
+        else
+            matriz_df_norm(k, :) = normaliza_entradas(matriz_df(k, :));
+        end
     end
     
     % Inicializar estado com o primeiro ponto e aquecer o reservatório
@@ -39,7 +52,12 @@ function mape_geral = testa_esn_multi_passos(esn, df, periodo_validacao, variave
     
     % Primeira previsão
     pred_norm = esn.update(estado_atual);
-    pred = desnormaliza_predicoes(pred_norm);
+    if normalizar_v2==1
+        pred = desnormaliza_predicoes_v2(pred_norm);
+    else
+        pred = desnormaliza_predicoes(pred_norm);
+    end
+
     y_pred(1, :) = pred;
     
     % Fazer previsões multi-passos
@@ -60,7 +78,12 @@ function mape_geral = testa_esn_multi_passos(esn, df, periodo_validacao, variave
         
         % Fazer nova previsão
         pred_norm = esn.update(estado_atual);
-        pred = desnormaliza_predicoes(pred_norm);
+        if normalizar_v2==1
+            pred = desnormaliza_predicoes_v2(pred_norm);
+        else
+            pred = desnormaliza_predicoes(pred_norm);
+        end
+
         y_pred(i, :) = pred;
     end
     

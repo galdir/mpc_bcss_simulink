@@ -129,10 +129,10 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
         PMonAlvoIni=max([ Limites(2,2), PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     else                                  % Os alvos serão dados manualmente pela engenharia
         %    Inicializa alvo da ENG manualmente
-        FreqAlvoIni=40;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
+        FreqAlvoIni=57;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=28;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
+        PMonAlvoIni=32;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     end
@@ -141,15 +141,20 @@ end
 %% =============================================================================
 % Carrega uma rede (ESN qualquer) para ser usada como modelo do processo
 % Rede_Processo = load('weightsESNx_JUB27n100.mat');
-Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
-% Rede_Processo = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
+%Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
+%Rede_Processo=load('weightsESNx_TR200_TVaz0.50_RaioE0.50_mape_3msa1.71.mat');
+Rede_Processo=load('weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-mape_msa_070809102024_1.77.mat');
+%Rede_Processo=load('weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_072024-mape_msa_0809102024_2.04.mat');
+
+%Rede_Processo = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 % Rede_Processo = load('weightsESNx_TR900_TVaz0.9_RaioE0.4.mat');
 
 % Número de casas decimais para corresponder a resolução dos instrumentos
 NumCasasDecimais=1;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+%SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+SNR = 100;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
 % Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 

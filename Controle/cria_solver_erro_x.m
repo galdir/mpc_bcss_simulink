@@ -132,13 +132,13 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
         %             RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
         %             Insere restrições para os valores máximos das variáveis (estados X) preditos
-        LimMaxX=LimitesX(:,1)-X(:,k+1);    % Para não ser violado o limite, a diferença deve ser >= 0
+        LimMaxX=LimitesX(:,1)-X(:,k+1)-ErroX;    % Para não ser violado o limite, a diferença deve ser >= 0
         g=[g; LimMaxX];
         args.lbg=[args.lbg,   zeros(1,nx) ];   % Limite mínimo para restrição de desigualdade
         args.ubg=[args.ubg,      inf(1,nx) ];   % Limite máximo para restrição de desigualdade
 
         %            Insere restrições para os valores mínimos das variáveis (estados X) preditos
-        LimMinX=X(:,k+1)-LimitesX(:,2);      % Para não ser violado o limite, a diferença deve ser >= 0
+        LimMinX=X(:,k+1)-LimitesX(:,2)+ErroX;      % Para não ser violado o limite, a diferença deve ser >= 0
         g=[g; LimMinX];
         args.lbg=[args.lbg,   zeros(1,nx) ];    % Limite mínimo para restrição de desigualdade
         args.ubg=[args.ubg,      inf(1,nx) ];    % Limite máximo para restrição de desigualdade
@@ -147,13 +147,13 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         %            Insere restrições para os valores máximos das saidas controladas por setpoint que são preditas
         y_saida= funcao_h(X(:,k+1));                       % Saidas preditas (variáveis controladas por setpoint)
 
-        LimMaxY=LimitesY(:,1)-y_saida;    % Para não ser violado o limite, a diferença deve ser >= 0
+        LimMaxY=LimitesY(:,1)-y_saida-ErroY;    % Para não ser violado o limite, a diferença deve ser >= 0
         g=[g; LimMaxY];
         args.lbg=[args.lbg,    zeros(1,ny) ];   % Limite mínimo para restrição de desigualdade
         args.ubg=[args.ubg,       inf(1,ny) ];   % Limite máximo para restrição de desigualdade
 
         %            Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
-        LimMinY=y_saida-LimitesY(:,2);      % Para não ser violado o limite, a diferença deve ser >= 0
+        LimMinY=y_saida-LimitesY(:,2)+ErroY;      % Para não ser violado o limite, a diferença deve ser >= 0
         g=[g; LimMinY];
         args.lbg=[args.lbg,  zeros(1,ny) ];    % Limite mínimo para restrição de desigualdade
         args.ubg=[args.ubg,     inf(1,ny) ];    % Limite máximo para restrição de desigualdade
@@ -220,11 +220,11 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     %Configuração específica do IPOPT
     options=struct;
     options.print_time= 0;                           %
-    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    options.ipopt.print_level=5;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';
-    options.ipopt.bound_relax_factor= 0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
-    options.verbose = 0;
+    options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    options.verbose = 1;
 
     options.ipopt.max_iter=1e3;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
 
@@ -238,8 +238,8 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     %options.expand= 1;  % Expande a formulação CasADi
     %options.ipopt.linear_solver = 'mumps'; % Solver linear mais eficiente (se disponível) outros possiveis: ma27, ma97, spral, mumps 
     
-    %options.ipopt.tol= 1e-4; % default 1e-8
-    %options.ipopt.acceptable_tol = 1e-3; % default 1e-6
+    options.ipopt.tol= 1e-4; % default 1e-8
+    options.ipopt.acceptable_tol = 1e-3; % default 1e-6
     %options.ipopt.compl_inf_tol = 1e-3; % default 1e-4
     %options.ipopt.acceptable_iter = 5; % default 15
     

@@ -20,8 +20,10 @@ TipoRede=1;        % 1=ESN ou  2=LSTM
 %NomeESN='weightsESNx_TR400_TVaz0.9_RaioE0.4.mat'; %usado por leizer
 %NomeESN='weightsESNx_TR100_TVaz0.50_RaioE0.50_mape_msa_dois_2.60.mat';
 %NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.50_mape_msa_dois_2.52.mat';
-NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat'; %criada no matlab, escolhida por Leizer
-
+%NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat'; %criada no matlab, escolhida por Leizer
+%NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.50_mape_3msa1.71.mat';
+NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-mape_msa_070809102024_1.77.mat';
+%NomeESN='weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_072024-mape_msa_0809102024_2.04.mat';
 
 ESN_MPC = load(NomeESN);
 ESN_MPC.data.tipo = TipoRede;     % Insere o tipo de rede na estrutura do modelo
@@ -35,7 +37,7 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
 Hp = 10;                               % Horizonte de predição
 Hc = Hp-1;                         % Horizonte de controle
-Qy=  0*diag([1  10]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+Qy=  0*diag([1  1]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
 Qu = 1*diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
 Qx= 0*diag(ones(1,11));    % Peso para os erros de estimação das  variáveis do processo
 R=  0*diag([15  15]);             % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 
