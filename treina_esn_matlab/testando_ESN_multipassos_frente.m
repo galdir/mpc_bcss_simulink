@@ -6,12 +6,12 @@ cv_folds = 5;
 
 %nome_arquivo_modelo = 'weightsESNx_TR400_TVaz0.9_RaioE0.4.mat';
 %nome_arquivo_modelo = 'weightsESNx_JUB27n100_mape_msa_4.85.mat';
-nome_arquivo_modelo = 'weightsESNx_TR300_TVaz0.8_RaioE0.1.mat';
+%nome_arquivo_modelo = 'weightsESNx_TR300_TVaz0.8_RaioE0.1.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR900_TVaz0.9_RaioE0.4_mape_msa_3.12.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR100_TVaz0.50_RaioE0.99_mape_msa_2.35.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.50_mape_3msa1.71.mat';
-%nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-mape_msa_070809102024_1.77.mat';
+nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-mape_msa_070809102024_1.77.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_072024-mape_msa_0809102024_2.04.mat';
 %nome_arquivo_modelo = 'weightsESNx_TR100_TVaz0.50_RaioE0.99.mat';
 

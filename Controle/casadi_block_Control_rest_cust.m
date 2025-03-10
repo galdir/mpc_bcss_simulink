@@ -1,5 +1,5 @@
 %%  IMPLEMENTAÇÃO MPC USANDO O CASADI
-classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
+classdef casadi_block_Control_rest_cust< matlab.System & matlab.system.mixin.Propagates
     properties (DiscreteState)
     end
     properties (Access = private)                       % Criação das variáveis que vão compor o OBJETO
@@ -21,6 +21,9 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
         x0                                                                % Para guardar condições iniciais dos estados (X) atuais e em todo horizonte (1+Hp)
         u0                                                                 % Para guardar condições iniciais das ações de controle (U) em todo o horizonte (Hc)
+        du0
+        SlackMax0 % delta ysp do gov ref
+        SlackMin0 % delta u do gov ref
         BuffDeltaFreq                                             % Para proporcionar soma de 45 últimas variações na ação de controle
 
         Predicao                                                     % Para guardar a predição no instante anterior
@@ -116,7 +119,10 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
                 ny ... % ErroY
                 ny ... % Ysp
                 nx*(1+Hp) ... % Xk
-                nu*Hp]; % Uk
+                nu*Hp ... % Uk
+                1 ... % slackmax
+                1 ... % slackmin
+                ]; 
 
             sz1 =  sum(Dim);
         end
@@ -212,9 +218,12 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
             % Delta U será inicializado com zeros
             obj.x0=repmat(XIni,1+Hp,1);                % Condição incial das variáveis medidas (estados X) atuais e futuras
             obj.u0=repmat(UIni,Hp,1);                % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
-
+            obj.du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
+            obj.SlackMax0 = 0;
+            obj.SlackMin0 = 0;
             % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
             obj.BuffDeltaFreq=zeros(45,1);
+
 
             obj.WallTime = evalin('base','WallTime'); % tempo maximo para execucao do solver
 
@@ -222,7 +231,7 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
             % Até aqui foi a inicialização das variáveis e estruturas, salvando em OBJ para que possam ser usadas no StepImpl
 
             %funcao para criar o solver
-            [solver, args_solver] = cria_solver(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
+            [solver, args_solver] = cria_solver_rest_cust(obj.umax, obj.umin, obj.dumax, obj.MargemPercentual, ...
                 obj.Hp, obj.Hc, obj.Qy, obj.Qu, obj.R, obj.Qx, obj.nx, obj.nu, obj.ny, ...
                 obj.EstimaVazao, obj.f_buscaLimites_sym, obj.ModeloPreditor, obj.Funcao_h, obj.WallTime);
             obj.casadi_solver=solver;
@@ -273,12 +282,17 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
             % Estes valores de x0 e u0 são sempre atualizados, passando ou não pelo solver
+            %obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
+            %obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
             obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
             obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
+            %obj.du0=[obj.du0];
 
             %% ===================== %Parâmetros e atuação do solver ========================================
             obj.contador = obj.contador+1;     % Contador ajudará a saber se é momento para atuar o controlador
             DeltaU=zeros(nu,1);                     % Reinicia DeltaU=0, inclusive para saber quando não passou pelo Solver
+            SlackMax = 0;
+            SlackMin = 0;
             TempoSolver=0;                            % Inicializa contador para calcular o tempo gasto com o Solver, quando for o caso !!
             Feasible=0.5;                                 % Assumir padrão para indicar que não passou pelo Solver
             Iteracoes=0;                                   % Numero de iterações, alterado qdo passa pelo Solver
@@ -299,9 +313,9 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
                 %% Condição inicial para passar ao solver (inclui variáveis de decisão)
                 % Trata-se de atualização das condições inciais associadas as variáveis de decisão
-                du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
+                %du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
                 
-                args.x0_solver=[ obj.x0;  obj.u0; du0];
+                args.x0_solver=[ obj.x0;  obj.u0; obj.du0; obj.SlackMax0; obj.SlackMin0];
 
                 %% Resgata estruturas de restrições guardadas pelo objeto
                 args.lbx=obj.lbx;                                 % Lower Bounds para os Estados X e U do MPC
@@ -317,15 +331,22 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
                 % Caso não seja feasible, não resseta o contador, de modo que o controlador fará nova tentativa na amostragem seguint   e
                 %% Se uma solução foi encontrada
                 if Feasible
-                    % Saida do Solver. Dimensão = [ EstadosAtuais e futuros em todo Hp  +   U até Hp           DeltaU até Hp   ]
-                    Indice = [                                                      nx*(1+Hp)                                       nu*Hp                    nu*Hp              ];
+                    Indice = [nx*(1+Hp) ... %EstadosAtuais e futuros em todo Hp  +   U até Hp
+                                nu*Hp ... %U até Hp
+                                nu*Hp ... %DeltaU até Hp
+                                ny ... % delta de ysp do gov ref
+                                nu ... % delta de u do gov ref
+                                1 ... % slackmax
+                                1]; % slackmin
                     Solucao_MPC=full(solver.x);                          % Solução ótima encontrada pelo otimizador
-                    [Xk,Uk,DeltaUk]=ExtraiSolucao(Solucao_MPC,Indice);
+                    [Xk,Uk,DeltaUk, SlackMax, SlackMin]=ExtraiSolucao(Solucao_MPC, Indice);
                     [Jy, Ju, Jr, Jx]=CalcCusto(Xk, Uk, Hp, Hc, obj.Qy, obj.Qu, obj.R, obj.Qx,ErroX,ErroY,Ysp,AlvoEng,Funcao_h);
                     % Como o solver indica novo futuro predito, atualiza x0 e u0 para os próximos ciclos
                     obj.x0=Xk;              % Guarda nova condição inicial x0 para os estados atuais e preditos pelo solver
                     obj.u0=Uk;              % Guarda ações de controle (U ótimos) atuais e preditos pelo solver
+                    obj.du0=DeltaUk;
                     DeltaU=DeltaUk(1:nu);                     % Delta U como variável indicada pelo solver
+                    
                     DeltaU2=obj.u0(1:nu)-U0;                 % DeltaU = Ação ótima calculada agora, menos a ação antes aplicada
                     if norm(DeltaU-DeltaU2,2)>1e-10
                         disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
@@ -354,7 +375,7 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
             % Prepara saidas do bloco MPC
             % Dimensão = [     1             1                    1              nu     nu                   1                1    1    1   1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ]
-            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U0; DeltaU;  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX;  ErroY;  Ysp;        Xk;               Uk    ];
+            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U0; DeltaU;  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX;  ErroY;  Ysp;        Xk;               Uk; SlackMax; SlackMin    ];
 
             % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado
             ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor
@@ -401,12 +422,14 @@ end
 
 %% ==============================================================================
 %% Função para extrair partes que compõe a solução
-function   [Xk,Uk,DeltaUk]=ExtraiSolucao(Solucao,Indice)
-    Ate=[Indice(1)   sum(Indice(1:2))  sum(Indice(1:3))  ];
-    De=[1  Ate(1)+1   Ate(2)+1 ];
+function   [Xk,Uk,DeltaUk, SX_max, SX_min]=ExtraiSolucao(Solucao,Indice)
+    Ate=[Indice(1)   sum(Indice(1:2))  sum(Indice(1:3))  sum(Indice(1:3))+1  sum(Indice(1:3))+2  ];
+    De=[1  Ate(1)+1   Ate(2)+1  Ate(3)+1    Ate(4)+1 ];
     Xk=Solucao(De(1):Ate(1));
     Uk=Solucao(De(2):Ate(2));
     DeltaUk=Solucao(De(3):Ate(3));
+    SX_max=Solucao(De(4):Ate(4));
+    SX_min=Solucao(De(5):Ate(5));
 end
 
 

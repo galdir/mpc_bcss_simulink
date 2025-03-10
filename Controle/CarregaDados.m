@@ -97,7 +97,7 @@ matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda var
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
 FreqMaxMin=[60 ,  40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
-PMonAlvoMaxMin=[50 , 20];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
+PMonAlvoMaxMin=[50 , 25];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
 umax  = [FreqMaxMin(1) ,  PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
 umin  =  [FreqMaxMin(2), PMonAlvoMaxMin(2)] ;        % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
@@ -153,8 +153,8 @@ Rede_Processo=load('weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-map
 NumCasasDecimais=1;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-%SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
-SNR = 100;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+%SNR = 100;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
 % Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 

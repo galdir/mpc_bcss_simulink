@@ -21,6 +21,7 @@ classdef casadi_block_Control_gov_ref< matlab.System & matlab.system.mixin.Propa
 
         x0                                                                % Para guardar condições iniciais dos estados (X) atuais e em todo horizonte (1+Hp)
         u0                                                                 % Para guardar condições iniciais das ações de controle (U) em todo o horizonte (Hc)
+        du0
         delta_ysp0 % delta ysp do gov ref
         delta_alvoeng0 % delta u do gov ref
         BuffDeltaFreq                                             % Para proporcionar soma de 45 últimas variações na ação de controle
@@ -217,6 +218,7 @@ classdef casadi_block_Control_gov_ref< matlab.System & matlab.system.mixin.Propa
             % Delta U será inicializado com zeros
             obj.x0=repmat(XIni,1+Hp,1);                % Condição incial das variáveis medidas (estados X) atuais e futuras
             obj.u0=repmat(UIni,Hp,1);                % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
+            obj.du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
             obj.delta_ysp0 = zeros(ny,1);
             obj.delta_alvoeng0 = zeros(nu,1);
             % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
@@ -284,6 +286,7 @@ classdef casadi_block_Control_gov_ref< matlab.System & matlab.system.mixin.Propa
             %obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
             obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
             obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
+            %obj.du0=[obj.du0];
 
             %% ===================== %Parâmetros e atuação do solver ========================================
             obj.contador = obj.contador+1;     % Contador ajudará a saber se é momento para atuar o controlador
@@ -310,9 +313,9 @@ classdef casadi_block_Control_gov_ref< matlab.System & matlab.system.mixin.Propa
 
                 %% Condição inicial para passar ao solver (inclui variáveis de decisão)
                 % Trata-se de atualização das condições inciais associadas as variáveis de decisão
-                du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
+                %du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
                 
-                args.x0_solver=[ obj.x0;  obj.u0; du0; delta_ysp0; delta_alvoeng0];
+                args.x0_solver=[ obj.x0;  obj.u0; obj.du0; delta_ysp0; delta_alvoeng0];
 
                 %% Resgata estruturas de restrições guardadas pelo objeto
                 args.lbx=obj.lbx;                                 % Lower Bounds para os Estados X e U do MPC
@@ -340,7 +343,9 @@ classdef casadi_block_Control_gov_ref< matlab.System & matlab.system.mixin.Propa
                     % Como o solver indica novo futuro predito, atualiza x0 e u0 para os próximos ciclos
                     obj.x0=Xk;              % Guarda nova condição inicial x0 para os estados atuais e preditos pelo solver
                     obj.u0=Uk;              % Guarda ações de controle (U ótimos) atuais e preditos pelo solver
+                    obj.du0=DeltaUk;
                     DeltaU=DeltaUk(1:nu);                     % Delta U como variável indicada pelo solver
+                    
                     DeltaU2=obj.u0(1:nu)-U0;                 % DeltaU = Ação ótima calculada agora, menos a ação antes aplicada
                     if norm(DeltaU-DeltaU2,2)>1e-10
                         disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
