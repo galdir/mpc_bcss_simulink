@@ -48,7 +48,8 @@ for i=1:height(T)      %  Para cada registro da tabela T recebida (pode ser 1 re
     % Contas que reproduzem os RESULTADOS do Anexo C1
     QoPT=T(i,3)*Bo;
     QwPT=QL*(BSW/100)*Bw;
-    QgPT=(BtpRGO-Ppr)*T(i,3)*Bg;
+%    QgPT=(BtpRGO-Ppr)*T(i,3)*Bg;  % Linha antiga
+    QgPT=(BtpRGO-Rs2)*T(i,3)*Bg;
     Qtotal=QoPT+QwPT+QgPT;
     FGL=QgPT/Qtotal*100;
     Qdt(i)=3021*T(i,1)/60;
