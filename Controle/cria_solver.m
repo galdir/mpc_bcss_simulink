@@ -233,7 +233,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 % Parâmetros alterados em relação ao padrão do Solver
     options.ipopt.bound_relax_factor=0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
     options.ipopt.hessian_approximation = 'limited-memory';    % This determines which kind of information for the Hessian of the Lagrangian function is used by the algorithm. The default value for this string option is "exact".
-%    options.ipopt.max_iter=1e4;                     % Especifica o número máximo de iterações que o solver deve executar antes de parar.
+   options.ipopt.max_iter=1e4;                     % Especifica o número máximo de iterações que o solver deve executar antes de parar.
     
 % Parâmetros avaliados mas que concluimos por manter o padrão do Solver
 % options.ipopt.mu_init=1e-6;   ou  options.ipopt.mu_init=1e-1;
