@@ -4,7 +4,7 @@ clc
 clear all
 close all
 
-tempo_simulacao_manual = 1*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h, Padrao 4*3600
+tempo_simulacao_manual = 3*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h, Padrao 4*3600
 
 % Começa carregando dados de uso geral e comum a qualquer ambiente (MPC ou CBR)
 CarregaDados;                % Função para carregar tabelas Petrobras e dados gerais necessários para a simulação
@@ -36,9 +36,9 @@ PassoMPC = 3;                              % Proporção de amostras para atuaç
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
 Hp = 10;                               % Horizonte de predição
-Hc = Hp-1;                         % Horizonte de controle
-Qy=  1*diag([1  100]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
-Qu = 1*diag([1  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
+Hc = 3;%Hp-1;                         % Horizonte de controle
+Qy=  1*diag([0  100]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+Qu = 1*diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
 Qx= 0*diag(ones(1, 11));    % Peso para os erros de estimação das  variáveis do processo
 R=  0*diag([1  1]);             % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 
 
@@ -50,7 +50,7 @@ R=  0*diag([1  1]);             % R - Peso na variação das ações de controle
 LimitesMin=   [  0             10               0               0                 0               0              0            0              0                 0                 0    ];    
 LimitesMax=  [ 250          65            250            250             200          200         250         200           4               200           1000    ];
 
-% Ajusta matriz de pesos dos estados em função das respectivas grandezas
+%Ajusta matriz de pesos dos estados em função das respectivas grandezas
 Peso =1./LimitesMax;    
 Peso=diag(Peso);
 Qx=Qx*Peso;      

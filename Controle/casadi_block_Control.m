@@ -332,6 +332,8 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
                     obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
+                else
+                    disp(obj.casadi_solver.stats);
                 end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end

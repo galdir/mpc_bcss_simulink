@@ -1,4 +1,4 @@
-function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
+function [solver, args] = cria_solver_rest_cust_gr(umax, umin, dumax, MargemPercentual, ...
         Hp, Hc, Qy, Qu, R, Qx, nx, nu, ny, EstimaVazao, buscaLimites, ModeloPreditor, funcao_h, WallTime)
 
     % Marcador de tempo e importação de CasADi
@@ -6,6 +6,10 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     import casadi.*;
 
     nx_ESN = length(ModeloPreditor.data.a0);    
+
+    % Define uma segunda margem percentual para as restrições soft (dobro da margem percentual normal)
+    %MargemPercentualSoft = 2 * MargemPercentual;
+    %MargemPercentualSoft = MargemPercentual;
     
     
     %% Variáveis simbolicas para o problema de otimização
@@ -13,6 +17,10 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     X = MX.sym('X',nx,1+Hp);                      % Estado atual + Estados futuros até Hp
     U = MX.sym('U',nu,Hp);                         % Ações de controle até o horizonte Hp, mas para função custo usaremos até Hc
     DU = MX.sym('DU',nu,Hp);                   % Variações nas ações de controle sobre o horizonte Hp, mas para função custo usaremos até Hc-1
+
+    % Adicionar variáveis de folga
+    SlackMax = MX.sym('SlackMax',1);  % Folga para limites de estados
+    SlackMin  = MX.sym('SlackMin',1);  % Folga para limites de saídas
 
     %% ===================================================
     % Parâmetros que foram oferecidos para o Solver
@@ -49,7 +57,9 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     % Para os indices X(2) até X(Hp+1) que represetam os estados preditos nos horizontes 1:Hp,
     % as restriçoes serão tratadas de forma dinâmica em g
     for k=1:1+Hp % 1 é o instante atual e Hp é o horizonte de predicao
-        args.lbx=[args.lbx, zeros(1,nx) ];      % Limites inferiores para as restrições de X (serão tratada em g)
+        %args.lbx=[args.lbx, zeros(1,nx) ];      % Limites inferiores para as restrições de X (serão tratada em g)
+        %testando
+        args.lbx=[args.lbx, -inf(1,nx) ];      % Limites inferiores para as restrições de X (serão tratada em g)
         args.ubx=[args.ubx, inf(1,nx)];         % Limites superiores para as restrições de X (serão tratada em g)
     end
 
@@ -61,12 +71,17 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         args.lbx=[args.lbx,    umin  ];             % Limites inferiores para a ação de controle U
         args.ubx=[args.ubx, umax ];             % Limites superiores para a ação de controle U
     end
+    
 
     % Restrições para os limites na variação das ações de controle (especificidades serão tratadas em lbg/ubg)
     for k=1:Hp
         args.lbx=[args.lbx,  -dumax ];           % Limites inferiores para as variações na ação de controle U
         args.ubx=[args.ubx, dumax ];           % Limites superiores para as variações na ação de controle U
     end
+
+    % Para as variáveis slack (folga) - não negativas
+    args.lbx = [args.lbx, 0, 0];  % Limites inferiores para SlackMax e SlackMin
+    args.ubx = [args.ubx, inf, inf];  % Limites superiores para SlackMax e SlackMin
 
 
     %% Montando as restrições de igualdade/desigualdade em g
@@ -87,6 +102,8 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     g=[g; U(:,1) - Uk0 - DU(:,1)];               % Garante que o primeiro DeltaU vai ter com referência a entrada atual
     args.lbg=[args.lbg,   zeros(1,nu)  ];     % Limite para a restrições de igualdade acima
     args.ubg=[args.ubg, zeros(1,nu) ];
+
+
 
     %% Restrições de igualdade para assegurar que os estados futuros vão seguir as predições
     for k=1:Hp
@@ -124,39 +141,78 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         %             Lembrar que a linha 2 traz os limites mínimos  de todas as 11 variáveis do processo (10 + Vazão)
         LimitesX= buscaLimites(U(1,k));  % Resgata limites (Max/Min) de alarmes para as variáveis do processo em função da frequência
         LimitesX=LimitesX';                                    % Coloca na forma de coluna
+        %LimitesX=LimitesX_orig;
 
-        LimitesX(:,1)=LimitesX(:,1)*(1-MargemPercentual/100);   % Implementa margem de folga em relação ao máximo
-        LimitesX(:,2)=LimitesX(:,2)*(1+MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo
+        % Criação de limites para as restrições hard
+        LimitesX(:,1) = LimitesX(:,1) * (1 - MargemPercentual/100);   % Implementa margem de folga em relação ao máximo (hard)
+        LimitesX(:,2) = LimitesX(:,2) * (1 + MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo (hard)
 
-        LimitesY=funcao_h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
+        % Criação de limites soft 
+%         LimitesX_soft = LimitesX;
+%         LimitesX_soft(:,1) = LimitesX_soft(:,1) * (1 - MargemPercentualSoft/100);
+%         LimitesX_soft(:,2) = LimitesX_soft(:,2) * (1 + MargemPercentualSoft/100);
+      
+         %% RESTRIÇÕES PARA AS VARIÁVEIS DE PROCESSO (ESTADOS X)      
 
-        %             RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
-        %             Insere restrições para os valores máximos das variáveis (estados X) preditos
-        LimMaxX=LimitesX(:,1)-X(:,k+1);    % Para não ser violado o limite, a diferença deve ser >= 0
-        g=[g; LimMaxX];
-        args.lbg=[args.lbg,   zeros(1,nx) ];   % Limite mínimo para restrição de desigualdade
-        args.ubg=[args.ubg,      inf(1,nx) ];   % Limite máximo para restrição de desigualdade
+        %% RESTRIÇÕES HARD PARA OS ESTADOS X
+        % Insere restrições para os valores máximos das variáveis (estados X) preditos
+        LimMaxX = LimitesX(:,1) - X(:,k+1);  % Restrições 
+        g = [g; LimMaxX];
+        args.lbg = [args.lbg, zeros(1,nx)];   % Limite mínimo para restrição de desigualdade
+        args.ubg = [args.ubg, inf(1,nx)];     % Limite máximo para restrição de desigualdade
 
-        %            Insere restrições para os valores mínimos das variáveis (estados X) preditos
-        LimMinX=X(:,k+1)-LimitesX(:,2);      % Para não ser violado o limite, a diferença deve ser >= 0
-        g=[g; LimMinX];
-        args.lbg=[args.lbg,   zeros(1,nx) ];    % Limite mínimo para restrição de desigualdade
-        args.ubg=[args.ubg,      inf(1,nx) ];    % Limite máximo para restrição de desigualdade
+        %Insere restrições para os valores mínimos das variáveis (estados X) preditos
+        LimMinX = X(:,k+1) - LimitesX(:,2);  % Restrições 
+        g = [g; LimMinX];
+        args.lbg = [args.lbg, zeros(1,nx)];   % Limite mínimo para restrição de desigualdade
+        args.ubg = [args.ubg, inf(1,nx)];     % Limite máximo para restrição de desigualdade
 
+        %% RESTRIÇÕES SOFT - LIMITES INTERNOS (com SLACK)
+        % Estas restrições definem os limites externos que não podem ser violados mesmo com slack
+        
+        % Para os estados X - Limites máximos soft (internos)
+%         LimMaxX_soft = LimitesX_soft(:,1) - X(:,k+1) + SlackMax;
+%         g = [g; LimMaxX_soft];
+%         args.lbg = [args.lbg, zeros(1,nx)];
+%         args.ubg = [args.ubg, inf(1,nx)];
+% 
+%         % Para os estados X - Limites mínimos soft (internos)
+%         LimMinX_soft = X(:,k+1) - LimitesX_soft(:,2) + SlackMin;
+%         g = [g; LimMinX_soft];
+%         args.lbg = [args.lbg, zeros(1,nx)];
+%         args.ubg = [args.ubg, inf(1,nx)];
+
+        
         %            RESTRIÇÕES PARA AS VARIÁVEIS DE SAIDA (CONTROLADAS POR SETPOINT)
         %            Insere restrições para os valores máximos das saidas controladas por setpoint que são preditas
+        
         y_saida= funcao_h(X(:,k+1));                       % Saidas preditas (variáveis controladas por setpoint)
-
+        LimitesY=funcao_h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
         LimMaxY=LimitesY(:,1)-y_saida;    % Para não ser violado o limite, a diferença deve ser >= 0
         g=[g; LimMaxY];
         args.lbg=[args.lbg,    zeros(1,ny) ];   % Limite mínimo para restrição de desigualdade
         args.ubg=[args.ubg,       inf(1,ny) ];   % Limite máximo para restrição de desigualdade
 
-        %            Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
+        %           Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
         LimMinY=y_saida-LimitesY(:,2);      % Para não ser violado o limite, a diferença deve ser >= 0
         g=[g; LimMinY];
         args.lbg=[args.lbg,  zeros(1,ny) ];    % Limite mínimo para restrição de desigualdade
         args.ubg=[args.ubg,     inf(1,ny) ];    % Limite máximo para restrição de desigualdade
+
+        
+        % Para as saídas Y - Limites máximos soft (internos)
+%         LimitesY_soft = funcao_h(LimitesX_soft);  % Limites soft para as saídas Y
+%         LimMaxY_soft = LimitesY_soft(:,1) - y_saida + SlackMax;
+%         g = [g; LimMaxY_soft];
+%         args.lbg = [args.lbg, zeros(1,ny)];
+%         args.ubg = [args.ubg, inf(1,ny)];
+% 
+%         % Para as saídas Y - Limites mínimos soft (internos)
+%         LimMinY_soft = y_saida - LimitesY_soft(:,2) + SlackMin;
+%         g = [g; LimMinY_soft];
+%         args.lbg = [args.lbg, zeros(1,ny)];
+%         args.ubg = [args.ubg, inf(1,ny)];
+
 
         %            Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas da PChegada (estados X)
         %            Lembrar que a ação de controle é na Freq e PMonAlvo, portanto, umin(2) e umax(2)
@@ -176,6 +232,19 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         g=[g; DiferencaMax];                              % Insere restrição de desigualdade, a qual precisa ser  >=0
         args.lbg=[args.lbg,    0 ];                        % Limite mínimo
         args.ubg=[args.ubg, inf];                        % Limite máximo
+
+        % Limites soft para PMonAlvo (internos)
+%         ValMin_soft = max(LimitesX_soft(2,2), umin(2));
+%         DiferencaMin_soft = U(2,k) - ValMin_soft + SlackMin;
+%         g = [g; DiferencaMin_soft]; 
+%         args.lbg = [args.lbg, 0];
+%         args.ubg = [args.ubg, inf];
+% 
+%         ValMax_soft = min(LimitesX_soft(2,1), umax(2));
+%         DiferencaMax_soft = ValMax_soft - U(2,k) + SlackMax;
+%         g = [g; DiferencaMax_soft];
+%         args.lbg = [args.lbg, 0];
+%         args.ubg = [args.ubg, inf];
     end
 
     % Depois do instante Hc, seguir a teoria e manter a mesma ação de controle futura.
@@ -191,68 +260,83 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     %% Preparando o custo da função objetivo
     % Lembrar que X(:,1) são as medidas atuais. Da coluna 2 em diante teremos os estados futuros estimados de 1 até Hp
-    fob=0;                                                           % Inicializa custo da função objetivo
-    fob=fob+ErroX'*Qx*ErroX;                         % Incrementa custo do erro de predição dos estados X
-
-    for k=1:Hp                                                    % Para todo o horizonte de predição
-        % Incrementa custo com a diferença entre as saidas estimadas e o setpoint desejado
-        % Observar que o ErroY entra para zerar offset provocado pelo erro do estimador
-        y_saida= funcao_h(X(:,k+1));                             % Saida estimada (variáveis controladas por setpoint - retorna coluna) 
-        fob=fob+(y_saida-Ysp+ErroY)'*Qy*(y_saida-Ysp+ErroY);
+    % Inicializa custo da função objetivo
+    fob = 0;
+    % Incrementa custo do erro de predição dos estados X
+    fob = fob + ErroX'*Qx*ErroX;
+    
+    % Penalização para as variáveis de folga - valor mais moderado do que o original
+    PenalizacaoSlack = 1e4;  % Reduzido de 1e8 para melhorar condicionamento numérico
+    
+    for k=1:Hp  % Para todo o horizonte de predição
+        % Saída estimada (variáveis controladas por setpoint)
+        y_saida = funcao_h(X(:,k+1));
+        
+        % Usa SlackMax e SlackMin para folgar o setpoint Ysp em vez de folgar restrições
+        % SlackMax permite que a saída seja menor que o setpoint
+        % SlackMin permite que a saída seja maior que o setpoint
+        fob = fob + (y_saida - (Ysp - SlackMax) + ErroY)'*Qy*(y_saida - (Ysp - SlackMax) + ErroY);
+        fob = fob + (y_saida - (Ysp + SlackMin) + ErroY)'*Qy*(y_saida - (Ysp + SlackMin) + ErroY);
     end
-
-    for k=1:Hc             % Para o horizonte de controle Hc
-        % Incrementa custo com a diferença entre a ação de controle e o AlvoEng
-        % Incrementa custo da função objetivo com o valor de DeltaU
-        S=(U(:,k)-AlvoEng)'*Qu*(U(:,k)-AlvoEng) + DU(:,k)'*R*DU(:,k);
-        fob=fob+S;
+    
+    for k=1:Hc  % Para o horizonte de controle Hc
+        % Usa SlackMax e SlackMin para folgar o AlvoEng em vez das restrições
+        % Função objetivo com folga no alvo da engenharia
+        fob = fob + (U(:,k) - (AlvoEng - SlackMax))'*Qu*(U(:,k) - (AlvoEng - SlackMax));
+        fob = fob + (U(:,k) - (AlvoEng + SlackMin))'*Qu*(U(:,k) - (AlvoEng + SlackMin));
+        
+        % Mantém a penalização nas variações de controle
+        fob = fob + DU(:,k)'*R*DU(:,k);
     end
+    
+    % Adiciona penalização para as variáveis de folga para incentivar seu uso mínimo
+    fob = fob + PenalizacaoSlack * (SlackMax^2 + SlackMin^2);
 
 
     %% ========================Configuração do otimizador====================================
     % Monta as variáveis de decisão em um vetor coluna - esta dimensão é fundamental para entender as contas e indexações
     % Saida do Solver. Dimensão = [ EstadosAtuais + EstadosFuturos em todo HP  +        U             +     DeltaU      ]
     %                             Dimensão = [                  nx*(1+Hp)                                                    nu*Hp                 nu*Hp     ]
-    opt_variables=[X(:); U(:);  DU(:)];
+    opt_variables=[X(:); U(:);  DU(:); SlackMax(:); SlackMin(:)];
 
     nlp = struct('f',fob,'x',opt_variables,'g', g, 'p', P); % Define a estrutura para problema de otimização não linear (NLP, Nonlinear Programming)
 
     %Configuração específica do IPOPT
     options=struct;
-    options.print_time= 0;                           %
-    options.verbose = 1;
+    options.print_time= 1;                           %
+    options.verbose = 1; %Verbose evaluation – for debugging
+    
+    % testando
     %options.expand = 1; % Expande a função objetivo e restrições
-
+    
     options.ipopt.print_level=5;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     options.ipopt.print_info_string= 'yes';
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';
-    options.ipopt.mumps_print_level = 4;
+    options.ipopt.mumps_print_level = 3;
+    options.ipopt.bound_relax_factor= 1e-8;%0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
     
 
     options.ipopt.max_iter=1e3;              % Especifica o número máximo de iterações que o solver deve executar antes de parar.
 
     options.ipopt.max_wall_time=WallTime;   % Tempo (em segundos) máximo para o solver encontrar solução
-    
     options.ipopt.hessian_approximation = 'limited-memory';  %Possible values: exact: Use second derivatives provided by the NLP. limited-memory: Perform a limited-memory quasi-Newton approximation
+
     %options.ipopt.hessian_constant = 'yes';
     %options.ipopt.limited_memory_max_history = 6;   % Número de atualizações para L-BFGS
     
-        
     %options.ipopt.linear_solver = 'mumps'; % Solver linear mais eficiente (se disponível) outros possiveis: ma27, ma97, spral, mumps 
     
-    %options.ipopt.acceptable_iter = 5; % default 15
-%     options.ipopt.tol = 1e-4;  % Default é 1e-8
-%     options.ipopt.acceptable_tol = 1e-3;  % Default é 1e-6
-%     options.ipopt.compl_inf_tol = 1e-3;  % Default é 1e-4
-%     options.ipopt.acceptable_compl_inf_tol = 1e-2;
-%     %options.ipopt.bound_relax_factor = 0;   % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
-%     options.ipopt.bound_relax_factor = 1e-4;   %0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
-%     options.ipopt.mu_strategy = 'adaptive';  % Estratégia adaptativa para o parâmetro de barreira
+    options.ipopt.tol = 1e-4;  % Default é 1e-8
+    options.ipopt.acceptable_tol = 1e-3;  % Default é 1e-6
+    options.ipopt.compl_inf_tol = 1e-3;  % Default é 1e-4
+    options.ipopt.acceptable_compl_inf_tol = 1e-2;
+    %options.ipopt.bound_relax_factor = 0;   % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    options.ipopt.bound_relax_factor = 1e-4;   %0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    options.ipopt.mu_strategy = 'adaptive';  % Estratégia adaptativa para o parâmetro de barreira
     %options.ipopt.required_infeasibility_reduction = 0.7; % default 0.9
     %options.ipopt.diverging_iterates_tol = 1e8; %10e20
 
-    
 
     solver = nlpsol('solver','ipopt', nlp, options); % Define o Interior Point OPTimizer (ipopt) para resolver o problema de otimização não linear (nlp)
     t_inicializacao = toc(tInicializa);           % Tempo gasto para a inicialização do Solver

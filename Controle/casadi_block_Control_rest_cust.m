@@ -282,8 +282,6 @@ classdef casadi_block_Control_rest_cust< matlab.System & matlab.system.mixin.Pro
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
             % Estes valores de x0 e u0 são sempre atualizados, passando ou não pelo solver
-            %obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
-            %obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
             obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
             obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
             %obj.du0=[obj.du0];
@@ -330,6 +328,7 @@ classdef casadi_block_Control_rest_cust< matlab.System & matlab.system.mixin.Pro
                 % Atualiza dados e aplica ação de controle se for Feasible, caso contrário, mantém tudo como está
                 % Caso não seja feasible, não resseta o contador, de modo que o controlador fará nova tentativa na amostragem seguint   e
                 %% Se uma solução foi encontrada
+
                 if Feasible
                     Indice = [nx*(1+Hp) ... %EstadosAtuais e futuros em todo Hp  +   U até Hp
                                 nu*Hp ... %U até Hp
@@ -353,6 +352,8 @@ classdef casadi_block_Control_rest_cust< matlab.System & matlab.system.mixin.Pro
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
                     obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
+                else
+                    disp(obj.casadi_solver.stats);
                 end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
