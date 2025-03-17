@@ -220,10 +220,10 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     %Configuração específica do IPOPT
     options=struct;
     options.print_time= 0;                           %
-    options.verbose = 1;
+    options.verbose = 0;
     %options.expand = 1; % Expande a função objetivo e restrições
 
-    options.ipopt.print_level=5;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     options.ipopt.print_info_string= 'yes';
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';

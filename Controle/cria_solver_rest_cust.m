@@ -126,12 +126,12 @@ function [solver, args] = cria_solver_rest_cust(umax, umin, dumax, MargemPercent
         args.ubg=[args.ubg, zeros(1,nu)];    % Limite máximo para restrição de igualdade associada ao DeltaU
 
         % Aproveita o loop para criar restrição avaliando as variações acumuladas na frequencia
-        BuffDeltaFreq=[ DU(1,k); BuffDeltaFreq(1:end-1)];    % Atualiza buffer com valor de DeltaFreq proposto
-        Soma=sum(BuffDeltaFreq);
-        % Avalia limites das variações
-        g=[g; Soma];                      % Insere restrição de desigualdade para o somatório do BuffDeltaFreq
-        args.lbg=[args.lbg,   -1 ];    % Limite mínimo para o somatório da variação
-        args.ubg=[args.ubg,  1 ];  % Limite máximo para o somatório da variação
+%         BuffDeltaFreq=[ DU(1,k); BuffDeltaFreq(1:end-1)];    % Atualiza buffer com valor de DeltaFreq proposto
+%         Soma=sum(BuffDeltaFreq);
+%         % Avalia limites das variações
+%         g=[g; Soma];                      % Insere restrição de desigualdade para o somatório do BuffDeltaFreq
+%         args.lbg=[args.lbg,   -1 ];    % Limite mínimo para o somatório da variação
+%         args.ubg=[args.ubg,  1 ];  % Limite máximo para o somatório da variação
     end
 
     %% Restrições dinâmicas para os estados X e para as saidas Y controladas por setponit
@@ -294,12 +294,12 @@ function [solver, args] = cria_solver_rest_cust(umax, umin, dumax, MargemPercent
     %Configuração específica do IPOPT
     options=struct;
     options.print_time= 1;                           %
-    options.verbose = 1; %Verbose evaluation – for debugging
+    options.verbose = 0; %Verbose evaluation – for debugging
     
     % testando
     %options.expand = 1; % Expande a função objetivo e restrições
     
-    %options.ipopt.print_level=5;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     options.ipopt.print_info_string= 'yes';
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';

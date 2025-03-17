@@ -282,9 +282,13 @@ classdef casadi_block_Control_rest_cust< matlab.System & matlab.system.mixin.Pro
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
             % Estes valores de x0 e u0 são sempre atualizados, passando ou não pelo solver
-            obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
-            obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
+            %obj.x0=[X0; obj.x0(1:end-nx)];  % Atualiza condição inicial dos estados com a medição atual e valores passados
+            %obj.u0=[U0; obj.u0(1:end-nu)];  % Atualiza condição inicial das açoes de controle entrada atual e valores passados
+            % testando
+            obj.x0=repmat(X0,Hp+1,1);  % Atualiza condição inicial dos estados com a medição atual e valores passados
+            obj.u0=repmat(U0,Hp,1);  % Atualiza condição inicial das açoes de controle entrada atual e valores passados            
             %obj.du0=[obj.du0];
+            obj.du0=zeros(Hp*nu,1);
 
             %% ===================== %Parâmetros e atuação do solver ========================================
             obj.contador = obj.contador+1;     % Contador ajudará a saber se é momento para atuar o controlador
@@ -311,7 +315,7 @@ classdef casadi_block_Control_rest_cust< matlab.System & matlab.system.mixin.Pro
 
                 %% Condição inicial para passar ao solver (inclui variáveis de decisão)
                 % Trata-se de atualização das condições inciais associadas as variáveis de decisão
-                %du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
+                %obj.du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
                 
                 args.x0_solver=[ obj.x0;  obj.u0; obj.du0; obj.SlackMax0; obj.SlackMin0];
 
@@ -354,6 +358,8 @@ classdef casadi_block_Control_rest_cust< matlab.System & matlab.system.mixin.Pro
                     obj.contador = 0;                                            % Reinicia contador para a atuação do MPC
                 else
                     disp(obj.casadi_solver.stats);
+                    obj.du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
+                    obj.du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
                 end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
