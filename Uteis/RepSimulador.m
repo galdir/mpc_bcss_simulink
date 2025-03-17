@@ -19,8 +19,12 @@ if nargin<1                    % Não foi passar parâmetro pelo usuário
     NomeArq='DaNovaTabela.xlsx';
 end
 
+if nargin<4                    % Não foi defiido o nome do arquivo DoSimulador
+    NomeArq='DoSimulador.xlsx';
+end
+
 % Carrega tabela com dados do simulador (já converte os nomes no formato adotado)
-T=LeConverteNomes('DoSimulador.xlsx');
+T=LeConverteNomes(NomeArq);
 
 %======================================================
 % Limites para as interpolações 
