@@ -1,4 +1,3 @@
-clear all
 clc
 
 TabRestricoesDinamicas=table2array(readtable('DP.xlsx'));              % Tabela de valores de referência para as variáveis
@@ -12,7 +11,8 @@ BTP=table2array(readtable('DoBTP.xlsx'));                                       
 ProtecaoFixa =readtable('FixedProtections.xlsx');            % Carrega tabelas de proteção fixa da Petrobras
 ProtecaoFixa=table2array(ProtecaoFixa(:,2:end));           % Extrai a primeira coluna da tabela com simbolos de Max/Min
 
-TabSimulador=table2array(LeConverteNomes('DoSimulador.xlsx'));  % Tabela do simulador (Análise de Sensibilidade)
+%TabSimulador=table2array(LeConverteNomes('DoSimulador.xlsx'));  % Tabela do simulador (Análise de Sensibilidade)
+TabSimulador=table2array(LeConverteNomes('TabSimuladorContas.xlsx'));  % Tabela do simulador (Análise de Sensibilidade)
 
 TabelaLimites=[];
 Freq=40;
