@@ -1,5 +1,5 @@
 function NovaT=RepSimulador(SalvaTabela, PassoF,PassoP,NomeArq);
-%  Função para gerar nova tabela (com maior resoluçlão), com base na tabela original do Simulador
+%  Função para gerar nova tabela (com maior resolução), com base na tabela original do Simulador
 %  
 % Permite salvar a nova Tabela num arquivo XLSX ou apenas consumir para
 %  usos específicos (por exemplo, para traçar as curvas de isovazão)
@@ -19,12 +19,8 @@ if nargin<1                    % Não foi passar parâmetro pelo usuário
     NomeArq='DaNovaTabela.xlsx';
 end
 
-if nargin<4                    % Não foi defiido o nome do arquivo DoSimulador
-    NomeArq='DoSimulador.xlsx';
-end
-
 % Carrega tabela com dados do simulador (já converte os nomes no formato adotado)
-T=LeConverteNomes(NomeArq);
+T=LeConverteNomes('DoSimulador.xlsx');
 
 %======================================================
 % Limites para as interpolações 
