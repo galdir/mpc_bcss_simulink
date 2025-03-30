@@ -13,7 +13,8 @@ TipoRede=1;        % 1=ESN ou  2=LSTM
 
 % Carrega rede ESN que será utilizada como preditor no MPC
 % NomeESN='weightsESNx_TR400_TVaz0.9_RaioE0.4.mat';
-NomeESN='6-weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat';
+% NomeESN='6-weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat';
+NomeESN='2-weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-mape_msa_070809102024_1.77.mat';
 
 ESN_MPC = load(NomeESN);
 ESN_MPC.data.tipo = TipoRede;     % Insere o tipo de rede na estrutura do modelo
@@ -27,8 +28,10 @@ PassoMPC =3;                              % Proporção de amostras para atuaç�
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
 Hp = 10;                                  % Horizonte de predição
 Hc = Hp-1;                              % Horizonte de controle
-Qu = 1*diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
-Qy=  0*diag([1  1]);                 % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+
+Qu = 1*diag([6  0]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
+Qy=  1*diag([1  0]);                % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+
 Qx= 0*diag(ones(1,11));        % Peso para os erros de estimação das  variáveis do processo
 R=    0*diag([1  1]);                 % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 
 

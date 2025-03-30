@@ -1,6 +1,6 @@
-% clc
-% clear all
-% close all
+clc
+clear all
+close all
 
 % Define sementes de números aleatórios para garantir repetibilidade
 rand('seed',1) 
@@ -38,6 +38,16 @@ TempoESN=0.0156;                % Tempo medido para a predição pela ESN na má
 LimiteProporcao=Ts/TempoESN;    
 
 %% =============================================================================
+% Sabendo que os limites são calculados baseados na frequência e os valores são estabelecidos em função dos valores de 
+% alarme L e H. Há variáveis, porém, cujos alarmes H ou L, por sí só, podem gerar TRIP da planta.
+% Neste caso, definimos uma margem percentual como sendo uma região em que
+% o controlador deve considerar como limite, antes de chegar no limite propriamente dito.
+% O valor da margem é dado em % e pode ser ZERO.
+% OBS: aplicamos estas margens percentuais apenas nas variáveis medidas do processo (estados X), 
+
+MargemPercentual=1;     
+
+%% =============================================================================
 % Define condição inicial para a simulação de acordo com um instante com valores reais das variáveis do processo 
 % 
 % Observar que a condilçao inicial UIni (Freq e PMonAlvo) vem da condição do processo no instante selecionado
@@ -47,12 +57,13 @@ LimiteProporcao=Ts/TempoESN;
 %% Inicio de rampas de aceleração.
 % DataHoraIni='2024-06-18 00:00:00';    % 4h, 60,32m3; Alvo=55Hz/35bar; PSuc=97.7    PChegada=33.08      Freq = 39,9Hz    4hPara rampa de aceleração
 % DataHoraIni='2024-07-15 13:50:00';    % 4h, 60,9m3; Alvo=55Hz/35bar;  PSuc=96.7    PChegada=32.25      Freq = 40,3Hz    4h Para rampa de aceleração
-DataHoraIni='2024-07-17 00:00:00';    % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
+% DataHoraIni='2024-07-17 00:00:00';    % 2h, 28,4m3; Alvo=55Hz/32bar; PSuc=97.4    PChegada=35.3      Freq = 40Hz    2h  Para rampa de aceleração
 
 % Inicializações mais próximas da operação real
 % Condição inicial  das variáveis do processo e das entradas      PSuc [bar],    PChegada [bar]        Freq [Hz]
-% DataHoraIni='2024-07-12 10:00:00';                                        % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
+DataHoraIni='2024-07-12 10:00:00';                                        % PSuc=77.4    PChegada=31.4      Freq = 54.9Hz  Ponto de operação usual
 % DataHoraIni='2024-07-12 15:45:00';                                        % PSuc=78.9    PChegada=34.2      Freq = 53.9Hz   Ponto intermediário
+% DataHoraIni='2024-12-01 00:00:00';                                            % PSuc=75.9    PChegada=31.89      Freq = 55.9Hz   Ponto intermediário
 
 % Inicialização em uma rampa mas PSUC MUITO LONGE !!!
 % DataHoraIni='2024-06-17 15:12:00';    % PSuc=149.2    PChegada=13.76      Freq = 40Hz     Para rampa de aceleração
@@ -80,20 +91,19 @@ matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda var
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
 FreqMaxMin=[60 ,  40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
-PMonAlvoMaxMin=[50 , 25];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
+PMonAlvoMaxMin=[50 , 20];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
 umax  = [FreqMaxMin(1) ,  PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
 umin  =  [FreqMaxMin(2), PMonAlvoMaxMin(2)] ;        % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
 % Delta U - variação máxima permitida nas ações de controle (Freq e PMonAlvo)
-dumax = [0.1 , 1];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
+dumax = [0.25 , 2];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
 
 %% =============================================================================
 % Carrega tabela com plano de experimentos programados para mudanças automáticas de Freq. e PMonAlvo para simulação
 % Observar que nos demais casos há proteção para que não se coloque alvo ENG em regiões proibidas. No caso do PLANO, isso não é testado e
 % o plano será executado tal qual definido em tabela, mesmo com alvo em região proibida
 
-% Plano=readtable('PlanoVerIsovazao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
-Plano=readtable('PlanoAceleracao.xlsx');     % Plano com partida "puxando" para menores valores de PChegada induzindo caminho de maior produção
+Plano=readtable('PlanoOperacao.xlsx');           % Plano para avaliar caminho da máxima vazão
 
 % Define se vai usar plano (tabela excel) para alterar alvos da engenharia ao longo da simulação
 UsaPlano=0;
@@ -104,54 +114,51 @@ if UsaPlano    % Sequencia para usar plano definido em planilha
     StopTime=Plano.Tempo(end);                          % O tempo de simulação segue o plano definido na tabela 
 else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlvo)  definidos automaticamente ou manualmente
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
-    AlvoAutomatico=0;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
+    AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
-       FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
+        FreqAlvoIni=56.5;           % Não aguarda definição da engenharia e aponta para a frequência específica
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
+        LimiteVazao=Limites(1,11)*(1-MargemPercentual/100);     % Limite de upthrust considerada a Margem Percentual Configurada
         PMonAlvoIni=max([ Limites(2,2), PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
-    else                                  % Os alvos serão dados manualmente pela engenharia
+        PMonAlvoIni=PMonAlvoIni*(1+MargemPercentual/100);      % Aponta para uma região alcançavel e não no limite do Upthrust
+        VazaoAlvo=Interpola(FreqAlvoIni,PMonAlvoIni*1.019716,MatrizSimulador,3);   
+        while VazaoAlvo>LimiteVazao                                                % Enquanto a PMonAlvo apontar para uma violação dos limites da Vazao
+            PMonAlvoIni=PMonAlvoIni+0.01;                                        % Incrementa PMonAlvoIni para que a Vazão chegue no limite da margem % configurada
+            VazaoAlvo=Interpola(FreqAlvoIni,PMonAlvoIni*1.019716,MatrizSimulador,3);   % Calcula o que será a Vazão Alvo da Engenharia
+        end
+    else    % Os alvos serão dados manualmente (usamos em teste)
         %    Inicializa alvo da ENG manualmente (2 casos básicos)
-        AlvosRefFreq=[ 60  40];
-        AlvosRefPMon=[ 38   28]; 
-        Caso=1;
+        AlvosRefFreq=  [ UIni(1)  56   57   57    58  ];
+        AlvosRefPMon=[ UIni(2)  25   27   30    30  ]; 
+        Caso=4;
          
         % Seleciona FreqAlvo e PMonAlvo
         FreqAlvoIni=AlvosRefFreq(Caso);          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=AlvosRefPMon(Caso);    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
-        Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
-        PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
+        PMonAlvoIni=AlvosRefPMon(Caso);    % Cuidado !!! Aqui a engenharia pode setar um valor em área "proibida" 
     end
 end
 
 %% =============================================================================
 % Carrega uma rede (ESN qualquer) para ser usada como modelo do processo
-% Rede_Processo = load('weightsESNx_JUB27n100.mat');
-Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
+% Rede_Processo = load('weightsESNx_TR300_TVaz0.8_RaioE0.1.mat');
 % Rede_Processo = load('weightsESNx_TR400_TVaz0.9_RaioE0.4.mat');
 % Rede_Processo = load('weightsESNx_TR900_TVaz0.9_RaioE0.4.mat');
+% Rede_Processo = load('6-weightsESNx_TR200_TVaz0.50_RaioE0.99_mape_msa_dois_2.71.mat');
+Rede_Processo=load('2-weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-mape_msa_070809102024_1.77.mat');
 
 % Número de casas decimais para corresponder a resolução dos instrumentos
-NumCasasDecimais=1;
+NumCasasDecimais=5;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+% SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+SNR = 100;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
 % Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 
 % Uma relação sinal-ruído (SNR) de 20 dB significa que o sinal é 100 vezes mais potente que o ruído. 
 % Uma relação sinal-ruído (SNR) de 30 dB significa que o sinal é 1000 vezes mais potente que o ruído. 
-
-%% =============================================================================
-% Sabendo que os limites são calculados baseados na frequência e os valores são estabelecidos em função dos valores de 
-% alarme L e H. Há variáveis, porém, cujos alarmes H ou L, por sí só, podem gerar TRIP da planta.
-% Neste caso, definimos uma margem percentual como sendo uma região em que
-% o controlador deve considerar como limite, antes de chegar no limite propriamente dito.
-% O valor da margem é dado em % e pode ser ZERO.
-% OBS: aplicamos estas margens percentuais apenas nas variáveis medidas do processo (estados X), 
-
-MargemPercentual=1;     
 
 %% =============================================================================
 disp('Configurações para a simulação foram carregadas para a área de trabalho')

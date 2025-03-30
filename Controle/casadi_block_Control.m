@@ -22,7 +22,8 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
         x0                                                                % Para guardar condições iniciais dos estados (X) atuais e em todo horizonte (1+Hp)
         u0                                                                 % Para guardar condições iniciais das ações de controle (U) em todo o horizonte (Hc)
         BuffDeltaFreq                                             % Para proporcionar soma de 45 últimas variações na ação de controle
-
+        u_anterior                                                    % Armazenar o estado das variáveis manipuladas no instante anterior (Freq e PMonAlvo efetivamente lidas do processo)
+        
         Predicao                                                     % Para guardar a predição no instante anterior
         ModeloPreditor                                           % Para guardar modelo de preditor e que será utilizada pelo solver para a predição
         EstimaVazao                                               % Para carregar uma única vez a 'f_Interpola_casadi_vazao_sym'
@@ -212,7 +213,8 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
             % Delta U será inicializado com zeros
             obj.x0=repmat(XIni,1+Hp,1);            % Condição incial das variáveis medidas (estados X) atuais e futuras
             obj.u0=repmat(UIni,Hp,1);                % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
-
+            obj.u_anterior= UIni;                          % Condição inicial das variáveis manipuladas do processo (Freq e PMonAlvo)
+            
             % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
             obj.BuffDeltaFreq=zeros(45,1);
 
@@ -240,7 +242,14 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 %             disp(strcat("Simulação MPC em ",num2str(t)," s"));   % Só aqui usamos o tempo, útil para debug !!
 
             import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
-
+           
+            % comebntar
+            DeltaUAplicado=U0-obj.u_anterior;
+            obj.BuffDeltaFreq=[ DeltaUAplicado(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
+            SomaDeltaFreq=sum(obj.BuffDeltaFreq);   
+            SomaDeltaFreq=round(SomaDeltaFreq,obj.NumCasasDecimais);   % Não lembro a motivação para este arredondamento !!
+            obj.u_anterior=U0;
+            
             %% Resgata informações facilitando os cálculos para a implementação da nova ação de controle
             Funcao_h=obj.Funcao_h;    % Restaura função para fazer o cálculo das saidas:  y=h(x);
 
@@ -329,10 +338,10 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
                     obj.contador = 0;   % Reinicia contador para a atuação do MPC
-                else      % O solver deu unfeasible (não achou solução ótima)
-                    if t<1800 & U0<50                 % 30 min iniciais, assegura alvo para o MPA tirar da condição de unfeasible 
-                        U0=U0+[ 0.1; 0];                % Incrementa frequencia em 0.1Hz
-                    end
+%                 else      % O solver deu unfeasible (não achou solução ótima)
+%                     if t<1800 & U0<50                 % 30 min iniciais, assegura alvo para o MPA tirar da condição de unfeasible 
+%                         U0=U0+[ 0.1; 0];                % Incrementa frequencia em 0.1Hz
+%                     end
                 end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
@@ -340,17 +349,14 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
             DeltaU=round(DeltaU,obj.NumCasasDecimais);
             Xk=obj.x0;   % Resgata valores para disponibilizar na saida do bloco MPC
             Uk=obj.u0;   % Resgata valores para disponibilizar na saida do bloco MPC
-            obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
             U0=U0+DeltaU;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
-            SomaDeltaFreq=sum(obj.BuffDeltaFreq);
-            SomaDeltaFreq=round(SomaDeltaFreq,obj.NumCasasDecimais);
             if SomaDeltaFreq>1
                 disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
                 disp("Não sei como poderia a soma ser > 1  !!")
             end
-            if DeltaU(1)>0.1
+            if DeltaU(1)>obj.dumax(1)   % Só para debug - testar se a variação de Frequencia proposta é maior do que apermitida
                 disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
-                disp("Não sei como poderia ter DeltaFreq > 0.1  !!")
+                disp("Não sei como poderia ter DeltaFreq > dumax  !!")
             end
 
             % Prepara saidas do bloco MPC
