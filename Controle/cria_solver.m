@@ -100,6 +100,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         args.ubg=[args.ubg, zeros(1,nx) ];
     end
 
+
     %% Restrições de igualdade para definir DeltaU em função de U e tornar U como variável de decisão base
     for k=1:Hp-1
         % Cálculo da variação na ação de controle = DeltaU
@@ -108,17 +109,28 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         args.lbg=[args.lbg,   zeros(1,nu) ];    % Limite mínimo para a restrição de igualdade associada ao DeltaU
         args.ubg=[args.ubg, zeros(1,nu)];    % Limite máximo para restrição de igualdade associada ao DeltaU
 
-        % Aproveita o loop para criar restrição avaliando as variações acumuladas na frequencia
-        BuffDeltaFreq=[ DU(1,k); BuffDeltaFreq(1:end-1)];    % Atualiza buffer com valor de DeltaFreq proposto
-        Soma=sum(BuffDeltaFreq);
-        % Avalia limites das variações
-        g=[g; Soma];                      % Insere restrição de desigualdade para o somatório do BuffDeltaFreq
-        args.lbg=[args.lbg,   -1 ];    % Limite mínimo para o somatório da variação
-        args.ubg=[args.ubg,  1 ];  % Limite máximo para o somatório da variação
+%         % Aproveita o loop para criar restrição avaliando as variações acumuladas na frequencia
+%         BuffDeltaFreq=[ DU(1,k); BuffDeltaFreq(1:end-1)];    % Atualiza buffer com valor de DeltaFreq proposto
+%         Soma=sum(BuffDeltaFreq);
+%         % Avalia limites das variações
+%         g=[g; Soma];                      % Insere restrição de desigualdade para o somatório do BuffDeltaFreq
+%         args.lbg=[args.lbg,   -1 ];    % Limite mínimo para o somatório da variação
+%         args.ubg=[args.ubg,  1 ];  % Limite máximo para o somatório da variação
+    end
+
+    %% testando restricoes para garantir que só havera atuacao a cada 3 amostras
+    for k=2:Hc
+        if mod(k-1,3)~=0
+            g=[g;DU(:,k-1)-DU(:,k)];
+            args.lbg=[args.lbg, zeros(1,nu)];
+            args.ubg=[args.ubg, zeros(1,nu)];
+        end
     end
 
     %% Restrições dinâmicas para os estados X e para as saidas Y controladas por setponit
+    %testando
     for k=1:Hp
+    %for k=2:Hp
         %             BUSCA RESTRIÇÕES DINÂMICAS PARA SEREM TRATADAS NO LOOP
         %             Lembrar que a linha 1 traz os limites máximos de todas as 11 variáveis do processo (10 + Vazão)
         %             Lembrar que a linha 2 traz os limites mínimos  de todas as 11 variáveis do processo (10 + Vazão)
@@ -127,8 +139,6 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
         LimitesX(:,1)=LimitesX(:,1)*(1-MargemPercentual/100);   % Implementa margem de folga em relação ao máximo
         LimitesX(:,2)=LimitesX(:,2)*(1+MargemPercentual/100);   % Implementa margem de folga em relação ao mínimo
-
-        LimitesY=funcao_h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
 
         %             RESTRIÇÕES PARA AS VARIÁVEIS DO PROCESSO (ESTADOS X)
         %             Insere restrições para os valores máximos das variáveis (estados X) preditos
@@ -145,18 +155,18 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
         %            RESTRIÇÕES PARA AS VARIÁVEIS DE SAIDA (CONTROLADAS POR SETPOINT)
         %            Insere restrições para os valores máximos das saidas controladas por setpoint que são preditas
-        y_saida= funcao_h(X(:,k+1));                       % Saidas preditas (variáveis controladas por setpoint)
-
-        LimMaxY=LimitesY(:,1)-y_saida;    % Para não ser violado o limite, a diferença deve ser >= 0
-        g=[g; LimMaxY];
-        args.lbg=[args.lbg,    zeros(1,ny) ];   % Limite mínimo para restrição de desigualdade
-        args.ubg=[args.ubg,       inf(1,ny) ];   % Limite máximo para restrição de desigualdade
-
-        %            Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
-        LimMinY=y_saida-LimitesY(:,2);      % Para não ser violado o limite, a diferença deve ser >= 0
-        g=[g; LimMinY];
-        args.lbg=[args.lbg,  zeros(1,ny) ];    % Limite mínimo para restrição de desigualdade
-        args.ubg=[args.ubg,     inf(1,ny) ];    % Limite máximo para restrição de desigualdade
+%         y_saida= funcao_h(X(:,k+1));                       % Saidas preditas (variáveis controladas por setpoint)
+%         LimitesY=funcao_h(LimitesX);                                % Extrai limites correspondentes as saidas (variáveis controladas por setpoint)
+%         LimMaxY=LimitesY(:,1)-y_saida;    % Para não ser violado o limite, a diferença deve ser >= 0
+%         g=[g; LimMaxY];
+%         args.lbg=[args.lbg,    zeros(1,ny) ];   % Limite mínimo para restrição de desigualdade
+%         args.ubg=[args.ubg,       inf(1,ny) ];   % Limite máximo para restrição de desigualdade
+% 
+%         %            Insere restrições para os valores mínimos saidas controladas por setpoint que são preditas
+%         LimMinY=y_saida-LimitesY(:,2);      % Para não ser violado o limite, a diferença deve ser >= 0
+%         g=[g; LimMinY];
+%         args.lbg=[args.lbg,  zeros(1,ny) ];    % Limite mínimo para restrição de desigualdade
+%         args.ubg=[args.ubg,     inf(1,ny) ];    % Limite máximo para restrição de desigualdade
 
         %            Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas da PChegada (estados X)
         %            Lembrar que a ação de controle é na Freq e PMonAlvo, portanto, umin(2) e umax(2)
@@ -164,6 +174,7 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         %            Já em relação aos estados X, a PChegada é a variável na linha 2
 
         %            LIMITES MINIMOS PMonAlvo
+        %testando remover
         ValMin=max(LimitesX(2,2),umin(2));   % Assume o valor mais restritivo
         DiferencaMin=U(2,k)-ValMin;              % Ação precisa ser maior do que o minimo
         g=[g; DiferencaMin];                              % Insere restrição de desigualdade, a qual precisa ser  >=0
@@ -199,7 +210,16 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
         % Observar que o ErroY entra para zerar offset provocado pelo erro do estimador
         y_saida= funcao_h(X(:,k+1));                             % Saida estimada (variáveis controladas por setpoint - retorna coluna) 
         fob=fob+(y_saida-Ysp+ErroY)'*Qy*(y_saida-Ysp+ErroY);
+        %testando
+        %fob=fob+sqrt((y_saida-Ysp)'*Qy*(y_saida-Ysp));
+        %fob=fob+abs((y_saida-Ysp)'*Qy*(y_saida-Ysp));
     end
+    %testando
+%     for k=1:1
+%         y_saida= funcao_h(X(:,k+1));                             % Saida estimada (variáveis controladas por setpoint - retorna coluna) 
+%         %fob=fob+(y_saida-Ysp+ErroY)'*Qy*(y_saida-Ysp+ErroY);
+%         fob=fob+(y_saida-Ysp)'*Qy*(y_saida-Ysp);
+%     end
 
     for k=1:Hc             % Para o horizonte de controle Hc
         % Incrementa custo com a diferença entre a ação de controle e o AlvoEng
@@ -219,11 +239,11 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
 
     %Configuração específica do IPOPT
     options=struct;
-    options.print_time= 0;                           %
+    options.print_time= 1;                           %
     options.verbose = 0;
     %options.expand = 1; % Expande a função objetivo e restrições
 
-    options.ipopt.print_level=0;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
+    options.ipopt.print_level=5;                  % [ 0 a 12] = (funciona 3 a 12) Detalhe do nivel de informação para mostrar na tela durante a execução do solver
     options.ipopt.print_info_string= 'yes';
     %options.ipopt.print_options_documentation = 'yes';
     options.ipopt.print_user_options = 'yes';
@@ -235,20 +255,25 @@ function [solver, args] = cria_solver(umax, umin, dumax, MargemPercentual, ...
     options.ipopt.max_wall_time=WallTime;   % Tempo (em segundos) máximo para o solver encontrar solução
     
     options.ipopt.hessian_approximation = 'limited-memory';  %Possible values: exact: Use second derivatives provided by the NLP. limited-memory: Perform a limited-memory quasi-Newton approximation
-    %options.ipopt.hessian_constant = 'yes';
-    %options.ipopt.limited_memory_max_history = 6;   % Número de atualizações para L-BFGS
     
-        
+    %options.ipopt.bound_relax_factor = 0;   % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    options.ipopt.bound_relax_factor = 1e-2;   %0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+
+    options.ipopt.tol = 1e-4;  % Default é 1e-8
+    options.ipopt.acceptable_tol = 1e-3;  % Default é 1e-6
+    %options.ipopt.compl_inf_tol = 1e-2;  % Default é 1e-4
+    %options.ipopt.acceptable_compl_inf_tol = 1e-1; % Default é 1e-2
+     
+    %options.ipopt.mu_strategy = 'adaptive';  % Estratégia adaptativa para o parâmetro de barreira
+    
+    %options.ipopt.acceptable_obj_change_tol = 1e-5;  % Default é 1e-10
+    
+    %options.ipopt.hessian_constant = 'yes';
+    %options.ipopt.limited_memory_max_history = 6;   % Número de atualizações para L-BFGS 
     %options.ipopt.linear_solver = 'mumps'; % Solver linear mais eficiente (se disponível) outros possiveis: ma27, ma97, spral, mumps 
+   
     
     %options.ipopt.acceptable_iter = 5; % default 15
-%     options.ipopt.tol = 1e-4;  % Default é 1e-8
-%     options.ipopt.acceptable_tol = 1e-3;  % Default é 1e-6
-%     options.ipopt.compl_inf_tol = 1e-3;  % Default é 1e-4
-%     options.ipopt.acceptable_compl_inf_tol = 1e-2;
-%     %options.ipopt.bound_relax_factor = 0;   % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
-%     options.ipopt.bound_relax_factor = 1e-4;   %0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
-%     options.ipopt.mu_strategy = 'adaptive';  % Estratégia adaptativa para o parâmetro de barreira
     %options.ipopt.required_infeasibility_reduction = 0.7; % default 0.9
     %options.ipopt.diverging_iterates_tol = 1e8; %10e20
 

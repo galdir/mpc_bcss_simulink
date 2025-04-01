@@ -21,7 +21,6 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
         x0                                                                % Para guardar condições iniciais dos estados (X) atuais e em todo horizonte (1+Hp)
         u0                                                                 % Para guardar condições iniciais das ações de controle (U) em todo o horizonte (Hc)
-        u_anterior
         BuffDeltaFreq                                             % Para proporcionar soma de 45 últimas variações na ação de controle
 
         Predicao                                                     % Para guardar a predição no instante anterior
@@ -211,9 +210,8 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
             % Condições inciais para algumas das variáveis de decisão do MPC [  x0    u0 ]. Precisam estar em vetores coluna
             % Delta U será inicializado com zeros
-            obj.x0=repmat(XIni,1+Hp,1);            % Condição incial das variáveis medidas (estados X) atuais e futuras
+            obj.x0=repmat(XIni,1+Hp,1);                % Condição incial das variáveis medidas (estados X) atuais e futuras
             obj.u0=repmat(UIni,Hp,1);                % Condição inicial para as ações de controle (U) em todo o horizonte Hp futuro
-            obj.u_anterior=UIni;
 
             % Inicializa com zeros o buffer que vai contabilizar o somatório das últimas variações na Frequencia
             obj.BuffDeltaFreq=zeros(45,1);
@@ -239,18 +237,10 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
         %% ================  Contas de atualização -  Equivale a Flag=2 na SFunction)
         function  SaidaMPC= stepImpl(obj,X_atual,U_atual,AlvoEng,t)
-%             disp(strcat("Simulação MPC em ",num2str(t)," s"));   % Só aqui usamos o tempo, útil para debug !!
+            disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
 
-            import casadi.*                                             % Importação da biblioteca Casadi (tem de estar no path)
-  
-            %DeltaFreqAplicada= U_atual(1)-obj.u0(1);         % Variação na frequencia = entrada atual - anterior
-            DeltaFreqAplicada= U_atual(1)-obj.u_anterior(1); %galdir        % Variação na frequencia = entrada atual - anterior
-            obj.BuffDeltaFreq=[ DeltaFreqAplicada; obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
-            SomaDeltaFreq=sum(obj.BuffDeltaFreq);  % Somatório para monitorar na saida do controlador
-            SomaDeltaFreq=round(SomaDeltaFreq,obj.NumCasasDecimais);  % Não me recordo a razão pela qual precisou arredondar
-            
-            obj.u_anterior = U_atual;
-            
+            import casadi.*                                      % Importação da biblioteca Casadi (tem de estar no path)
+
             %% Resgata informações facilitando os cálculos para a implementação da nova ação de controle
             Funcao_h=obj.Funcao_h;    % Restaura função para fazer o cálculo das saidas:  y=h(x);
 
@@ -277,6 +267,8 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
             % Vazão ótima é estimada com o FreqAlvoENG e PMonAlvoENG
             conversao_bar_kgf = 1.019716;
             Ysp= [ AlvoEng(2) ;    full(obj.EstimaVazao(AlvoEng(1),AlvoEng(2)*conversao_bar_kgf)) ];
+            disp('Ysp')
+            disp(Ysp)
 
             % Inicialização para um novo passo do Solver com base nos novos estados (entradas) medidos do processo
             % De uma forma geral, inicializar com valores atuais e toda a predição já feita antes, deve diminuir o tempo de busca do solver
@@ -286,7 +278,7 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
             %% ===================== %Parâmetros e atuação do solver ========================================
             obj.contador = obj.contador+1;     % Contador ajudará a saber se é momento para atuar o controlador
-            DeltaU=zeros(nu,1);                     % Reinicia DeltaU=0, inclusive para saber quando não passou pelo Solver
+            du_proposto=zeros(nu,1);                     % Reinicia DeltaU=0, inclusive para saber quando não passou pelo Solver
             TempoSolver=0;                            % Inicializa contador para calcular o tempo gasto com o Solver, quando for o caso !!
             Feasible=0.5;                                 % Assumir padrão para indicar que não passou pelo Solver
             Iteracoes=0;                                   % Numero de iterações, alterado qdo passa pelo Solver
@@ -307,7 +299,11 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
 
                 %% Condição inicial para passar ao solver (inclui variáveis de decisão)
                 % Trata-se de atualização das condições inciais associadas as variáveis de decisão
-                du0=zeros(Hp*nu,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)
+                
+                obj.x0=repmat(X_atual,Hp+1,1);%testando 
+                obj.u0=repmat(U_atual,Hp,1);%testando 
+                du0=repmat(du_proposto,Hp,1);          % Inicializa valores futuros com zeros (serão variáveis de decisão tratadas por restrição de igualdade)                             
+
                 args.x0_solver=[ obj.x0;  obj.u0; du0];
 
                 %% Resgata estruturas de restrições guardadas pelo objeto
@@ -332,26 +328,47 @@ classdef casadi_block_Control< matlab.System & matlab.system.mixin.Propagates
                     % Como o solver indica novo futuro predito, atualiza x0 e u0 para os próximos ciclos
                     obj.x0=Xk;              % Guarda nova condição inicial x0 para os estados atuais e preditos pelo solver
                     obj.u0=Uk;              % Guarda ações de controle (U ótimos) atuais e preditos pelo solver
-                    DeltaU=DeltaUk(1:nu);                     % Delta U como variável indicada pelo solver
+                    du_proposto=DeltaUk(1:nu);                     % Delta U como variável indicada pelo solver
                     DeltaU2=obj.u0(1:nu)-U_atual;                 % DeltaU = Ação ótima calculada agora, menos a ação antes aplicada
-                    if norm(DeltaU-DeltaU2,2)>1e-10
+                    if norm(du_proposto-DeltaU2,2)>1e-10
                         disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
                         disp('ERRO??? !!!  Checar cálculo de DeltaU - Estas contas deveriam dar resultados iguais!!!')
                     end
-                    obj.contador = 0;   % Reinicia contador para a atuação do MPC
+                    obj.contador = 0;
+                    % Reinicia contador para a atuação do MPC
+%                     if obj.casadi_solver.stats.return_status ~= "Solve_Succeeded"
+%                         disp(obj.casadi_solver.stats.return_status);
+%                     end
+                    disp(obj.casadi_solver.stats.return_status);
+                    %disp(obj.casadi_solver.stats);
+                else
+                    disp(obj.casadi_solver.stats);
                 end
                 TempoSolver = toc(TempoIni);                          % Feasible ou não, indica tempo gasto pelo Solver
             end
             %% Independentemente do Solver ter ou não ter encontrado uma solução ótima
-
-            DeltaU=round(DeltaU,obj.NumCasasDecimais);
+            du_proposto=round(du_proposto,obj.NumCasasDecimais);
             Xk=obj.x0;   % Resgata valores para disponibilizar na saida do bloco MPC
             Uk=obj.u0;   % Resgata valores para disponibilizar na saida do bloco MPC
-            U_atual=U_atual+DeltaU;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
             
+            du_buffer = U_atual - Uk(1);
+            %obj.BuffDeltaFreq=[ DeltaU(1); obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
+            obj.BuffDeltaFreq=[ du_buffer; obj.BuffDeltaFreq(1:end-1)];  % Atualiza buffer com últimas variações nas ações de frequencias aplicadas
+            U_atual=U_atual+du_proposto;    % Passando ou não pelo solver, atualiza ação de controle com respectivo DeltaU
+            SomaDeltaFreq=sum(obj.BuffDeltaFreq);
+            SomaDeltaFreq=round(SomaDeltaFreq,obj.NumCasasDecimais);
+            if SomaDeltaFreq>1
+                disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
+                disp("Não sei como poderia a soma ser > 1  !!")
+            end
+            if du_proposto(1)>obj.dumax(1)
+                disp(strcat("Simulação MPC em ",num2str(t)," s"))   % Só aqui usamos o tempo, útil para debug !!
+                disp("Não sei como poderia ter DeltaFreq > 0.1  !!")
+            end
+
             % Prepara saidas do bloco MPC
             % Dimensão = [     1             1                    1              nu     nu                   1                1    1    1   1     nx        ny         ny    nx*(1+Hp)      nu*Hp  ]
-            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U_atual; DeltaU;  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX;  ErroY;  Ysp;        Xk;               Uk    ];
+            SaidaMPC    = [Feasible; Iteracoes; TempoSolver; U_atual; du_proposto;  SomaDeltaFreq; Jy; Ju; Jr; Jx;  ErroX;  ErroY;  Ysp;        Xk;               Uk    ];
 
             % Para atualizar o modelo preditor é necessário manter o reservatório da ESN atualizado
             ModeloPreditor=obj.ModeloPreditor;        % Resgata modelo preditor
@@ -388,12 +405,14 @@ function [Jy, Ju, Jr, Jx]=CalcCusto(Xk, Uk, Hp, Hc, Qy, Qu, R, Qx,ErroX,ErroY,Ys
 
         % Incrementa custo da função objetivo com o valor de DeltaU, apenas até o horizonte Hc-1
         if k<Hc
+        %if k<=Hc %testando
             DU=U(:,k+1)-U(:,k);
             Jr=Jr+DU'*R*DU;
         end
 
     end
 end
+
 
 %% ==============================================================================
 %% Função para extrair partes que compõe a solução

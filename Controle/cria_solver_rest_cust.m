@@ -202,17 +202,17 @@ function [solver, args] = cria_solver_rest_cust(umax, umin, dumax, MargemPercent
 
         
         % Para as saídas Y - Limites máximos soft (internos)
-%         LimitesY_soft = funcao_h(LimitesX_soft);  % Limites soft para as saídas Y
-%         LimMaxY_soft = LimitesY_soft(:,1) - y_saida + SlackMax;
-%         g = [g; LimMaxY_soft];
-%         args.lbg = [args.lbg, zeros(1,ny)];
-%         args.ubg = [args.ubg, inf(1,ny)];
-% 
-%         % Para as saídas Y - Limites mínimos soft (internos)
-%         LimMinY_soft = y_saida - LimitesY_soft(:,2) + SlackMin;
-%         g = [g; LimMinY_soft];
-%         args.lbg = [args.lbg, zeros(1,ny)];
-%         args.ubg = [args.ubg, inf(1,ny)];
+        LimitesY_soft = funcao_h(LimitesX_soft);  % Limites soft para as saídas Y
+        LimMaxY_soft = LimitesY_soft(:,1) - y_saida + SlackMax;
+        g = [g; LimMaxY_soft];
+        args.lbg = [args.lbg, zeros(1,ny)];
+        args.ubg = [args.ubg, inf(1,ny)];
+
+        % Para as saídas Y - Limites mínimos soft (internos)
+        LimMinY_soft = y_saida - LimitesY_soft(:,2) + SlackMin;
+        g = [g; LimMinY_soft];
+        args.lbg = [args.lbg, zeros(1,ny)];
+        args.ubg = [args.ubg, inf(1,ny)];
 
 
         %            Para as restrições da ação U na PMonAlvo, serão também consideradas as restrições dinâmicas da PChegada (estados X)
@@ -317,13 +317,13 @@ function [solver, args] = cria_solver_rest_cust(umax, umin, dumax, MargemPercent
     
     %options.ipopt.linear_solver = 'mumps'; % Solver linear mais eficiente (se disponível) outros possiveis: ma27, ma97, spral, mumps 
     
-    options.ipopt.tol = 1e-4;  % Default é 1e-8
-    options.ipopt.acceptable_tol = 1e-3;  % Default é 1e-6
-    options.ipopt.compl_inf_tol = 1e-3;  % Default é 1e-4
-    options.ipopt.acceptable_compl_inf_tol = 1e-2;
-    %options.ipopt.bound_relax_factor = 0;   % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
-    options.ipopt.bound_relax_factor = 1e-4;   %0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
-    options.ipopt.mu_strategy = 'adaptive';  % Estratégia adaptativa para o parâmetro de barreira
+    %options.ipopt.tol = 1e-4;  % Default é 1e-8
+    %options.ipopt.acceptable_tol = 1e-3;  % Default é 1e-6
+    %options.ipopt.compl_inf_tol = 1e-3;  % Default é 1e-4
+    %options.ipopt.acceptable_compl_inf_tol = 1e-2;
+    options.ipopt.bound_relax_factor = 10;   % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    %options.ipopt.bound_relax_factor = 1e-4;   %0;    % Tolerância absoluta para as restrições definidas pelo usuário (default=1e-8)
+    %options.ipopt.mu_strategy = 'adaptive';  % Estratégia adaptativa para o parâmetro de barreira
     %options.ipopt.required_infeasibility_reduction = 0.7; % default 0.9
     %options.ipopt.diverging_iterates_tol = 1e8; %10e20
 

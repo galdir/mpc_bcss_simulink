@@ -9,7 +9,7 @@ tempo_simulacao_manual = 3*3600;          % Define manualmente um tempo para a s
 % Começa carregando dados de uso geral e comum a qualquer ambiente (MPC ou CBR)
 CarregaDados;                % Função para carregar tabelas Petrobras e dados gerais necessários para a simulação
 
-WallTime=9;     % Tempo limite (em segundos) para o cálculo do Solver
+WallTime=19;     % Tempo limite (em segundos) para o cálculo do Solver
 
 %% =============================================================================
 % Escolha o modelo Preditor no MPC
@@ -35,10 +35,10 @@ PassoMPC = 3;                              % Proporção de amostras para atuaç
 
 %% ======================
 % Parâmetros do Controlador (ainda por definir a melhor sintonia)
-Hp = 3;                               % Horizonte de predição
-Hc = Hp-1;                         % Horizonte de controle
-Qy=  1*diag([0  200]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
-Qu = 1*diag([10  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
+Hp = 20;                               % Horizonte de predição
+Hc = 7;                         % Horizonte de controle
+Qy=  1*diag([0  1]);              % Qy - Peso das saidas controladas por setpoint = PChegada e Vazao)
+Qu = 0*diag([1  1]);              % Qu - Peso das ações de controle nas entradas (Alvos Desejados em  Freq. e PMonAlvo)
 Qx= 0*diag(ones(1, 11));    % Peso para os erros de estimação das  variáveis do processo
 R=  0*diag([1  1]);             % R - Peso na variação das ações de controle - DeltaU em Freq. e PMonAlvo 
 
@@ -50,23 +50,33 @@ R=  0*diag([1  1]);             % R - Peso na variação das ações de controle
 LimitesMin=   [  0             10               0               0                 0               0              0            0              0                 0                 0    ];    
 LimitesMax=  [ 250          65            250            250             200          200         250         200           4               200           1000    ];
 
-%Ajusta matriz de pesos dos estados em função das respectivas grandezas
-Peso =1./LimitesMax;    
-Peso=diag(Peso);
-Qx=Qx*Peso;      
-
-% Ajusta matriz de pesos para as ações de controle em função das respectivas grandezas
-%             Freq.                       PMonAlvo   (usa como referência os limtes máximos definidos)
-Peso = [  1/umax(1)               1/umax(2)  ];     
-Peso=diag(Peso);
-Qu=Qu*Peso;                                            % Ajusta matriz de pesos em função das respectivas grandezas
-R=R*Peso;                                                 % Ajusta matriz de pesos em função das respectivas grandezas
-
-% Ajusta matriz de pesos das saidas em função das respectivas grandezas
-%             PChegada                             Vazao
-Peso = [  1/LimitesMax(2)          1/LimitesMax(11)  ];     
-Peso=diag(Peso);
-Qy=Qy*Peso;                                            % Ajusta matriz de pesos em função das grandezas
+% variaveis = {'pressao_succao_BCSS','pressao_chegada', 'pressao_diferencial_BCSS', 'pressao_descarga_BCSS', 'temperatura_motor_BCSS', 'corrente_torque_BCSS', 'corrente_total_BCSS', 'temperatura_succao_BCSS', 'vibracao_BCSS', 'temperatura_chegada'};
+% LimitesMin = zeros(1, length(variaveis));
+% LimitesMax = zeros(1, length(variaveis));
+% 
+% for i=1:lenght(variaveis)
+%     [min, max] = get_min_max_BCSS(coluna);
+%     LimitesMin(i)=min;
+%     LimitesMax(i)=max;
+% end
+    
+% %Ajusta matriz de pesos dos estados em função das respectivas grandezas
+% Peso =1./LimitesMax;    
+% Peso=diag(Peso);
+% Qx=Qx*Peso;      
+% 
+% % Ajusta matriz de pesos para as ações de controle em função das respectivas grandezas
+% %             Freq.                       PMonAlvo   (usa como referência os limtes máximos definidos)
+% Peso = [  1/umax(1)               1/umax(2)  ];     
+% Peso=diag(Peso);
+% Qu=Qu*Peso;                                            % Ajusta matriz de pesos em função das respectivas grandezas
+% R=R*Peso;                                                 % Ajusta matriz de pesos em função das respectivas grandezas
+% 
+% % Ajusta matriz de pesos das saidas em função das respectivas grandezas
+% %             PChegada                             Vazao
+% Peso = [  1/LimitesMax(2)          1/LimitesMax(11)  ];     
+% Peso=diag(Peso);
+% Qy=Qy*Peso;                                            % Ajusta matriz de pesos em função das grandezas
 
 %% =============================================================================
 disp('Configurações e parâmetros do controlador MPC foram carregados para a área de trabalho')

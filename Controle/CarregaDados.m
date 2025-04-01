@@ -99,12 +99,12 @@ matriz_h(2,11)=1;          % Vazao - Coluna na linha 2  que indica a segunda var
 %% =============================================================================
 % Restrições máximas e mínimas para as variáveis manipuladas (entradas do processo)
 FreqMaxMin=[60 ,  40];                                                  % Limites máx/min para ser dado pelo controlador como entrada de Freq no processo                           
-PMonAlvoMaxMin=[50 , 25];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
+PMonAlvoMaxMin=[50 , 20];                                          % Limites máx/min para ser dado pelo controlador como entrada de PMon no processo
 umax  = [FreqMaxMin(1) ,  PMonAlvoMaxMin(1)];       % Vetor com valor máximo das manipuladas (Freq e PMonAlvo)
 umin  =  [FreqMaxMin(2), PMonAlvoMaxMin(2)] ;        % Vetor com valor mínimo das manipuladas  (Freq e PMonAlvo)
  
 % Delta U - variação máxima permitida nas ações de controle (Freq e PMonAlvo)
-dumax = [0.1 , 1];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
+dumax = [0.4 , 4];                                                       %Variação máxima nas manipuladas [ Hz    bar ]
 
 %% =============================================================================
 % Carrega tabela com plano de experimentos programados para mudanças automáticas de Freq. e PMonAlvo para simulação
@@ -126,15 +126,16 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
     StopTime=tempo_simulacao_manual;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
     AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
-        FreqAlvoIni=60;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
+        FreqAlvoIni=57;           % Não aguarda definição da engenharia e aponta para a frequência máxima possível
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([ Limites(2,2), PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
+        PMonAlvoIni = PMonAlvoIni * (1+MargemPercentual/100);
     else                                  % Os alvos serão dados manualmente pela engenharia
         %    Inicializa alvo da ENG manualmente
         FreqAlvoIni=56;          % Tem de estar na faixa de 40 a 60Hz !! Criar proteção na implementação Python
         % Avalia valores dados manualmente calcula limites da PChegada em função do mapa
         % Com base nestas contas, não deixa setar alvos ENG fora de regiões úteis do mapa 
-        PMonAlvoIni=32;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
+        PMonAlvoIni=30;    % Aqui a engenharia pode setar um valor em área "proibida". Vamos proteger !!
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         PMonAlvoIni=max([PMonAlvoIni, Limites(2,2),PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
     end
@@ -152,12 +153,12 @@ Rede_Processo=load('weightsESNx_TR200_TVaz0.50_RaioE0.50-treino_070809102024-map
 % Rede_Processo = load('weightsESNx_TR900_TVaz0.9_RaioE0.4.mat');
 
 % Número de casas decimais para corresponder a resolução dos instrumentos
-NumCasasDecimais=1;
+NumCasasDecimais=5;
 
 % Inserir ruido na saida do processo para simular mundo real e avaliar robustez do controlador
-SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
-%SNR = 100;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
-% SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+%SNR = 20;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+SNR = 100;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
+%SNR = 40;   % Relação sinal ruido para um ruido gaussiano aditivo à ser aplicado nas variáveis do modelo
 % Uma relação sinal-ruído (SNR) de 1 dB significa que a potência do sinal é igual a potência do ruído. 
 % Uma relação sinal-ruído (SNR) de 10 dB significa que o sinal é 10 vezes mais potente que o ruído. 
 % Uma relação sinal-ruído (SNR) de 20 dB significa que o sinal é 100 vezes mais potente que o ruído. 
