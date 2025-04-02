@@ -116,7 +116,7 @@ else              % Se não usa plano da tabela, precisa de alvo (Freq e PMonAlv
     StopTime=4*3600;          % Define manualmente um tempo para a simulação, lembrando que 3600s=1h
     AlvoAutomatico=1;          % 1/0 para definir se vai usar alvo automático ou alvo manualmente fornecido pela engenharia
     if AlvoAutomatico             % 
-        FreqAlvoIni=56.5;           % Não aguarda definição da engenharia e aponta para a frequência específica
+        FreqAlvoIni=57;           % Não aguarda definição da engenharia e aponta para a frequência específica
         Limites= full(f_buscaLimites_sym(FreqAlvoIni)); 
         LimiteVazao=Limites(1,11)*(1-MargemPercentual/100);     % Limite de upthrust considerada a Margem Percentual Configurada
         PMonAlvoIni=max([ Limites(2,2), PMonAlvoMaxMin(2)]);     % Mais conservador entre limite minimo (linha 2) da PChegada (coluna 2) ou a PMonAlvoMin definida
