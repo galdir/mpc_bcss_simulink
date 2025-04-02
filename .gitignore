@@ -164,6 +164,9 @@ cython_debug/
 *.asv
 *.slxc
 *.xml
+checksumOfCache.mat
+varinfo.mat
+
 
 .\Controle\OLD\
 .\Controle\Rasc\
